@@ -516,7 +516,7 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Tasks
 
-- [ ] **3.1 — Store interface (datastore abstraction)**
+- [x] **3.1 — Store interface (datastore abstraction)**
   - Define in `internal/store/store.go`:
     ```go
     type Store interface {
