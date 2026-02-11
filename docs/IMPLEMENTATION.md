@@ -807,7 +807,7 @@ This approach means we can build and fully test every component before eBay API 
   - `serve` command starts both Echo + scheduler
   - **Tests:** Verify cron entries are registered (unit test cron setup function)
 
-- [ ] **6.6 — Manual trigger endpoints**
+- [x] **6.6 — Manual trigger endpoints**
   - `POST /api/v1/ingest` — trigger immediate ingestion
   - `POST /api/v1/baselines/refresh` — trigger immediate baseline refresh
   - **Tests:** Table-driven handler tests (verify engine methods called via mock)
