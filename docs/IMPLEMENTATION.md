@@ -114,7 +114,7 @@ This approach means we can build and fully test every component before eBay API 
     ```
   - Add generated mock directories to `.gitignore` or commit them (project preference)
 
-- [ ] **0.3 — Project structure**
+- [x] **0.3 — Project structure**
   - Create the directory layout:
     ```
     server-price-tracker/
