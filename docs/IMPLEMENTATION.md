@@ -348,7 +348,7 @@ This approach means we can build and fully test every component before eBay API 
     - Rate limiter blocks when exceeded
     - Daily counter resets at boundary
 
-- [ ] **1.6 — Pagination strategy**
+- [x] **1.6 — Pagination strategy**
   - For each watch, paginate sorted by `newlyListed` until:
     - Hit a listing already in DB (dedup by `ebay_item_id`), OR
     - Hit `max_calls_per_cycle` pages, OR
