@@ -464,7 +464,7 @@ This approach means we can build and fully test every component before eBay API 
     - ClassifyAndExtract chains both calls correctly
     - Concurrency limit respected (test with slow mock)
 
-- [ ] **2.7 — Ollama backend implementation**
+- [x] **2.7 — Ollama backend implementation**
   - HTTP client for Ollama `/api/generate` endpoint
   - **Tests:** Table-driven tests with `httptest.NewServer`:
     - Successful generation → correct response
