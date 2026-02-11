@@ -1,12 +1,19 @@
-# eBay Deal Tracker Configuration
+# Server Price Tracker Configuration
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
 
 database:
   host: localhost
   port: 5432
-  name: ebay_tracker
+  name: server_price_tracker
   user: tracker
   password: "${DB_PASSWORD}"
   sslmode: disable
+  pool_size: 10
 
 ebay:
   # Browse API credentials
@@ -19,14 +26,24 @@ ebay:
   max_calls_per_cycle: 50
 
 llm:
-  # Options: ollama, llama_cpp, openai_compat
+  # Options: ollama, anthropic, openai_compat
   backend: ollama
-  # For ollama
-  endpoint: http://localhost:11434
-  model: llama3.1:8b
-  # For llama.cpp server
-  # endpoint: http://localhost:8080
-  # Grammar enforcement
+
+  ollama:
+    endpoint: http://localhost:11434
+    model: mistral:7b-instruct-v0.3-q5_K_M
+    # Alternative: llama3.1:8b
+
+  anthropic:
+    # Model to use (claude-haiku-4-20250514 recommended for extraction)
+    model: claude-haiku-4-20250514
+    # API key via environment: ANTHROPIC_API_KEY
+
+  openai_compat:
+    endpoint: http://localhost:8080/v1
+    model: mistral-7b
+
+  # Grammar enforcement (Ollama/llama.cpp only, ignored for anthropic)
   use_grammar: true
   # Max concurrent extraction requests
   concurrency: 4
@@ -55,16 +72,10 @@ schedule:
   stagger_offset: 30s
 
 notifications:
-  # Primary: ntfy.sh (self-hosted or cloud)
-  ntfy:
+  # Primary: Discord webhooks
+  discord:
     enabled: true
-    server: https://ntfy.sh
-    topic: ebay-deals
-    # Or self-hosted:
-    # server: https://ntfy.yourdomain.com
-    priority: high
-    # Include image thumbnail in notification
-    attach_image: true
+    webhook_url: "${DISCORD_WEBHOOK_URL}"
 
   # Optional: generic webhook
   webhook:
