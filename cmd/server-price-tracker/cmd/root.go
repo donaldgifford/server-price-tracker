@@ -5,7 +5,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cfgFile string
+var (
+	cfgFile string
+	apiURL  string
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "server-price-tracker",
@@ -15,6 +18,8 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "config.yaml", "config file path")
+	rootCmd.PersistentFlags().
+		StringVar(&apiURL, "api-url", "http://localhost:8080", "API server URL")
 }
 
 // Execute runs the root command.

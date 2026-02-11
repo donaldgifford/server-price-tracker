@@ -837,7 +837,7 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Tasks
 
-- [ ] **7.1 — HTTP client for CLI**
+- [x] **7.1 — HTTP client for CLI**
   - Thin HTTP client targeting `--api-url` (default: `http://localhost:8080`)
   - JSON request/response marshaling
   - Error handling: connection refused → "API server not running"
