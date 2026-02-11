@@ -29,7 +29,7 @@ type Store interface {
 	UpsertListing(ctx context.Context, l *domain.Listing) error
 	GetListing(ctx context.Context, ebayID string) (*domain.Listing, error)
 	GetListingByID(ctx context.Context, id string) (*domain.Listing, error)
-	ListListings(ctx context.Context, opts ListingQuery) ([]domain.Listing, int, error)
+	ListListings(ctx context.Context, opts *ListingQuery) ([]domain.Listing, int, error)
 	UpdateListingExtraction(
 		ctx context.Context,
 		id string,

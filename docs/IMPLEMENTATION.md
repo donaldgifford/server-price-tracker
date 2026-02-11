@@ -585,11 +585,11 @@ This approach means we can build and fully test every component before eBay API 
     - OrderBy maps to valid column names (prevents injection)
     - Invalid OrderBy → falls back to default
 
-- [ ] **3.3 — SQL query constants**
+- [x] **3.3 — SQL query constants**
   - Keep all SQL in `internal/store/queries.go` as constants
   - Organize by entity (listings, watches, baselines, alerts)
 
-- [ ] **3.4 — PostgresStore implementation**
+- [x] **3.4 — PostgresStore implementation**
   - Use `pgxpool` for connection pooling (pool size: 10)
   - Raw SQL with `pgx.NamedArgs` — no ORM
   - **UpsertListing:** `INSERT ... ON CONFLICT (ebay_item_id) DO UPDATE`
@@ -606,7 +606,7 @@ This approach means we can build and fully test every component before eBay API 
       - Baseline recomputation with test data
       - Pagination returns correct total counts
 
-- [ ] **3.5 — Connection management**
+- [x] **3.5 — Connection management**
   - Pool size: 10 connections
   - Health check on startup via `Ping()`
   - Graceful shutdown: close pool on context cancellation

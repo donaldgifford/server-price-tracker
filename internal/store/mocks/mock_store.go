@@ -522,7 +522,7 @@ func (_c *MockStore_ListBaselines_Call) RunAndReturn(run func(context.Context) (
 }
 
 // ListListings provides a mock function with given fields: ctx, opts
-func (_m *MockStore) ListListings(ctx context.Context, opts store.ListingQuery) ([]domain.Listing, int, error) {
+func (_m *MockStore) ListListings(ctx context.Context, opts *store.ListingQuery) ([]domain.Listing, int, error) {
 	ret := _m.Called(ctx, opts)
 
 	if len(ret) == 0 {
@@ -532,10 +532,10 @@ func (_m *MockStore) ListListings(ctx context.Context, opts store.ListingQuery) 
 	var r0 []domain.Listing
 	var r1 int
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, store.ListingQuery) ([]domain.Listing, int, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *store.ListingQuery) ([]domain.Listing, int, error)); ok {
 		return rf(ctx, opts)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, store.ListingQuery) []domain.Listing); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *store.ListingQuery) []domain.Listing); ok {
 		r0 = rf(ctx, opts)
 	} else {
 		if ret.Get(0) != nil {
@@ -543,13 +543,13 @@ func (_m *MockStore) ListListings(ctx context.Context, opts store.ListingQuery) 
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, store.ListingQuery) int); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, *store.ListingQuery) int); ok {
 		r1 = rf(ctx, opts)
 	} else {
 		r1 = ret.Get(1).(int)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, store.ListingQuery) error); ok {
+	if rf, ok := ret.Get(2).(func(context.Context, *store.ListingQuery) error); ok {
 		r2 = rf(ctx, opts)
 	} else {
 		r2 = ret.Error(2)
@@ -565,14 +565,14 @@ type MockStore_ListListings_Call struct {
 
 // ListListings is a helper method to define mock.On call
 //   - ctx context.Context
-//   - opts store.ListingQuery
+//   - opts *store.ListingQuery
 func (_e *MockStore_Expecter) ListListings(ctx interface{}, opts interface{}) *MockStore_ListListings_Call {
 	return &MockStore_ListListings_Call{Call: _e.mock.On("ListListings", ctx, opts)}
 }
 
-func (_c *MockStore_ListListings_Call) Run(run func(ctx context.Context, opts store.ListingQuery)) *MockStore_ListListings_Call {
+func (_c *MockStore_ListListings_Call) Run(run func(ctx context.Context, opts *store.ListingQuery)) *MockStore_ListListings_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(store.ListingQuery))
+		run(args[0].(context.Context), args[1].(*store.ListingQuery))
 	})
 	return _c
 }
@@ -582,7 +582,7 @@ func (_c *MockStore_ListListings_Call) Return(_a0 []domain.Listing, _a1 int, _a2
 	return _c
 }
 
-func (_c *MockStore_ListListings_Call) RunAndReturn(run func(context.Context, store.ListingQuery) ([]domain.Listing, int, error)) *MockStore_ListListings_Call {
+func (_c *MockStore_ListListings_Call) RunAndReturn(run func(context.Context, *store.ListingQuery) ([]domain.Listing, int, error)) *MockStore_ListListings_Call {
 	_c.Call.Return(run)
 	return _c
 }
