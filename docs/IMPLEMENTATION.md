@@ -651,18 +651,18 @@ This approach means we can build and fully test every component before eBay API 
     - Store.GetBaseline error → error propagated
     - Store.UpdateScore error → error propagated
 
-- [ ] **4.2 — Batch re-scoring**
+- [x] **4.2 — Batch re-scoring**
   - When baselines are recomputed, re-score all active listings
   - **Tests:** Table-driven with `MockStore`:
     - 3 listings with same product key → all re-scored when baseline changes
     - Mixed product keys → correct baseline looked up for each
     - Store errors mid-batch → continues with remaining, returns aggregated errors
 
-- [ ] **4.3 — Score staleness handling**
+- [x] **4.3 — Score staleness handling**
   - `score` column is nullable — NULL means "not yet scored" or "extraction failed"
   - Record `spt_scoring_distribution` histogram
 
-- [ ] **4.4 — Rescore API endpoint**
+- [x] **4.4 — Rescore API endpoint**
   - `POST /api/v1/rescore` — triggers re-scoring
   - **Tests:** Table-driven handler tests with mocks
 
