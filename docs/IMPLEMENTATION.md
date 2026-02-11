@@ -404,7 +404,7 @@ This approach means we can build and fully test every component before eBay API 
     ```
   - Run `make mocks` to generate `MockLLMBackend` and `MockExtractor`
 
-- [ ] **2.2 — Prompt templates**
+- [x] **2.2 — Prompt templates**
   - Embed all prompts from `docs/EXTRACTION.md` as Go string constants in `pkg/extract/prompts.go`
   - Use `text/template` for variable parts (title, item specifics, description)
   - Prompts for all 5 component types: RAM, Drive, Server, CPU, NIC
