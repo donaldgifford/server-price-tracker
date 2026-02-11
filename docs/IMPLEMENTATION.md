@@ -484,7 +484,7 @@ This approach means we can build and fully test every component before eBay API 
   - HTTP client for `/v1/chat/completions` endpoint
   - **Tests:** Table-driven tests with `httptest.NewServer`
 
-- [ ] **2.10 — Extraction metrics**
+- [x] **2.10 — Extraction metrics**
   - Record `spt_extraction_duration_seconds` histogram per extraction
   - Record `spt_extraction_failures_total` counter
 
