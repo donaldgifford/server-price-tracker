@@ -340,7 +340,7 @@ This approach means we can build and fully test every component before eBay API 
     - Network error → error
     - Query parameters are correctly encoded
 
-- [ ] **1.5 — Rate limiting**
+- [x] **1.5 — Rate limiting**
   - Use `golang.org/x/time/rate` token bucket, ~3 calls/second
   - Daily counter that stops ingestion if approaching the 5,000/day free tier limit
   - **Tests:** Table-driven tests:
