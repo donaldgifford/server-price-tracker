@@ -386,7 +386,7 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Tasks
 
-- [ ] **2.1 — LLMBackend interface + Extractor interface**
+- [x] **2.1 — LLMBackend interface + Extractor interface**
   - Define in `pkg/extract/backend.go`:
     ```go
     type LLMBackend interface {
