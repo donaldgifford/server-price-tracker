@@ -802,7 +802,7 @@ This approach means we can build and fully test every component before eBay API 
     - Listing matches score but not filters → no alert
     - Duplicate alert → store returns unique constraint error, no notify
 
-- [ ] **6.5 — Scheduler**
+- [x] **6.5 — Scheduler**
   - Use `robfig/cron` for scheduling
   - `serve` command starts both Echo + scheduler
   - **Tests:** Verify cron entries are registered (unit test cron setup function)
