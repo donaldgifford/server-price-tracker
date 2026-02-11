@@ -198,7 +198,7 @@ This approach means we can build and fully test every component before eBay API 
   - No down migrations (fix forward)
   - Note: Migration runner itself talks to Postgres directly — `// TODO(test): migration runner requires live Postgres, tested via integration tests only`
 
-- [ ] **0.6 — Makefile**
+- [x] **0.6 — Makefile**
   ```makefile
   .PHONY: build run test test-coverage lint fmt migrate mocks
 
