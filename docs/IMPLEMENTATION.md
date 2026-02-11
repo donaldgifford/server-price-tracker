@@ -821,13 +821,13 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Success Criteria
 
-- [ ] Full ingestion pipeline tested end-to-end with all mocked dependencies
-- [ ] Error isolation tested: one bad listing doesn't stop the pipeline
-- [ ] Alert evaluation tested: correct threshold + filter matching
-- [ ] Scheduler registers correct cron entries
-- [ ] Manual trigger endpoints call engine methods
-- [ ] `go test ./internal/engine/...` achieves >= 85% coverage
-- [ ] `go test ./...` (all unit tests) still pass — no regressions
+- [x] Full ingestion pipeline tested end-to-end with all mocked dependencies
+- [x] Error isolation tested: one bad listing doesn't stop the pipeline
+- [x] Alert evaluation tested: correct threshold + filter matching
+- [x] Scheduler registers correct cron entries
+- [x] Manual trigger endpoints call engine methods
+- [x] `go test ./internal/engine/...` achieves >= 85% coverage (89.9%)
+- [x] `go test ./...` (all unit tests) still pass — no regressions
 
 ---
 
