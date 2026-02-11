@@ -251,16 +251,16 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Success Criteria
 
-- [ ] `go build ./...` compiles with zero errors
-- [ ] `make mocks` generates mock files for all interfaces without errors
-- [ ] `go test ./...` passes — config loader tests, health handler tests all green
-- [ ] `server-price-tracker version` prints version string
-- [ ] `server-price-tracker serve` starts Echo server on configured port
-- [ ] `GET /healthz` returns 200
-- [ ] `GET /metrics` returns Prometheus-formatted output
-- [ ] `golangci-lint run ./...` passes with zero issues
-- [ ] Config loads from YAML with env var substitution working
-- [ ] `.mockery.yaml` configured for all planned interfaces
+- [x] `go build ./...` compiles with zero errors
+- [x] `make mocks` generates mock files for all interfaces without errors
+- [x] `go test ./...` passes — config loader tests, health handler tests all green
+- [x] `server-price-tracker version` prints version string
+- [x] `server-price-tracker serve` starts Echo server on configured port
+- [x] `GET /healthz` returns 200
+- [x] `GET /metrics` returns Prometheus-formatted output
+- [x] `golangci-lint run ./...` passes with zero issues
+- [x] Config loads from YAML with env var substitution working
+- [x] `.mockery.yaml` configured for all planned interfaces
 
 ---
 
