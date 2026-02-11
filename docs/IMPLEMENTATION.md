@@ -488,7 +488,7 @@ This approach means we can build and fully test every component before eBay API 
   - Record `spt_extraction_duration_seconds` histogram per extraction
   - Record `spt_extraction_failures_total` counter
 
-- [ ] **2.11 — Extract API endpoint + CLI command**
+- [x] **2.11 — Extract API endpoint + CLI command**
   - `POST /api/v1/extract` — accepts title and optional item specifics, returns extracted JSON
   - Handler uses `Extractor` interface (testable with mock)
   - CLI command: `server-price-tracker extract "Samsung 32GB 2Rx4 PC4-2666V DDR4 ECC REG"`
@@ -499,14 +499,14 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Success Criteria
 
-- [ ] `make mocks` generates `MockLLMBackend` and `MockExtractor`
-- [ ] All table-driven tests pass for prompts, validation, condition normalization, product keys
-- [ ] Extractor tests pass using `MockLLMBackend` (no running LLM needed)
-- [ ] Handler tests pass using `MockExtractor`
-- [ ] Each backend has tests against `httptest.NewServer` mocks
-- [ ] Integration tests exist (tagged `//go:build integration`) for real Ollama
-- [ ] `go test ./pkg/extract/...` achieves >= 90% coverage
-- [ ] Switching `llm.backend` config between `ollama` and `anthropic` works without code changes
+- [x] `make mocks` generates `MockLLMBackend` and `MockExtractor`
+- [x] All table-driven tests pass for prompts, validation, condition normalization, product keys
+- [x] Extractor tests pass using `MockLLMBackend` (no running LLM needed)
+- [x] Handler tests pass using `MockExtractor`
+- [x] Each backend has tests against `httptest.NewServer` mocks
+- [x] Integration tests exist (tagged `//go:build integration`) for real Ollama
+- [x] `go test ./pkg/extract/...` achieves >= 90% coverage
+- [x] Switching `llm.backend` config between `ollama` and `anthropic` works without code changes
 
 ---
 
