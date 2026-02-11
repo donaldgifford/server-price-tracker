@@ -889,7 +889,7 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Tasks
 
-- [ ] **8.1 — Coverage audit**
+- [x] **8.1 — Coverage audit**
   - Run `go test -coverprofile=coverage.out ./...`
   - Identify packages below 80% coverage
   - Add missing test cases to close gaps
