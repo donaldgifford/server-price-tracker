@@ -312,7 +312,7 @@ This approach means we can build and fully test every component before eBay API 
     - Auction vs BIN vs Best Offer → correct listing_type mapping
     - Various eBay condition strings → correct condition_raw
 
-- [ ] **1.3 — OAuth2 TokenProvider implementation**
+- [x] **1.3 — OAuth2 TokenProvider implementation**
   - `OAuthTokenProvider` implements `TokenProvider`:
     - Endpoint: `https://api.ebay.com/identity/v1/oauth2/token`
     - Client credentials flow, base64-encoded app_id:cert_id
