@@ -427,7 +427,7 @@ This approach means we can build and fully test every component before eBay API 
     - Valid CPU, NIC, Drive, Server extractions → pass
     - Each component type's edge cases
 
-- [ ] **2.4 — Condition normalization**
+- [x] **2.4 — Condition normalization**
   - Map eBay condition strings and LLM-extracted condition to normalized enum
   - **Tests:** Table-driven:
     - "New" → new, "Brand New" → new, "Factory Sealed" → new
