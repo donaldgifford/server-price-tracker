@@ -472,7 +472,7 @@ This approach means we can build and fully test every component before eBay API 
     - Invalid JSON response → error
     - Server error → error
 
-- [ ] **2.8 — Anthropic Claude API backend**
+- [x] **2.8 — Anthropic Claude API backend**
   - HTTP client for `https://api.anthropic.com/v1/messages`
   - **Tests:** Table-driven tests with `httptest.NewServer`:
     - Successful generation → correct response
