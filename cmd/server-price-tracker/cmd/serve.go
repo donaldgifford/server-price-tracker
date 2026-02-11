@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 
+	apimw "github.com/donaldgifford/server-price-tracker/internal/api/middleware"
 	"github.com/donaldgifford/server-price-tracker/internal/config"
 )
 
@@ -41,6 +42,9 @@ func runServe(_ *cobra.Command, _ []string) error {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+
+	// Prometheus HTTP middleware.
+	e.Use(apimw.Metrics())
 
 	// Health endpoints.
 	// TODO(test): health handler uses nil store until DB wiring in Phase 3.

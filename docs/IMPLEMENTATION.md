@@ -244,7 +244,7 @@ This approach means we can build and fully test every component before eBay API 
     - readyz returns 200 when mock store `Ping()` succeeds
     - readyz returns 503 when mock store `Ping()` returns error
 
-- [ ] **0.9 — Prometheus metrics setup**
+- [x] **0.9 — Prometheus metrics setup**
   - Register custom metrics (counters, histograms, gauges) in an `internal/metrics` package
   - Expose `GET /metrics` via `promhttp.Handler()`
   - Add HTTP middleware to record request duration/status
