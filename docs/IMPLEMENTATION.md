@@ -62,7 +62,7 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Tasks
 
-- [ ] **0.1 — Initialize Go module**
+- [x] **0.1 — Initialize Go module**
   - Run `go mod init github.com/donaldgifford/server-price-tracker`
   - Add core dependencies:
     | Package | Purpose |

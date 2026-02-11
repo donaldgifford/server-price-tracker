@@ -1,2 +1,4 @@
-// Package main is the entry point for the server-price-tracker
+// Package main is the entry point for the server-price-tracker.
 package main
+
+func main() {}
