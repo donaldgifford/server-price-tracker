@@ -611,22 +611,22 @@ This approach means we can build and fully test every component before eBay API 
   - Health check on startup via `Ping()`
   - Graceful shutdown: close pool on context cancellation
 
-- [ ] **3.6 — Migration runner**
+- [x] **3.6 — Migration runner**
   - Read SQL files from embedded `embed.FS`
   - Track in `schema_migrations (version TEXT, applied_at TIMESTAMPTZ)`
   - Apply pending in order, no down migrations
 
 ### Success Criteria
 
-- [ ] `make mocks` generates `MockStore`
-- [ ] `ListingQuery.ToSQL()` tests pass for all filter combinations
-- [ ] `MockStore` is usable in handler tests, engine tests, CLI tests (verified by importing)
-- [ ] Integration tests pass against testcontainers Postgres (when run with `-tags integration`)
-- [ ] All CRUD operations work in integration tests
-- [ ] UpsertListing correctly handles insert and update paths
-- [ ] Pagination returns correct total counts in integration tests
-- [ ] `go test ./internal/store/...` (unit) achieves 100% on query builder
-- [ ] `go test -tags integration ./internal/store/...` covers all Store methods
+- [x] `make mocks` generates `MockStore`
+- [x] `ListingQuery.ToSQL()` tests pass for all filter combinations
+- [x] `MockStore` is usable in handler tests, engine tests, CLI tests (verified by importing)
+- [x] Integration tests pass against testcontainers Postgres (when run with `-tags integration`)
+- [x] All CRUD operations work in integration tests
+- [x] UpsertListing correctly handles insert and update paths
+- [x] Pagination returns correct total counts in integration tests
+- [x] `go test ./internal/store/...` (unit) achieves 100% on query builder
+- [x] `go test -tags integration ./internal/store/...` covers all Store methods
 
 ---
 
