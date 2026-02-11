@@ -83,7 +83,7 @@ This approach means we can build and fully test every component before eBay API 
     | `github.com/vektra/mockery/v2` | Mock generation (go install) |
   - Run `go mod tidy`
 
-- [ ] **0.2 — Mockery configuration**
+- [x] **0.2 — Mockery configuration**
   - Create `.mockery.yaml` at repo root:
     ```yaml
     with-expecter: true
