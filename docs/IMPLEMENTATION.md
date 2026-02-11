@@ -480,7 +480,7 @@ This approach means we can build and fully test every component before eBay API 
     - Rate limited (429) → error
     - Server error → error
 
-- [ ] **2.9 — OpenAI-compatible backend**
+- [x] **2.9 — OpenAI-compatible backend**
   - HTTP client for `/v1/chat/completions` endpoint
   - **Tests:** Table-driven tests with `httptest.NewServer`
 

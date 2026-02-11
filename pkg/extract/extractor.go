@@ -97,7 +97,7 @@ func (e *LLMExtractor) Extract(
 
 	resp, err := e.backend.Generate(ctx, GenerateRequest{
 		Prompt:      prompt,
-		Format:      "json",
+		Format:      FormatJSON,
 		Temperature: e.temperature,
 		MaxTokens:   e.maxTokens,
 	})

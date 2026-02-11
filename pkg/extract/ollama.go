@@ -77,8 +77,8 @@ func (b *OllamaBackend) Generate(
 		NumPredict: req.MaxTokens,
 	}
 
-	if req.Format == "json" {
-		ollamaReq.Format = "json"
+	if req.Format == FormatJSON {
+		ollamaReq.Format = FormatJSON
 	}
 
 	if req.Temperature > 0 {

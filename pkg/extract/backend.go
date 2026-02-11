@@ -8,11 +8,14 @@ import (
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
+// FormatJSON is the format string for requesting JSON mode from LLM backends.
+const FormatJSON = "json"
+
 // GenerateRequest defines the input for an LLM generation call.
 type GenerateRequest struct {
 	Prompt      string
 	SystemMsg   string
-	Format      string // "json" for JSON mode
+	Format      string // FormatJSON for JSON mode
 	Temperature float64
 	MaxTokens   int
 }
