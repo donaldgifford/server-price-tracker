@@ -866,7 +866,7 @@ This approach means we can build and fully test every component before eBay API 
     - Empty list → "No listings found" message
     - `--json` → valid JSON output
 
-- [ ] **7.6 — Handler tests for all API endpoints**
+- [x] **7.6 — Handler tests for all API endpoints**
   - Every watch/listing/baseline handler tested with `MockStore`:
     - Watch CRUD lifecycle (create → list → get → update → delete)
     - Listings list with filters → correct query passed to store
@@ -874,12 +874,12 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Success Criteria
 
-- [ ] Filter parsing tested for all filter types
-- [ ] Output formatting tested for table and JSON modes
-- [ ] All handler endpoints have table-driven tests with `MockStore`
-- [ ] CLI shows clear error when API server is not running
-- [ ] `--api-url` flag works
-- [ ] `go test ./internal/api/handlers/...` achieves >= 90% coverage
+- [x] Filter parsing tested for all filter types (17 test cases)
+- [x] Output formatting tested for table and JSON modes
+- [x] All handler endpoints have table-driven tests with `MockStore`
+- [x] CLI shows clear error when API server is not running
+- [x] `--api-url` flag works
+- [x] `go test ./internal/api/handlers/...` achieves >= 90% coverage (92.6%)
 
 ---
 
