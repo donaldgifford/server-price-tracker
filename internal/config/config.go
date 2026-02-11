@@ -43,7 +43,7 @@ type DatabaseConfig struct {
 }
 
 // DSN returns a PostgreSQL connection string.
-func (d DatabaseConfig) DSN() string {
+func (d *DatabaseConfig) DSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%d dbname=%s user=%s password=%s sslmode=%s",
 		d.Host, d.Port, d.Name, d.User, d.Password, d.SSLMode,
@@ -52,21 +52,21 @@ func (d DatabaseConfig) DSN() string {
 
 // EbayConfig defines eBay API settings.
 type EbayConfig struct {
-	AppID           string `yaml:"app_id"`
-	CertID          string `yaml:"cert_id"`
-	Marketplace     string `yaml:"marketplace"`
-	MaxCallsPerCycle int   `yaml:"max_calls_per_cycle"`
+	AppID            string `yaml:"app_id"`
+	CertID           string `yaml:"cert_id"`
+	Marketplace      string `yaml:"marketplace"`
+	MaxCallsPerCycle int    `yaml:"max_calls_per_cycle"`
 }
 
 // LLMConfig defines LLM backend settings.
 type LLMConfig struct {
-	Backend      string              `yaml:"backend"` // ollama, anthropic, openai_compat
-	Ollama       OllamaConfig        `yaml:"ollama"`
-	Anthropic    AnthropicConfig     `yaml:"anthropic"`
-	OpenAICompat OpenAICompatConfig  `yaml:"openai_compat"`
-	UseGrammar   bool                `yaml:"use_grammar"`
-	Concurrency  int                 `yaml:"concurrency"`
-	Timeout      time.Duration       `yaml:"timeout"`
+	Backend      string             `yaml:"backend"` // ollama, anthropic, openai_compat
+	Ollama       OllamaConfig       `yaml:"ollama"`
+	Anthropic    AnthropicConfig    `yaml:"anthropic"`
+	OpenAICompat OpenAICompatConfig `yaml:"openai_compat"`
+	UseGrammar   bool               `yaml:"use_grammar"`
+	Concurrency  int                `yaml:"concurrency"`
+	Timeout      time.Duration      `yaml:"timeout"`
 }
 
 // OllamaConfig defines Ollama-specific settings.
@@ -138,7 +138,7 @@ type LoggingConfig struct {
 // Load reads and parses a YAML config file, performing environment variable
 // substitution and validation.
 func Load(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // config path from trusted CLI flag
 	if err != nil {
 		return nil, fmt.Errorf("reading config file: %w", err)
 	}
@@ -161,56 +161,80 @@ func Load(path string) (*Config, error) {
 }
 
 func applyDefaults(cfg *Config) {
-	if cfg.Server.Host == "" {
-		cfg.Server.Host = "0.0.0.0"
+	applyServerDefaults(&cfg.Server)
+	applyDatabaseDefaults(&cfg.Database)
+	applyLLMDefaults(&cfg.LLM)
+	applyScoringDefaults(&cfg.Scoring)
+	applyScheduleDefaults(&cfg.Schedule)
+	applyLoggingDefaults(&cfg.Logging)
+}
+
+func applyServerDefaults(s *ServerConfig) {
+	if s.Host == "" {
+		s.Host = "0.0.0.0"
 	}
-	if cfg.Server.Port == 0 {
-		cfg.Server.Port = 8080
+	if s.Port == 0 {
+		s.Port = 8080
 	}
-	if cfg.Server.ReadTimeout == 0 {
-		cfg.Server.ReadTimeout = 30 * time.Second
+	if s.ReadTimeout == 0 {
+		s.ReadTimeout = 30 * time.Second
 	}
-	if cfg.Server.WriteTimeout == 0 {
-		cfg.Server.WriteTimeout = 30 * time.Second
+	if s.WriteTimeout == 0 {
+		s.WriteTimeout = 30 * time.Second
 	}
-	if cfg.Database.Port == 0 {
-		cfg.Database.Port = 5432
+}
+
+func applyDatabaseDefaults(d *DatabaseConfig) {
+	if d.Port == 0 {
+		d.Port = 5432
 	}
-	if cfg.Database.SSLMode == "" {
-		cfg.Database.SSLMode = "disable"
+	if d.SSLMode == "" {
+		d.SSLMode = "disable"
 	}
-	if cfg.Database.PoolSize == 0 {
-		cfg.Database.PoolSize = 10
+	if d.PoolSize == 0 {
+		d.PoolSize = 10
 	}
-	if cfg.LLM.Backend == "" {
-		cfg.LLM.Backend = "ollama"
+}
+
+func applyLLMDefaults(l *LLMConfig) {
+	if l.Backend == "" {
+		l.Backend = "ollama"
 	}
-	if cfg.LLM.Concurrency == 0 {
-		cfg.LLM.Concurrency = 4
+	if l.Concurrency == 0 {
+		l.Concurrency = 4
 	}
-	if cfg.LLM.Timeout == 0 {
-		cfg.LLM.Timeout = 30 * time.Second
+	if l.Timeout == 0 {
+		l.Timeout = 30 * time.Second
 	}
-	if cfg.Scoring.MinBaselineSamples == 0 {
-		cfg.Scoring.MinBaselineSamples = 10
+}
+
+func applyScoringDefaults(s *ScoringConfig) {
+	if s.MinBaselineSamples == 0 {
+		s.MinBaselineSamples = 10
 	}
-	if cfg.Scoring.BaselineWindowDays == 0 {
-		cfg.Scoring.BaselineWindowDays = 90
+	if s.BaselineWindowDays == 0 {
+		s.BaselineWindowDays = 90
 	}
-	if cfg.Schedule.IngestionInterval == 0 {
-		cfg.Schedule.IngestionInterval = 15 * time.Minute
+}
+
+func applyScheduleDefaults(s *ScheduleConfig) {
+	if s.IngestionInterval == 0 {
+		s.IngestionInterval = 15 * time.Minute
 	}
-	if cfg.Schedule.BaselineInterval == 0 {
-		cfg.Schedule.BaselineInterval = 6 * time.Hour
+	if s.BaselineInterval == 0 {
+		s.BaselineInterval = 6 * time.Hour
 	}
-	if cfg.Schedule.StaggerOffset == 0 {
-		cfg.Schedule.StaggerOffset = 30 * time.Second
+	if s.StaggerOffset == 0 {
+		s.StaggerOffset = 30 * time.Second
 	}
-	if cfg.Logging.Level == "" {
-		cfg.Logging.Level = "info"
+}
+
+func applyLoggingDefaults(l *LoggingConfig) {
+	if l.Level == "" {
+		l.Level = "info"
 	}
-	if cfg.Logging.Format == "" {
-		cfg.Logging.Format = "text"
+	if l.Format == "" {
+		l.Format = "text"
 	}
 }
 
@@ -230,19 +254,34 @@ func validate(cfg *Config) error {
 	switch cfg.LLM.Backend {
 	case "ollama":
 		if cfg.LLM.Ollama.Endpoint == "" {
-			errs = append(errs, fmt.Errorf("llm.ollama.endpoint is required when backend is ollama"))
+			errs = append(
+				errs,
+				fmt.Errorf("llm.ollama.endpoint is required when backend is ollama"),
+			)
 		}
 	case "anthropic":
 		// API key comes from env, model must be set.
 		if cfg.LLM.Anthropic.Model == "" {
-			errs = append(errs, fmt.Errorf("llm.anthropic.model is required when backend is anthropic"))
+			errs = append(
+				errs,
+				fmt.Errorf("llm.anthropic.model is required when backend is anthropic"),
+			)
 		}
 	case "openai_compat":
 		if cfg.LLM.OpenAICompat.Endpoint == "" {
-			errs = append(errs, fmt.Errorf("llm.openai_compat.endpoint is required when backend is openai_compat"))
+			errs = append(
+				errs,
+				fmt.Errorf("llm.openai_compat.endpoint is required when backend is openai_compat"),
+			)
 		}
 	default:
-		errs = append(errs, fmt.Errorf("llm.backend must be one of: ollama, anthropic, openai_compat (got %q)", cfg.LLM.Backend))
+		errs = append(
+			errs,
+			fmt.Errorf(
+				"llm.backend must be one of: ollama, anthropic, openai_compat (got %q)",
+				cfg.LLM.Backend,
+			),
+		)
 	}
 
 	return errors.Join(errs...)

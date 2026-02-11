@@ -230,7 +230,7 @@ This approach means we can build and fully test every component before eBay API 
   	mockery
   ```
 
-- [ ] **0.7 — Root command and serve command**
+- [x] **0.7 — Root command and serve command**
   - Cobra root command with `--config` flag (default: `config.yaml`)
   - `serve` command: loads config, connects to Postgres, starts Echo server with health endpoints, blocks on signal
   - `migrate` command: loads config, runs migrations, exits
