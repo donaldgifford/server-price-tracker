@@ -437,7 +437,7 @@ This approach means we can build and fully test every component before eBay API 
     - "Something Random" → unknown
     - Empty string → unknown
 
-- [ ] **2.5 — Product key generation**
+- [x] **2.5 — Product key generation**
   - Pure function: `ProductKey(componentType string, attrs map[string]any) string`
   - **Tests:** Table-driven for all 5 types:
     - RAM with full attrs → `ram:ddr4:ecc_reg:32gb:2666`
