@@ -666,7 +666,7 @@ This approach means we can build and fully test every component before eBay API 
   - `POST /api/v1/rescore` — triggers re-scoring
   - **Tests:** Table-driven handler tests with mocks
 
-- [ ] **4.5 — Listings API endpoints**
+- [x] **4.5 — Listings API endpoints**
   - `GET /api/v1/listings` — list with filters
   - `GET /api/v1/listings/:id` — full detail
   - **Tests:** Table-driven handler tests with `MockStore`:
@@ -677,12 +677,12 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Success Criteria
 
-- [ ] All scoring wiring tests pass with `MockStore` (no database needed)
-- [ ] Batch re-scoring tested with mock returning multiple listings
-- [ ] Handler tests cover list/show/rescore endpoints
-- [ ] Cold-start behavior tested (no baseline → neutral price score)
-- [ ] `go test ./internal/engine/...` covers scoring logic >= 90%
-- [ ] `go test ./internal/api/handlers/...` covers listing handlers
+- [x] All scoring wiring tests pass with `MockStore` (no database needed)
+- [x] Batch re-scoring tested with mock returning multiple listings
+- [x] Handler tests cover list/show/rescore endpoints
+- [x] Cold-start behavior tested (no baseline → neutral price score)
+- [x] `go test ./internal/engine/...` covers scoring logic >= 90%
+- [x] `go test ./internal/api/handlers/...` covers listing handlers
 
 ---
 

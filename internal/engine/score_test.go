@@ -284,3 +284,89 @@ func TestBuildListingData(t *testing.T) {
 	assert.True(t, data.HasItemSpecifics)
 	assert.True(t, data.IsAuction)
 }
+
+func TestRescoreAll(t *testing.T) {
+	t.Parallel()
+
+	mockStore := storeMocks.NewMockStore(t)
+
+	listings := []domain.Listing{
+		*testListing("key-1"),
+		*testListing("key-2"),
+	}
+	listings[0].ID = "l1"
+	listings[1].ID = "l2"
+
+	mockStore.EXPECT().
+		ListListings(mock.Anything, mock.Anything).
+		Return(listings, 2, nil).
+		Once()
+
+	mockStore.EXPECT().
+		GetBaseline(mock.Anything, "key-1").
+		Return(nil, pgx.ErrNoRows).
+		Once()
+	mockStore.EXPECT().
+		UpdateScore(mock.Anything, "l1", mock.AnythingOfType("int"), mock.Anything).
+		Return(nil).
+		Once()
+
+	mockStore.EXPECT().
+		GetBaseline(mock.Anything, "key-2").
+		Return(nil, pgx.ErrNoRows).
+		Once()
+	mockStore.EXPECT().
+		UpdateScore(mock.Anything, "l2", mock.AnythingOfType("int"), mock.Anything).
+		Return(nil).
+		Once()
+
+	scored, err := RescoreAll(context.Background(), mockStore)
+	require.NoError(t, err)
+	assert.Equal(t, 2, scored)
+}
+
+func TestRescoreAll_StoreError(t *testing.T) {
+	t.Parallel()
+
+	mockStore := storeMocks.NewMockStore(t)
+
+	mockStore.EXPECT().
+		ListListings(mock.Anything, mock.Anything).
+		Return(nil, 0, errors.New("connection refused")).
+		Once()
+
+	scored, err := RescoreAll(context.Background(), mockStore)
+	require.Error(t, err)
+	assert.Equal(t, 0, scored)
+	assert.Contains(t, err.Error(), "connection refused")
+}
+
+func TestRescoreListings_StoreError(t *testing.T) {
+	t.Parallel()
+
+	mockStore := storeMocks.NewMockStore(t)
+
+	mockStore.EXPECT().
+		ListUnscoredListings(mock.Anything, 50).
+		Return(nil, errors.New("db error")).
+		Once()
+
+	scored, err := RescoreListings(context.Background(), mockStore, 50)
+	require.Error(t, err)
+	assert.Equal(t, 0, scored)
+}
+
+func TestRescoreByProductKey_StoreError(t *testing.T) {
+	t.Parallel()
+
+	mockStore := storeMocks.NewMockStore(t)
+
+	mockStore.EXPECT().
+		ListListings(mock.Anything, mock.Anything).
+		Return(nil, 0, errors.New("db error")).
+		Once()
+
+	scored, err := RescoreByProductKey(context.Background(), mockStore, "key-1")
+	require.Error(t, err)
+	assert.Equal(t, 0, scored)
+}
