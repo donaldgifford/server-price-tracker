@@ -842,7 +842,7 @@ This approach means we can build and fully test every component before eBay API 
   - JSON request/response marshaling
   - Error handling: connection refused → "API server not running"
 
-- [ ] **7.2 — Watch commands**
+- [x] **7.2 — Watch commands**
   - `watch add`, `watch list`, `watch show`, `watch edit`, `watch enable`, `watch disable`, `watch remove`
   - Parse `--filter` flags into `WatchFilters` (the `attr:` prefix routes to AttributeFilters)
   - **Tests:** Table-driven tests for filter parsing:
@@ -851,14 +851,14 @@ This approach means we can build and fully test every component before eBay API 
     - `conditions=used_working,new` → correct slice
     - Invalid filter key → error
 
-- [ ] **7.3 — Listings commands**
+- [x] **7.3 — Listings commands**
   - `listings list`, `listings show`, `listings rescore`
   - Default: compact table output, `--json` flag for raw JSON
 
-- [ ] **7.4 — Baseline commands**
+- [x] **7.4 — Baseline commands**
   - `baselines list`, `baselines show`, `baselines refresh`
 
-- [ ] **7.5 — Output formatting**
+- [x] **7.5 — Output formatting**
   - Default: compact table (use `text/tabwriter` or lipgloss)
   - `--json` flag on all list/show commands
   - **Tests:** Table-driven tests for table formatting:
