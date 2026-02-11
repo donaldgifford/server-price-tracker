@@ -302,7 +302,7 @@ This approach means we can build and fully test every component before eBay API 
     ```
   - Run `make mocks` to generate `MockEbayClient` and `MockTokenProvider`
 
-- [ ] **1.2 — eBay response types + parsing**
+- [x] **1.2 — eBay response types + parsing**
   - Define raw eBay API response structs in `internal/ebay/types.go`
   - Conversion function: `func toListings(items []ItemSummary) []domain.Listing`
   - Field mapping per DESIGN.md table (itemId → ebay_item_id, price.value → price, etc.)
