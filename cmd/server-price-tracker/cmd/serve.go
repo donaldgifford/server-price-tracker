@@ -73,12 +73,18 @@ func runServe(_ *cobra.Command, _ []string) error {
 		}
 	}()
 
+	// TODO(test): signal handling requires process-level testing, verified manually.
+
 	// Wait for interrupt signal.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	logger.Info("shutting down server")
+
+	// TODO(wire): Stop scheduler here once Engine is wired:
+	// schedCtx := scheduler.Stop()
+	// <-schedCtx.Done()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

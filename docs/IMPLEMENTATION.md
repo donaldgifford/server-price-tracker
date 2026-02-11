@@ -812,7 +812,7 @@ This approach means we can build and fully test every component before eBay API 
   - `POST /api/v1/baselines/refresh` — trigger immediate baseline refresh
   - **Tests:** Table-driven handler tests (verify engine methods called via mock)
 
-- [ ] **6.7 — Context and cancellation**
+- [x] **6.7 — Context and cancellation**
   - On SIGINT/SIGTERM: graceful shutdown
   - `// TODO(test): signal handling requires process-level testing, verified manually`
 
