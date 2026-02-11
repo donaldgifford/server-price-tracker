@@ -155,6 +155,29 @@ func TestBrowseClient_Search(t *testing.T) {
 	}
 }
 
+func TestBrowseClient_Search_HTMLResponse(t *testing.T) {
+	t.Parallel()
+
+	// Edge case: eBay returns HTML instead of JSON (e.g., error page or captcha).
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write(
+			[]byte(`<!DOCTYPE html><html><body><h1>Service Unavailable</h1></body></html>`),
+		)
+	}))
+	defer srv.Close()
+
+	mockTokens := mocks.NewMockTokenProvider(t)
+	mockTokens.EXPECT().
+		Token(mock.Anything).
+		Return("test-token", nil)
+
+	client := ebay.NewBrowseClient(mockTokens, ebay.WithBrowseURL(srv.URL))
+	_, err := client.Search(context.Background(), ebay.SearchRequest{Query: "test"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parsing search response")
+}
+
 func TestBrowseClient_Search_QueryParams(t *testing.T) {
 	t.Parallel()
 

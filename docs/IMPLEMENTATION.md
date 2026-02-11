@@ -895,7 +895,7 @@ This approach means we can build and fully test every component before eBay API 
   - Add missing test cases to close gaps
   - Target: >= 90% on `pkg/`, >= 80% on `internal/`
 
-- [ ] **8.2 — Edge case tests**
+- [x] **8.2 — Edge case tests**
   Add table-driven test cases for:
   | Scenario | Package | Test |
   |---|---|---|

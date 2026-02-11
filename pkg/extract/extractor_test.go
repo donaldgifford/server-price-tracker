@@ -106,6 +106,59 @@ func TestLLMExtractor_Classify(t *testing.T) {
 	}
 }
 
+func TestLLMExtractor_Classify_NonLatinTitle(t *testing.T) {
+	t.Parallel()
+
+	// Edge case: Title in non-Latin script should classify as "other".
+	mockBackend := extractMocks.NewMockLLMBackend(t)
+	mockBackend.EXPECT().
+		Generate(mock.Anything, mock.Anything).
+		Return(extract.GenerateResponse{Content: "other"}, nil).
+		Once()
+
+	extractor := extract.NewLLMExtractor(mockBackend)
+	ct, err := extractor.Classify(context.Background(), "三星 32GB DDR4 内存条 服务器 ECC")
+	require.NoError(t, err)
+	assert.Equal(t, domain.ComponentOther, ct)
+}
+
+func TestLLMExtractor_Extract_LOTTitle(t *testing.T) {
+	t.Parallel()
+
+	// Edge case: Title says "LOT OF 4" but eBay quantity=1.
+	// LLM extraction should override with quantity=4.
+	mockBackend := extractMocks.NewMockLLMBackend(t)
+	mockBackend.EXPECT().
+		Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+			return r.Format == "json"
+		})).
+		Return(extract.GenerateResponse{
+			Content: `{
+				"manufacturer": "Samsung",
+				"capacity_gb": 32,
+				"generation": "DDR4",
+				"speed_mhz": 2666,
+				"ecc": true,
+				"registered": true,
+				"condition": "used_working",
+				"quantity": 4,
+				"confidence": 0.92
+			}`,
+		}, nil).
+		Once()
+
+	extractor := extract.NewLLMExtractor(mockBackend)
+	attrs, err := extractor.Extract(
+		context.Background(),
+		domain.ComponentRAM,
+		"LOT OF 4 Samsung 32GB DDR4 ECC REG",
+		nil,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, attrs)
+	assert.Equal(t, float64(4), attrs["quantity"])
+}
+
 func TestLLMExtractor_Extract(t *testing.T) {
 	t.Parallel()
 

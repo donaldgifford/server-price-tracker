@@ -185,6 +185,17 @@ func TestDiscordNotifier_NetworkError(t *testing.T) {
 	assert.Contains(t, err.Error(), "sending discord webhook")
 }
 
+func TestDiscordNotifier_InvalidWebhookURL(t *testing.T) {
+	t.Parallel()
+
+	// Edge case: Discord webhook with malformed URL.
+	d := NewDiscordNotifier("://not-a-valid-url")
+	alert := testAlert(85)
+	err := d.SendAlert(context.Background(), &alert)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "creating discord request")
+}
+
 func TestWithHTTPClient(t *testing.T) {
 	t.Parallel()
 

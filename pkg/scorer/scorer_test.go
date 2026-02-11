@@ -466,6 +466,35 @@ func TestLerp(t *testing.T) {
 	}
 }
 
+func TestScore_AuctionStartPrice(t *testing.T) {
+	t.Parallel()
+
+	// Edge case: $0.01 auction start price should still compute a valid score.
+	data := &ListingData{
+		UnitPrice:         0.01,
+		SellerFeedback:    100,
+		SellerFeedbackPct: 98.0,
+		Condition:         "used_working",
+		Quantity:          1,
+		IsAuction:         true,
+		AuctionEndingSoon: true,
+	}
+	baseline := &Baseline{
+		P10:         20,
+		P25:         30,
+		P50:         50,
+		P75:         70,
+		P90:         100,
+		SampleCount: 50,
+	}
+
+	b := Score(data, baseline, DefaultWeights())
+	assert.Equal(t, 100.0, b.Price, "$0.01 should be below P10, scoring 100")
+	assert.Equal(t, 100.0, b.Time, "auction ending soon should score 100")
+	assert.Positive(t, b.Total)
+	assert.LessOrEqual(t, b.Total, 100)
+}
+
 func TestScore_CompositeCalculation(t *testing.T) {
 	t.Parallel()
 
