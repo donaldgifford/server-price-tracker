@@ -414,7 +414,7 @@ This approach means we can build and fully test every component before eBay API 
     - Classification prompt renders correctly
     - Special characters in title don't break template
 
-- [ ] **2.3 — Response validation**
+- [x] **2.3 — Response validation**
   - `pkg/extract/validate.go` — validate extracted JSON per component type per rules in EXTRACTION.md
   - **Tests:** Table-driven tests per component type:
     - Valid RAM extraction → passes
