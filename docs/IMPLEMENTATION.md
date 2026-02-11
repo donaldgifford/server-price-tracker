@@ -636,7 +636,7 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Tasks
 
-- [ ] **4.1 — Wire scorer to store (via interfaces)**
+- [x] **4.1 — Wire scorer to store (via interfaces)**
   - Engine scoring function takes `Store` and `Scorer` interfaces:
     ```go
     func ScoreListing(ctx context.Context, store Store, scorer Scorer, listing *domain.Listing) error {
