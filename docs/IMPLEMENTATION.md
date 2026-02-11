@@ -449,7 +449,7 @@ This approach means we can build and fully test every component before eBay API 
     - Unknown type → `other:unknown`
     - Nil attrs → all segments "unknown"
 
-- [ ] **2.6 — LLMExtractor implementation**
+- [x] **2.6 — LLMExtractor implementation**
   - Implements `Extractor` interface, takes `LLMBackend` as dependency
   - `Classify`: renders classification prompt, calls backend, parses response
   - `Extract`: renders component-specific prompt, calls backend, parses JSON, validates
