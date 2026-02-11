@@ -327,7 +327,7 @@ This approach means we can build and fully test every component before eBay API 
     - Server returns 500 → returns error
     - Concurrent calls → only one HTTP request (mutex test)
 
-- [ ] **1.4 — BrowseClient implementation**
+- [x] **1.4 — BrowseClient implementation**
   - Implements `EbayClient` interface
   - Uses `TokenProvider` for auth (injected, not hard-coded)
   - Primary endpoint: `GET https://api.ebay.com/buy/browse/v1/item_summary/search`
