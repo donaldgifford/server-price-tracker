@@ -192,7 +192,7 @@ This approach means we can build and fully test every component before eBay API 
     - Default values applied when optional fields omitted
     - Invalid YAML returns parse error
 
-- [ ] **0.5 — Database migration runner**
+- [x] **0.5 — Database migration runner**
   - Simple migration runner: read SQL files from `embed.FS`, track in `schema_migrations (version TEXT, applied_at TIMESTAMPTZ)`, apply pending in order
   - `server-price-tracker migrate` CLI command
   - No down migrations (fix forward)
