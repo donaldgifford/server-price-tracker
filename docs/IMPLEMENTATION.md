@@ -692,7 +692,7 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Tasks
 
-- [ ] **5.1 — Notifier interface**
+- [x] **5.1 — Notifier interface**
   - Define in `internal/notify/notifier.go`:
     ```go
     type Notifier interface {
