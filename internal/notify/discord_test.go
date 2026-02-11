@@ -184,3 +184,11 @@ func TestDiscordNotifier_NetworkError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "sending discord webhook")
 }
+
+func TestWithHTTPClient(t *testing.T) {
+	t.Parallel()
+
+	custom := &http.Client{}
+	d := NewDiscordNotifier("https://example.com", WithHTTPClient(custom))
+	assert.Same(t, custom, d.client)
+}

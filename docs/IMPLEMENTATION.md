@@ -716,7 +716,7 @@ This approach means we can build and fully test every component before eBay API 
     - Discord returns 400 → error
     - Network error → error
 
-- [ ] **5.3 — Notification dedup + marking**
+- [x] **5.3 — Notification dedup + marking**
   - `alerts` table UNIQUE(watch_id, listing_id) prevents duplicates
   - Only notify when `notified = false`, mark `notified = true` after send
   - **Tests:** Table-driven with `MockStore` + `MockNotifier`:
@@ -724,27 +724,27 @@ This approach means we can build and fully test every component before eBay API 
     - Already notified alert → notify not called
     - Notify fails → MarkAlertNotified not called
 
-- [ ] **5.4 — Notification batching**
+- [x] **5.4 — Notification batching**
   - 5+ alerts for same watch → batch into single Discord message
   - **Tests:** Table-driven:
     - 3 alerts → 3 individual SendAlert calls
     - 7 alerts → 1 SendBatchAlert call
     - Exactly 5 alerts → 1 SendBatchAlert call
 
-- [ ] **5.5 — Error handling**
+- [x] **5.5 — Error handling**
   - Discord rate limits: respect 429 with `Retry-After` header
   - On send failure: log error, don't mark as notified
   - Record `spt_alerts_fired_total` and `spt_notification_failures_total`
 
 ### Success Criteria
 
-- [ ] `make mocks` generates `MockNotifier`
-- [ ] DiscordNotifier tests pass with `httptest.NewServer` mock
-- [ ] Embed JSON is correctly formatted for all score ranges
-- [ ] Dedup logic tested: duplicate alerts don't trigger notifications
-- [ ] Batching logic tested: correct threshold triggers batch vs individual
-- [ ] Error handling tested: failed sends don't mark alerts as notified
-- [ ] `go test ./internal/notify/...` achieves >= 90% coverage
+- [x] `make mocks` generates `MockNotifier`
+- [x] DiscordNotifier tests pass with `httptest.NewServer` mock
+- [x] Embed JSON is correctly formatted for all score ranges
+- [x] Dedup logic tested: duplicate alerts don't trigger notifications
+- [x] Batching logic tested: correct threshold triggers batch vs individual
+- [x] Error handling tested: failed sends don't mark alerts as notified
+- [x] `go test ./internal/notify/...` achieves >= 90% coverage
 
 ---
 
