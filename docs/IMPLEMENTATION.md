@@ -561,7 +561,7 @@ This approach means we can build and fully test every component before eBay API 
   - Run `make mocks` to generate `MockStore`
   - All consumers (handlers, engine, CLI) depend on this interface, never on `pgx` directly
 
-- [ ] **3.2 — ListingQuery builder**
+- [x] **3.2 — ListingQuery builder**
   - `ListingQuery` struct with optional filters:
     ```go
     type ListingQuery struct {
