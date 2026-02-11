@@ -23,7 +23,7 @@ func (_m *MockNotifier) EXPECT() *MockNotifier_Expecter {
 }
 
 // SendAlert provides a mock function with given fields: ctx, alert
-func (_m *MockNotifier) SendAlert(ctx context.Context, alert notify.AlertPayload) error {
+func (_m *MockNotifier) SendAlert(ctx context.Context, alert *notify.AlertPayload) error {
 	ret := _m.Called(ctx, alert)
 
 	if len(ret) == 0 {
@@ -31,7 +31,7 @@ func (_m *MockNotifier) SendAlert(ctx context.Context, alert notify.AlertPayload
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, notify.AlertPayload) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *notify.AlertPayload) error); ok {
 		r0 = rf(ctx, alert)
 	} else {
 		r0 = ret.Error(0)
@@ -47,14 +47,14 @@ type MockNotifier_SendAlert_Call struct {
 
 // SendAlert is a helper method to define mock.On call
 //   - ctx context.Context
-//   - alert notify.AlertPayload
+//   - alert *notify.AlertPayload
 func (_e *MockNotifier_Expecter) SendAlert(ctx interface{}, alert interface{}) *MockNotifier_SendAlert_Call {
 	return &MockNotifier_SendAlert_Call{Call: _e.mock.On("SendAlert", ctx, alert)}
 }
 
-func (_c *MockNotifier_SendAlert_Call) Run(run func(ctx context.Context, alert notify.AlertPayload)) *MockNotifier_SendAlert_Call {
+func (_c *MockNotifier_SendAlert_Call) Run(run func(ctx context.Context, alert *notify.AlertPayload)) *MockNotifier_SendAlert_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(notify.AlertPayload))
+		run(args[0].(context.Context), args[1].(*notify.AlertPayload))
 	})
 	return _c
 }
@@ -64,7 +64,7 @@ func (_c *MockNotifier_SendAlert_Call) Return(_a0 error) *MockNotifier_SendAlert
 	return _c
 }
 
-func (_c *MockNotifier_SendAlert_Call) RunAndReturn(run func(context.Context, notify.AlertPayload) error) *MockNotifier_SendAlert_Call {
+func (_c *MockNotifier_SendAlert_Call) RunAndReturn(run func(context.Context, *notify.AlertPayload) error) *MockNotifier_SendAlert_Call {
 	_c.Call.Return(run)
 	return _c
 }

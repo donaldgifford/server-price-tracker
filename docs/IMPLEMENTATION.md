@@ -702,7 +702,7 @@ This approach means we can build and fully test every component before eBay API 
     ```
   - Run `make mocks` to generate `MockNotifier`
 
-- [ ] **5.2 — Discord webhook implementation**
+- [x] **5.2 — Discord webhook implementation**
   - `DiscordNotifier` implements `Notifier`
   - POST to Discord webhook URL with rich embed
   - Color coding by score: green (90+), yellow (80-89), orange (75-79)

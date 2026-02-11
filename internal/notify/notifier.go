@@ -26,6 +26,6 @@ type AlertPayload struct {
 
 // Notifier defines the interface for sending deal alert notifications.
 type Notifier interface {
-	SendAlert(ctx context.Context, alert AlertPayload) error
+	SendAlert(ctx context.Context, alert *AlertPayload) error
 	SendBatchAlert(ctx context.Context, alerts []AlertPayload, watchName string) error
 }
