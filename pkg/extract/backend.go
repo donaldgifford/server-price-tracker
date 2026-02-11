@@ -12,7 +12,7 @@ import (
 type GenerateRequest struct {
 	Prompt      string
 	SystemMsg   string
-	Format      string  // "json" for JSON mode
+	Format      string // "json" for JSON mode
 	Temperature float64
 	MaxTokens   int
 }
@@ -41,6 +41,15 @@ type LLMBackend interface {
 // structured attributes from eBay listing titles.
 type Extractor interface {
 	Classify(ctx context.Context, title string) (domain.ComponentType, error)
-	Extract(ctx context.Context, componentType domain.ComponentType, title string, itemSpecifics map[string]string) (map[string]any, error)
-	ClassifyAndExtract(ctx context.Context, title string, itemSpecifics map[string]string) (domain.ComponentType, map[string]any, error)
+	Extract(
+		ctx context.Context,
+		componentType domain.ComponentType,
+		title string,
+		itemSpecifics map[string]string,
+	) (map[string]any, error)
+	ClassifyAndExtract(
+		ctx context.Context,
+		title string,
+		itemSpecifics map[string]string,
+	) (domain.ComponentType, map[string]any, error)
 }

@@ -275,7 +275,11 @@ logging:
 				assert.Equal(t, 60, cfg.Scoring.BaselineWindowDays)
 				assert.Equal(t, 30*time.Minute, cfg.Schedule.IngestionInterval)
 				assert.True(t, cfg.Notifications.Discord.Enabled)
-				assert.Equal(t, "https://discord.com/api/webhooks/123", cfg.Notifications.Discord.WebhookURL)
+				assert.Equal(
+					t,
+					"https://discord.com/api/webhooks/123",
+					cfg.Notifications.Discord.WebhookURL,
+				)
 				assert.Equal(t, "debug", cfg.Logging.Level)
 				assert.Equal(t, "json", cfg.Logging.Format)
 			},

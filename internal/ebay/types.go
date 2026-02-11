@@ -2,18 +2,18 @@ package ebay
 
 // ItemSummary represents a single item from the eBay Browse API search response.
 type ItemSummary struct {
-	ItemID          string          `json:"itemId"`
-	Title           string          `json:"title"`
-	Price           ItemPrice       `json:"price"`
-	ItemWebURL      string          `json:"itemWebUrl"`
-	Image           *ItemImage      `json:"image,omitempty"`
-	Seller          *ItemSeller     `json:"seller,omitempty"`
-	Condition       string          `json:"condition"`
-	ConditionID     string          `json:"conditionId"`
-	BuyingOptions   []string        `json:"buyingOptions"`
+	ItemID          string           `json:"itemId"`
+	Title           string           `json:"title"`
+	Price           ItemPrice        `json:"price"`
+	ItemWebURL      string           `json:"itemWebUrl"`
+	Image           *ItemImage       `json:"image,omitempty"`
+	Seller          *ItemSeller      `json:"seller,omitempty"`
+	Condition       string           `json:"condition"`
+	ConditionID     string           `json:"conditionId"`
+	BuyingOptions   []string         `json:"buyingOptions"`
 	ShippingOptions []ShippingOption `json:"shippingOptions,omitempty"`
-	ItemEndDate     string          `json:"itemEndDate,omitempty"`
-	Categories      []ItemCategory  `json:"categories,omitempty"`
+	ItemEndDate     string           `json:"itemEndDate,omitempty"`
+	Categories      []ItemCategory   `json:"categories,omitempty"`
 
 	TopRatedBuyingExperience bool `json:"topRatedBuyingExperience"`
 }

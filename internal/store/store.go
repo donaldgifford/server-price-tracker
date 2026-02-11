@@ -18,7 +18,7 @@ type ListingQuery struct {
 	ProductKey    *string
 	SellerMinFB   *int
 	Conditions    []string
-	Limit         int    // default 50
+	Limit         int // default 50
 	Offset        int
 	OrderBy       string // "score", "price", "first_seen_at"
 }
@@ -30,7 +30,14 @@ type Store interface {
 	GetListing(ctx context.Context, ebayID string) (*domain.Listing, error)
 	GetListingByID(ctx context.Context, id string) (*domain.Listing, error)
 	ListListings(ctx context.Context, opts ListingQuery) ([]domain.Listing, int, error)
-	UpdateListingExtraction(ctx context.Context, id string, componentType string, attrs map[string]any, confidence float64, productKey string) error
+	UpdateListingExtraction(
+		ctx context.Context,
+		id string,
+		componentType string,
+		attrs map[string]any,
+		confidence float64,
+		productKey string,
+	) error
 	UpdateScore(ctx context.Context, id string, score int, breakdown json.RawMessage) error
 	ListUnextractedListings(ctx context.Context, limit int) ([]domain.Listing, error)
 	ListUnscoredListings(ctx context.Context, limit int) ([]domain.Listing, error)

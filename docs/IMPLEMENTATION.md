@@ -360,7 +360,7 @@ This approach means we can build and fully test every component before eBay API 
     - Stops when no more results (hasMore false)
     - First run caps at 5 pages
 
-- [ ] **1.7 — Search API endpoint + CLI command**
+- [x] **1.7 — Search API endpoint + CLI command**
   - `POST /api/v1/search` — accepts query and optional filters, returns raw eBay results without persisting
   - Handler uses `EbayClient` interface (testable with mock)
   - CLI command: `server-price-tracker search "32GB DDR4 ECC" --limit 5`
@@ -371,12 +371,12 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Success Criteria
 
-- [ ] `make mocks` generates `MockEbayClient` and `MockTokenProvider`
-- [ ] All table-driven tests pass for response parsing, token caching, rate limiting, pagination
-- [ ] Handler tests pass using mocked eBay client (no live API needed)
-- [ ] BrowseClient integration test exists (tagged `//go:build integration`) for when API access is available
-- [ ] `go test ./internal/ebay/...` achieves >= 90% coverage
-- [ ] `go test ./internal/api/handlers/...` covers search handler
+- [x] `make mocks` generates `MockEbayClient` and `MockTokenProvider`
+- [x] All table-driven tests pass for response parsing, token caching, rate limiting, pagination
+- [x] Handler tests pass using mocked eBay client (no live API needed)
+- [x] BrowseClient integration test exists (tagged `//go:build integration`) for when API access is available
+- [x] `go test ./internal/ebay/...` achieves >= 90% coverage
+- [x] `go test ./internal/api/handlers/...` covers search handler
 
 ---
 

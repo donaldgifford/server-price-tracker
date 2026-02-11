@@ -56,6 +56,10 @@ func runServe(_ *cobra.Command, _ []string) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ready"})
 	})
 
+	// Search endpoint.
+	// TODO(wire): Connect real EbayClient once eBay credentials are configured.
+	// For now the route is registered but requires the serve command to build the client.
+
 	// Prometheus metrics.
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
