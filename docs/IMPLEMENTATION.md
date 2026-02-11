@@ -754,7 +754,7 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Tasks
 
-- [ ] **6.1 — Engine struct with injected dependencies**
+- [x] **6.1 — Engine struct with injected dependencies**
   ```go
   type Engine struct {
       store     store.Store
@@ -768,7 +768,7 @@ This approach means we can build and fully test every component before eBay API 
   ```
   All dependencies are interfaces. The entire engine is testable with mocks.
 
-- [ ] **6.2 — Ingestion loop**
+- [x] **6.2 — Ingestion loop**
   - `Engine.RunIngestion(ctx)`:
     ```
     for each enabled watch (from store.ListWatches):
@@ -788,13 +788,13 @@ This approach means we can build and fully test every component before eBay API 
     - All listings already exist → no extraction calls
     - Metrics incremented correctly
 
-- [ ] **6.3 — Baseline recomputation loop**
+- [x] **6.3 — Baseline recomputation loop**
   - `Engine.RunBaselineRefresh(ctx)`: calls `store.RecomputeAllBaselines()`, then re-scores
   - **Tests:** Table-driven with `MockStore`:
     - Recompute called → re-score triggered
     - Recompute error → error returned
 
-- [ ] **6.4 — Alert evaluation**
+- [x] **6.4 — Alert evaluation**
   - Runs inline after ingestion: check new listings against watches
   - **Tests:** Table-driven with `MockStore` + `MockNotifier`:
     - Listing score 90, watch threshold 80, filters match → alert created + notify
@@ -816,7 +816,7 @@ This approach means we can build and fully test every component before eBay API 
   - On SIGINT/SIGTERM: graceful shutdown
   - `// TODO(test): signal handling requires process-level testing, verified manually`
 
-- [ ] **6.8 — Watch staggering**
+- [x] **6.8 — Watch staggering**
   - Stagger watch polling to avoid API bursts
 
 ### Success Criteria
