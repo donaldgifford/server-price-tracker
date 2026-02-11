@@ -270,7 +270,7 @@ This approach means we can build and fully test every component before eBay API 
 
 ### Tasks
 
-- [ ] **1.1 — EbayClient interface + types**
+- [x] **1.1 — EbayClient interface + types**
   - Define in `internal/ebay/client.go`:
     ```go
     type EbayClient interface {
