@@ -173,7 +173,7 @@ This approach means we can build and fully test every component before eBay API 
     ```
   - Note: `pkg/` contains exported packages that external tools (like `tools/baseline-seeder`) can import. `internal/` contains application-specific code. Every package with an interface gets a `mocks/` subdirectory via mockery.
 
-- [ ] **0.4 — Config loader**
+- [x] **0.4 — Config loader**
   - Define `Config` struct mapping to `config.yaml` sections: database, ebay, llm, scoring, schedule, notifications, server, logging
   - Add `server` config section:
     ```yaml
