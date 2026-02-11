@@ -236,7 +236,7 @@ This approach means we can build and fully test every component before eBay API 
   - `migrate` command: loads config, runs migrations, exits
   - `version` command: prints build version
 
-- [ ] **0.8 — Health endpoints**
+- [x] **0.8 — Health endpoints**
   - `GET /healthz` — returns 200 if process is running
   - `GET /readyz` — returns 200 if DB is connected (via `Store.Ping()`); 503 otherwise
   - **Tests:** Table-driven handler tests using `httptest.NewRecorder`:

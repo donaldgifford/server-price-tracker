@@ -43,12 +43,11 @@ func runServe(_ *cobra.Command, _ []string) error {
 	e.HidePort = true
 
 	// Health endpoints.
+	// TODO(test): health handler uses nil store until DB wiring in Phase 3.
+	// Once Store is connected, readyz will check store.Ping().
 	e.GET("/healthz", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
-
-	// Readiness — for now just returns OK since we haven't connected the store yet.
-	// TODO(test): readyz will check store.Ping() once wired; tested via integration tests.
 	e.GET("/readyz", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ready"})
 	})
