@@ -1,0 +1,78 @@
+# eBay Deal Tracker Configuration
+
+database:
+  host: localhost
+  port: 5432
+  name: ebay_tracker
+  user: tracker
+  password: "${DB_PASSWORD}"
+  sslmode: disable
+
+ebay:
+  # Browse API credentials
+  # Get these from https://developer.ebay.com/my/keys
+  app_id: "${EBAY_APP_ID}"
+  cert_id: "${EBAY_CERT_ID}"
+  # Marketplace (EBAY_US, EBAY_UK, etc.)
+  marketplace: EBAY_US
+  # Max API calls per ingestion cycle
+  max_calls_per_cycle: 50
+
+llm:
+  # Options: ollama, llama_cpp, openai_compat
+  backend: ollama
+  # For ollama
+  endpoint: http://localhost:11434
+  model: llama3.1:8b
+  # For llama.cpp server
+  # endpoint: http://localhost:8080
+  # Grammar enforcement
+  use_grammar: true
+  # Max concurrent extraction requests
+  concurrency: 4
+  # Timeout per extraction
+  timeout: 30s
+
+scoring:
+  weights:
+    price: 0.40
+    seller: 0.20
+    condition: 0.15
+    quantity: 0.10
+    quality: 0.10
+    time: 0.05
+  # Minimum samples needed for baseline to be used
+  min_baseline_samples: 10
+  # Rolling window for baseline computation
+  baseline_window_days: 90
+
+schedule:
+  # How often to poll eBay for each watch
+  ingestion_interval: 15m
+  # How often to recompute price baselines
+  baseline_interval: 6h
+  # Stagger watch polling to avoid API bursts
+  stagger_offset: 30s
+
+notifications:
+  # Primary: ntfy.sh (self-hosted or cloud)
+  ntfy:
+    enabled: true
+    server: https://ntfy.sh
+    topic: ebay-deals
+    # Or self-hosted:
+    # server: https://ntfy.yourdomain.com
+    priority: high
+    # Include image thumbnail in notification
+    attach_image: true
+
+  # Optional: generic webhook
+  webhook:
+    enabled: false
+    url: ""
+    headers:
+      Authorization: "Bearer ${WEBHOOK_TOKEN}"
+
+logging:
+  level: info
+  format: text  # text or json
