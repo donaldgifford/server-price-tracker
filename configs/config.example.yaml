@@ -1,0 +1,94 @@
+---
+# Server Price Tracker Configuration
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+
+database:
+  host: localhost
+  port: 5432
+  name: server_price_tracker
+  user: tracker
+  password: "${DB_PASSWORD}"
+  sslmode: disable
+  pool_size: 10
+
+ebay:
+  # Browse API credentials
+  # Get these from https://developer.ebay.com/my/keys
+  app_id: "${EBAY_APP_ID}"
+  cert_id: "${EBAY_CERT_ID}"
+  # Override for sandbox: https://api.sandbox.ebay.com/identity/v1/oauth2/token
+  token_url: "${EBAY_TOKEN_URL}"
+  # Override for sandbox: https://api.sandbox.ebay.com/buy/browse/v1/item_summary/search
+  browse_url: "${EBAY_BROWSE_URL}"
+  # Marketplace (EBAY_US, EBAY_UK, etc.)
+  marketplace: EBAY_US
+  # Max API calls per ingestion cycle
+  max_calls_per_cycle: 50
+
+llm:
+  # Options: ollama, anthropic, openai_compat
+  backend: ollama
+
+  ollama:
+    endpoint: http://localhost:11434
+    model: mistral:7b-instruct-v0.3-q5_K_M
+    # Alternative: llama3.1:8b
+
+  anthropic:
+    # Model to use (claude-haiku-4-20250514 recommended for extraction)
+    model: claude-haiku-4-20250514
+    # API key via environment: ANTHROPIC_API_KEY
+
+  openai_compat:
+    endpoint: http://localhost:8080/v1
+    model: mistral-7b
+
+  # Grammar enforcement (Ollama/llama.cpp only, ignored for anthropic)
+  use_grammar: true
+  # Max concurrent extraction requests
+  concurrency: 4
+  # Timeout per extraction
+  timeout: 30s
+
+scoring:
+  weights:
+    price: 0.40
+    seller: 0.20
+    condition: 0.15
+    quantity: 0.10
+    quality: 0.10
+    time: 0.05
+  # Minimum samples needed for baseline to be used
+  min_baseline_samples: 10
+  # Rolling window for baseline computation
+  baseline_window_days: 90
+
+schedule:
+  # How often to poll eBay for each watch
+  ingestion_interval: 15m
+  # How often to recompute price baselines
+  baseline_interval: 6h
+  # Stagger watch polling to avoid API bursts
+  stagger_offset: 30s
+
+notifications:
+  # Primary: Discord webhooks
+  discord:
+    enabled: true
+    webhook_url: "${DISCORD_WEBHOOK_URL}"
+
+  # Optional: generic webhook
+  webhook:
+    enabled: false
+    url: ""
+    headers:
+      Authorization: "Bearer ${WEBHOOK_TOKEN}"
+
+logging:
+  level: info
+  format: text  # text or json

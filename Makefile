@@ -1,35 +1,44 @@
-BINARY := server-price-tracker
-CMD    := ./cmd/server-price-tracker
+# server-price-tracker - Root Makefile
+# Orchestration and domain-specific makefile includes
+#
+# This root Makefile coordinates domain-specific makefiles:
+#   - makefiles/common.mk    - Shared variables and patterns
+#   - makefiles/go.mk        - Go backend targets
+#   - makefiles/docker.mk    - Docker and LocalStack
+#   - makefiles/db.mk        - Database migrations
+#   - makefiles/docs.mk      - API docs and task management
+#
+# All domain targets are defined in their respective makefiles.
+# This file only contains orchestration targets that coordinate across domains.
 
-.PHONY: build run test test-integration test-coverage lint fmt migrate mocks clean
+.DEFAULT_GOAL := help
 
-build:
-	go build -o bin/$(BINARY) $(CMD)
+## Include Domain Makefiles
+## Order matters: common.mk must be first (defines shared variables and help system)
 
-run:
-	go run $(CMD) serve
+include scripts/makefiles/common.mk
+include scripts/makefiles/go.mk
+include scripts/makefiles/docker.mk
+include scripts/makefiles/db.mk
 
-test:
-	go test ./...
+######################
+##@ Orchestration
 
-test-integration:
-	go test -tags integration -count=1 ./...
+.PHONY: all clean-all
 
-test-coverage:
-	go test -race -coverprofile=coverage.out -covermode=atomic ./...
+all: lint test build ## Build everything (lint + test + backend )
+	@ $(MAKE) --no-print-directory log-$@
+	@echo "✓ All targets complete"
 
-lint:
-	golangci-lint run ./...
+clean-all: clean api-docs-clean ## Clean all build artifacts and generated files
+	@ $(MAKE) --no-print-directory log-$@
+	@echo "✓ All artifacts cleaned"
 
-fmt:
-	goimports -w .
-	golines -w .
+## Special Pattern to Capture Remaining Arguments
+## Allows commands like: make adr "My Title" or make rfc "My RFC"
+## This must be at the end of the Makefile
+%:
+	@:
 
-migrate:
-	go run $(CMD) migrate
-
-mocks:
-	mockery
-
-clean:
-	rm -rf bin/ coverage.out
+## End of Root Makefile
+## See scripts/makefiles/*.mk for domain-specific targets

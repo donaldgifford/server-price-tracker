@@ -6,18 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Server Price Tracker is an API-first Go service that monitors eBay listings for server hardware deals (RAM, drives, servers, CPUs, NICs). It extracts structured attributes via LLM (Ollama default, Anthropic Claude API optional), scores listings against historical price baselines, and sends deal alerts via Discord webhooks. The CLI acts as a thin client to the HTTP API.
 
-**Current state:** Domain types and scoring engine are implemented. Go module (`go.mod`) has not been initialized yet. The project is in early implementation — see `docs/IMPLEMENTATION.md` for the phased build plan with checkboxes and success criteria per phase.
+**Current state:** MVP implementation is complete (Phases 0-9). All domain types, scoring engine, LLM extraction, eBay integration, API handlers, middleware, and deployment manifests are implemented. See `docs/IMPLEMENTATION.md` for the full build plan.
 
 ## Build & Development Commands
 
 Tool versions are managed via `mise.toml` — run `mise install` to set up the toolchain (Go 1.25.7, golangci-lint 2.8.0, etc.).
 
+The build system uses a modular Makefile structure: root `Makefile` includes domain-specific files from `scripts/makefiles/` (common.mk, go.mk, docker.mk, db.mk).
+
 ```bash
 # Build
-make build                    # or: go build -o bin/server-price-tracker ./cmd/server-price-tracker
+make build                    # or: go build -o build/bin/server-price-tracker ./cmd/server-price-tracker
 
 # Run the API server + scheduler
-make run                      # or: go run ./cmd/server-price-tracker serve
+make run                      # or: go run ./cmd/server-price-tracker serve --config configs/config.dev.yaml
 
 # Lint (Uber-style Go via golangci-lint)
 make lint                     # or: golangci-lint run ./...
@@ -25,8 +27,11 @@ make lint                     # or: golangci-lint run ./...
 # Test (unit tests only, no external services needed)
 make test                     # or: go test ./...
 
-# Test with integration tests (requires Postgres, Ollama, etc.)
+# Test with integration tests (requires eBay sandbox credentials, Postgres, etc.)
 make test-integration         # or: go test -tags integration ./...
+
+# Test with e2e tests
+make test-e2e                 # or: go test -tags e2e ./test/e2e/...
 
 # Test with coverage (used in CI)
 make test-coverage            # or: go test -race -coverprofile=coverage.out -covermode=atomic ./...
@@ -42,6 +47,10 @@ make mocks                    # or: mockery
 
 # Apply database migrations
 make migrate                  # or: go run ./cmd/server-price-tracker migrate
+
+# Docker (not yet wired — targets in docker.mk are placeholder references)
+# make docker-up              # Start PostgreSQL
+# make docker-down            # Stop PostgreSQL
 
 # Build cross-platform (via GoReleaser)
 goreleaser build --snapshot --clean
@@ -83,28 +92,48 @@ Every external dependency is abstracted behind a Go interface. Mockery generates
 5. **Scoring** computes a weighted 0–100 composite score (price 40%, seller 20%, condition 15%, quantity 10%, quality 10%, time 5%). Price factor defaults to neutral 50 when baseline has insufficient samples (cold start).
 6. **Alerts** fire when score >= watch threshold and filters match; sent as Discord webhook rich embeds
 
-### Package Layout
+### Project Layout
 
-**Exported (`pkg/`)** — importable by external tools like `tools/baseline-seeder`:
+```
+cmd/server-price-tracker/     Cobra CLI entry point (serve, migrate commands)
+configs/                      YAML configuration files
+  config.example.yaml         Template with env var placeholders
+  config.dev.yaml             Local development configuration
+migrations/                   PostgreSQL schema migrations (source of truth)
+internal/store/migrations/    Embedded copy for Go embed.FS
+scripts/makefiles/            Modular Makefile includes (common, go, docker, db)
+test/                         Top-level test directories
+  e2e/                        End-to-end tests (//go:build e2e)
+  integration/                Cross-cutting integration tests (//go:build integration)
+  utils/                      Shared test utilities
+deploy/                       Kubernetes manifests (Kustomize base + overlays)
+  argocd/                     ArgoCD Application manifest
+  base/                       Base Kustomize resources
+  overlays/dev/               Dev overlay (debug logging, lower resources)
+  overlays/prod/              Prod overlay (info logging, higher resources)
+docs/                         Design and implementation documentation
+```
+
+**Exported (`pkg/`)** — importable by external tools:
 - `pkg/types/` (package `domain`) — Core domain types: `Listing`, `Watch`, `WatchFilters`, `PriceBaseline`, `Alert`, `ScoreBreakdown`. Enums: `ComponentType`, `Condition`, `ListingType`. Contains `WatchFilters.Match()`.
 - `pkg/scorer/` (package `score`) — Composite scoring with `Score(ListingData, *Baseline, Weights) Breakdown`. Decoupled from DB models via `ListingData` input struct.
 - `pkg/extract/` — `LLMBackend` and `Extractor` interfaces, implementations (Ollama, Anthropic, OpenAI-compatible), extraction orchestrator, prompt templates, response validation.
 
 **Internal (`internal/`)** — application-specific, not importable:
-- `internal/api/` — Echo HTTP server, route handlers, middleware (Prometheus metrics, request logging)
+- `internal/api/` — Echo HTTP server, route handlers, middleware (Prometheus metrics, request logging, panic recovery)
 - `internal/store/` — `Store` interface (datastore abstraction) + `PostgresStore` implementation (raw SQL with pgx, no ORM)
 - `internal/engine/` — Ingestion loop, baseline recomputation, alert evaluation, scheduler. Takes all dependencies as interfaces.
 - `internal/ebay/` — `EbayClient` and `TokenProvider` interfaces + implementations
 - `internal/notify/` — `Notifier` interface + `DiscordNotifier` implementation
 - `internal/config/` — YAML config loader with `os.ExpandEnv()` for secrets
 
-**Other:**
-- `models/` — PostgreSQL schema migrations (`001_initial_schema.sql`)
-- `cmd/server-price-tracker/` — Cobra CLI entry point, `serve` and `migrate` commands
-
 ### Configuration
 
-YAML config (`config.example.yaml`) with env var substitution for secrets. Key sections: database, ebay, llm (multi-backend: ollama/anthropic/openai_compat), scoring, schedule, notifications (discord webhooks), server (Echo bind address), logging.
+YAML config files live in `configs/`. The config loader (`internal/config`) reads YAML with `os.ExpandEnv()` for secret injection from environment variables. The `.env` file (gitignored) holds local credentials.
+
+Key env vars: `EBAY_APP_ID`, `EBAY_DEV_ID`, `EBAY_CERT_ID`, `EBAY_TOKEN_URL`, `EBAY_BROWSE_URL`, `DB_PASSWORD`, `DISCORD_WEBHOOK_URL`, `ANTHROPIC_API_KEY`.
+
+eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY_BROWSE_URL` are empty. Set them to `api.sandbox.ebay.com` equivalents for sandbox testing.
 
 ### Key API Endpoints
 
@@ -120,7 +149,7 @@ YAML config (`config.example.yaml`) with env var substitution for secrets. Key s
 - **TDD**: Tests are written alongside code in every phase, not deferred. Each phase defines its own test requirements and coverage targets.
 - **Table-driven tests**: All tests use the table-driven pattern with `testify/assert` and `testify/require`. Each test case is a struct with name, inputs, expected outputs, and error expectations.
 - **Mockery**: All interfaces have generated mocks (run `make mocks` after interface changes). Configured via `.mockery.yaml`. Mocks live in `<package>/mocks/` subdirectories.
-- **Integration tests**: Tagged `//go:build integration`. Run with `make test-integration`. Use `testcontainers-go` for Postgres. Only needed for testing real external services.
+- **Test organization**: Unit tests live next to code (`*_test.go`). Package-level integration tests use `//go:build integration` in their source package. Cross-cutting integration and e2e tests live in `test/integration/` and `test/e2e/` respectively.
 - **Unit tests run without external services**: `make test` requires no database, no LLM, no eBay API, no Discord. Everything is mocked.
 - **Untestable code annotation**: Code that cannot be practically tested via TDD must be annotated with `// TODO(test): <explanation>` using the todo-comments convention. These are tracked and should trend toward zero.
 - **Coverage targets**: >= 90% on `pkg/`, >= 80% on `internal/`, >= 85% per package as a working target.

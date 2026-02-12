@@ -28,8 +28,20 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
 
-# Build directories
-build/
+# Build artifacts
+bin/
+dist/
+*.log
+*.log.*
+.log.meta
+
+# Benchmark results
+*.bench
+*.prof
+
+# Generated code
+# Mock files (regenerate with: make mocks)
+mocks/
