@@ -1076,7 +1076,7 @@ Note: Full end-to-end deployment depends on external services (eBay API approval
   - `dev`: lower resource limits, debug log level, 1 replica
   - `prod`: production resources, info log level, potential HPA
 
-- [ ] **9.9 — .env.example**
+- [x] **9.9 — .env.example**
   - Document all required environment variables:
     ```
     DB_PASSWORD=
@@ -1086,21 +1086,21 @@ Note: Full end-to-end deployment depends on external services (eBay API approval
     ANTHROPIC_API_KEY=       # optional, only if using anthropic backend
     ```
 
-- [ ] **9.10 — CI container build**
+- [x] **9.10 — CI container build**
   - GitHub Actions workflow or GoReleaser config builds and pushes container image
   - Image tag from git SHA or semver tag
   - ArgoCD detects new image and deploys
 
 ### Success Criteria
 
-- [ ] `docker build .` produces a working container image
-- [ ] Container starts, serves `/healthz`, responds on port 8080
-- [ ] `kustomize build deploy/base/` produces valid Kubernetes manifests
-- [ ] `kustomize build deploy/overlays/dev/` overlays correctly
-- [ ] HTTPRoute, ServiceMonitor, and ArgoCD Application manifests are valid YAML
-- [ ] Deployment manifest has correct probes, resource limits, and secret references
-- [ ] Init container migration strategy documented
-- [ ] `.env.example` documents all required secrets
+- [x] `docker build .` produces a working container image
+- [x] Container starts, serves `/healthz`, responds on port 8080
+- [x] `kustomize build deploy/base/` produces valid Kubernetes manifests
+- [x] `kustomize build deploy/overlays/dev/` overlays correctly
+- [x] HTTPRoute, ServiceMonitor, and ArgoCD Application manifests are valid YAML
+- [x] Deployment manifest has correct probes, resource limits, and secret references
+- [x] Init container migration strategy documented
+- [x] `.env.example` documents all required secrets
 
 ---
 
