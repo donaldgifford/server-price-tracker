@@ -20,6 +20,10 @@ ebay:
   # Get these from https://developer.ebay.com/my/keys
   app_id: "${EBAY_APP_ID}"
   cert_id: "${EBAY_CERT_ID}"
+  # Override for sandbox: https://api.sandbox.ebay.com/identity/v1/oauth2/token
+  token_url: "${EBAY_TOKEN_URL}"
+  # Override for sandbox: https://api.sandbox.ebay.com/buy/browse/v1/item_summary/search
+  browse_url: "${EBAY_BROWSE_URL}"
   # Marketplace (EBAY_US, EBAY_UK, etc.)
   marketplace: EBAY_US
   # Max API calls per ingestion cycle

@@ -54,6 +54,8 @@ func (d *DatabaseConfig) DSN() string {
 type EbayConfig struct {
 	AppID            string `yaml:"app_id"`
 	CertID           string `yaml:"cert_id"`
+	TokenURL         string `yaml:"token_url"`
+	BrowseURL        string `yaml:"browse_url"`
 	Marketplace      string `yaml:"marketplace"`
 	MaxCallsPerCycle int    `yaml:"max_calls_per_cycle"`
 }
@@ -163,10 +165,20 @@ func Load(path string) (*Config, error) {
 func applyDefaults(cfg *Config) {
 	applyServerDefaults(&cfg.Server)
 	applyDatabaseDefaults(&cfg.Database)
+	applyEbayDefaults(&cfg.Ebay)
 	applyLLMDefaults(&cfg.LLM)
 	applyScoringDefaults(&cfg.Scoring)
 	applyScheduleDefaults(&cfg.Schedule)
 	applyLoggingDefaults(&cfg.Logging)
+}
+
+func applyEbayDefaults(e *EbayConfig) {
+	if e.TokenURL == "" {
+		e.TokenURL = "https://api.ebay.com/identity/v1/oauth2/token"
+	}
+	if e.BrowseURL == "" {
+		e.BrowseURL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
+	}
 }
 
 func applyServerDefaults(s *ServerConfig) {
