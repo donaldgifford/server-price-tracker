@@ -22,8 +22,10 @@ ebay:
   app_id: "${EBAY_APP_ID}"
   cert_id: "${EBAY_CERT_ID}"
   # Override for sandbox: https://api.sandbox.ebay.com/identity/v1/oauth2/token
+  # Override for mock server: http://localhost:8089/identity/v1/oauth2/token
   token_url: "${EBAY_TOKEN_URL}"
   # Override for sandbox: https://api.sandbox.ebay.com/buy/browse/v1/item_summary/search
+  # Override for mock server: http://localhost:8089/buy/browse/v1/item_summary/search
   browse_url: "${EBAY_BROWSE_URL}"
   # Marketplace (EBAY_US, EBAY_UK, etc.)
   marketplace: EBAY_US

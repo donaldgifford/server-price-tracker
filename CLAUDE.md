@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Server Price Tracker is an API-first Go service that monitors eBay listings for server hardware deals (RAM, drives, servers, CPUs, NICs). It extracts structured attributes via LLM (Ollama default, Anthropic Claude API optional), scores listings against historical price baselines, and sends deal alerts via Discord webhooks. The CLI acts as a thin client to the HTTP API.
 
-**Current state:** MVP implementation is complete (Phases 0-9). All domain types, scoring engine, LLM extraction, eBay integration, API handlers, middleware, and deployment manifests are implemented. See `docs/IMPLEMENTATION.md` for the full build plan.
+**Current state:** MVP implementation is complete (Phases 0-9) and serve.go is fully wired (Phase 3 post-implementation). All components are connected: database, eBay client, LLM extractor, notifier, engine, scheduler, and all API routes. The server starts gracefully even if external services are unavailable. See `docs/IMPLEMENTATION.md` for the MVP build plan and `docs/POST_IMPLEMENTATION.md` for the wiring/integration plan.
 
 ## Build & Development Commands
 
@@ -48,9 +48,15 @@ make mocks                    # or: mockery
 # Apply database migrations
 make migrate                  # or: go run ./cmd/server-price-tracker migrate
 
-# Docker (not yet wired — targets in docker.mk are placeholder references)
-# make docker-up              # Start PostgreSQL
-# make docker-down            # Stop PostgreSQL
+# Docker local dev (PostgreSQL + Ollama)
+make docker-up                # Start PostgreSQL and Ollama containers
+make docker-down              # Stop all containers
+make docker-clean             # Stop and remove containers, volumes, images
+make ollama-pull              # Pull Ollama model (default: qwen2.5:3b)
+make dev-setup                # Full local dev setup: docker-up + migrate + ollama-pull
+
+# Mock eBay server (for local testing without real eBay credentials)
+make mock-server              # Start mock eBay server on port 8089
 
 # Build cross-platform (via GoReleaser)
 goreleaser build --snapshot --clean
@@ -81,7 +87,7 @@ Every external dependency is abstracted behind a Go interface. Mockery generates
 | `Extractor` | `pkg/extract` | `LLMExtractor`, `MockExtractor` |
 | `EbayClient` | `internal/ebay` | `BrowseClient`, `MockEbayClient` |
 | `TokenProvider` | `internal/ebay` | `OAuthTokenProvider`, `MockTokenProvider` |
-| `Notifier` | `internal/notify` | `DiscordNotifier`, `MockNotifier` |
+| `Notifier` | `internal/notify` | `DiscordNotifier`, `NoOpNotifier`, `MockNotifier` |
 
 ### Pipeline
 
@@ -102,10 +108,12 @@ configs/                      YAML configuration files
 migrations/                   PostgreSQL schema migrations (source of truth)
 internal/store/migrations/    Embedded copy for Go embed.FS
 scripts/makefiles/            Modular Makefile includes (common, go, docker, db)
+tools/mock-server/            Mock eBay API server for local dev (JSON fixtures)
 test/                         Top-level test directories
   e2e/                        End-to-end tests (//go:build e2e)
   integration/                Cross-cutting integration tests (//go:build integration)
   utils/                      Shared test utilities
+scripts/docker/               Docker Compose for local dev (PostgreSQL + Ollama)
 deploy/                       Kubernetes manifests (Kustomize base + overlays)
   argocd/                     ArgoCD Application manifest
   base/                       Base Kustomize resources

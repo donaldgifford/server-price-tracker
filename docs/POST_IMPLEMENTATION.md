@@ -26,7 +26,7 @@ Docker image builds.
 
 ### 1.1 Create `scripts/docker/docker-compose.yml`
 
-- [ ] Create `scripts/docker/docker-compose.yml` with:
+- [x] Create `scripts/docker/docker-compose.yml` with:
   - **postgres** service (postgres:17-alpine)
     - `POSTGRES_DB=server_price_tracker`, `POSTGRES_USER=tracker`,
       `POSTGRES_PASSWORD=${DB_PASSWORD:-devpassword}`
@@ -37,38 +37,38 @@ Docker image builds.
     - Port 11434 exposed
     - Named volume `ollama_data` for model persistence across restarts
     - Healthcheck: `curl -f http://localhost:11434/api/tags || exit 1`
-- [ ] Add a `profiles: [gpu]` variant or comment for GPU passthrough (nvidia)
-- [ ] Add a comment documenting the model pull step:
+- [x] Add a `profiles: [gpu]` variant or comment for GPU passthrough (nvidia)
+- [x] Add a comment documenting the model pull step:
       `docker compose exec ollama ollama pull <model>`
 
 ### 1.2 Wire `scripts/makefiles/docker.mk`
 
-- [ ] Uncomment and update docker targets to use
+- [x] Uncomment and update docker targets to use
       `scripts/docker/docker-compose.yml`
-- [ ] `docker-up`: Start postgres and ollama, wait for healthchecks
-- [ ] `docker-down`: Stop all containers
-- [ ] `docker-clean`: Stop and remove containers, volumes, images
-- [ ] `docker-logs`: Tail logs
-- [ ] Add `ollama-pull` target:
+- [x] `docker-up`: Start postgres and ollama, wait for healthchecks
+- [x] `docker-down`: Stop all containers
+- [x] `docker-clean`: Stop and remove containers, volumes, images
+- [x] `docker-logs`: Tail logs
+- [x] Add `ollama-pull` target:
       `docker compose exec ollama ollama pull $(OLLAMA_MODEL)`
-- [ ] Add `OLLAMA_MODEL` variable in `common.mk` (default: `qwen2.5:3b`)
-- [ ] Add `CONFIG` variable in `common.mk` (default:
+- [x] Add `OLLAMA_MODEL` variable in `common.mk` (default: `qwen2.5:3b`)
+- [x] Add `CONFIG` variable in `common.mk` (default:
       `configs/config.dev.yaml`), usable as `make run CONFIG=configs/other.yaml`
-- [ ] Add `dev-setup` target that runs `docker-up`, waits for postgres, runs
+- [x] Add `dev-setup` target that runs `docker-up`, waits for postgres, runs
       `migrate`, pulls the ollama model
 
 ### 1.3 Verify app Docker image builds
 
-- [ ] Run `docker build -t server-price-tracker:dev .` using the root
+- [x] Run `docker build -t server-price-tracker:dev .` using the root
       `Dockerfile`
-- [ ] Verify the image starts and responds to `/healthz` (will fail on DB
+- [x] Verify the image starts and responds to `/healthz` (will fail on DB
       connect for readyz — that's expected)
 
 ### 1.4 Move root `docker-compose.yml` into `scripts/docker/`
 
-- [ ] The current root `docker-compose.yml` (postgres-only) should be replaced
+- [x] The current root `docker-compose.yml` (postgres-only) should be replaced
       by the new one in `scripts/docker/`
-- [ ] Delete root `docker-compose.yml`
+- [x] Delete root `docker-compose.yml`
 
 **Success criteria:**
 
@@ -90,52 +90,52 @@ gives us realistic test data without depending on the eBay sandbox.
 
 ### 2.1 Scaffold `tools/mock-server`
 
-- [ ] Create `tools/mock-server/main.go` — Cobra or plain `net/http` server
-- [ ] Listen on a configurable port (default: `8089`)
-- [ ] Log requests for debugging
+- [x] Create `tools/mock-server/main.go` — Cobra or plain `net/http` server
+- [x] Listen on a configurable port (default: `8089`)
+- [x] Log requests for debugging
 
 ### 2.2 OAuth token endpoint
 
-- [ ] `POST /identity/v1/oauth2/token` — returns a static access token response:
+- [x] `POST /identity/v1/oauth2/token` — returns a static access token response:
       ```json
       {"access_token":"mock-token-xxx","expires_in":7200,"token_type":"Application Access Token"}
       ```
-- [ ] Validate Basic Auth header is present (don't need to verify actual creds)
+- [x] Validate Basic Auth header is present (don't need to verify actual creds)
 
 ### 2.3 Browse API search endpoint
 
-- [ ] `GET /buy/browse/v1/item_summary/search` — returns items from a JSON
+- [x] `GET /buy/browse/v1/item_summary/search` — returns items from a JSON
       fixture file
-- [ ] Read fixture from `tools/mock-server/testdata/search_response.json`
-- [ ] Support `q` query parameter for basic filtering (substring match on
+- [x] Read fixture from `tools/mock-server/testdata/search_response.json`
+- [x] Support `q` query parameter for basic filtering (substring match on
       title) or return all items regardless
-- [ ] Support `limit` and `offset` for pagination
+- [x] Support `limit` and `offset` for pagination
 
 ### 2.4 Create fixture data
 
-- [ ] Create `tools/mock-server/testdata/search_response.json` with 10-20
+- [x] Create `tools/mock-server/testdata/search_response.json` with 10-20
       realistic server hardware listings covering:
   - DDR4/DDR5 ECC RAM (various capacities: 16GB, 32GB, 64GB, 128GB)
   - NVMe/SAS/SATA drives
   - Dell/HP/Supermicro servers
   - Xeon/EPYC CPUs
   - Mellanox/Intel NICs
-- [ ] Include realistic pricing, seller info, shipping, conditions, images
-- [ ] Include a mix of auction, buy_it_now, and best_offer listing types
-- [ ] Structure matches eBay Browse API `itemSummaries` response format
+- [x] Include realistic pricing, seller info, shipping, conditions, images
+- [x] Include a mix of auction, buy_it_now, and best_offer listing types
+- [x] Structure matches eBay Browse API `itemSummaries` response format
 
 ### 2.5 Wire into local dev
 
-- [ ] Add `mock-server` service to `scripts/docker/docker-compose.yml`
+- [x] Add `mock-server` service to `scripts/docker/docker-compose.yml`
       (build from `tools/mock-server/Dockerfile` or run via `go run`)
-- [ ] OR add a `mock-server` Makefile target to run it standalone
-- [ ] Update `configs/config.dev.yaml` comments to show how to point
+- [x] OR add a `mock-server` Makefile target to run it standalone
+- [x] Update `configs/config.dev.yaml` comments to show how to point
       `EBAY_TOKEN_URL` and `EBAY_BROWSE_URL` at the mock server
       (e.g., `http://localhost:8089`)
 
 ### 2.6 Tests
 
-- [ ] Unit tests for the mock server handler (fixture loading, query filtering)
+- [x] Unit tests for the mock server handler (fixture loading, query filtering)
 
 **Success criteria:**
 
@@ -158,48 +158,48 @@ failures are logged but do not prevent startup.
 
 ### 3.1 Database connection
 
-- [ ] Create `pgxpool.Pool` from `cfg.Database.DSN()`
-- [ ] Create `store.NewPostgresStore(ctx, dsn)` (or accept pool directly —
+- [x] Create `pgxpool.Pool` from `cfg.Database.DSN()`
+- [x] Create `store.NewPostgresStore(ctx, dsn)` (or accept pool directly —
       check constructor)
-- [ ] Defer `store.Close()`
-- [ ] Log error if database is unreachable but continue startup
-- [ ] Replace inline `/healthz` handler with
+- [x] Defer `store.Close()`
+- [x] Log error if database is unreachable but continue startup
+- [x] Replace inline `/healthz` handler with
       `handlers.NewHealthHandler(store).Healthz`
-- [ ] Replace inline `/readyz` handler with
+- [x] Replace inline `/readyz` handler with
       `handlers.NewHealthHandler(store).Readyz`
 
 ### 3.2 eBay client
 
-- [ ] Build OAuth token provider:
+- [x] Build OAuth token provider:
       `NewOAuthTokenProvider(cfg.Ebay.AppID, cfg.Ebay.CertID, WithTokenURL(cfg.Ebay.TokenURL))`
-- [ ] Build Browse client:
+- [x] Build Browse client:
       `NewBrowseClient(tokenProvider, WithBrowseURL(cfg.Ebay.BrowseURL), WithMarketplace(cfg.Ebay.Marketplace))`
-- [ ] If `AppID` or `CertID` are empty, log a warning and continue without
+- [x] If `AppID` or `CertID` are empty, log a warning and continue without
       eBay (search/ingest handlers will return an error when called)
 
 ### 3.3 LLM extractor
 
-- [ ] Switch on `cfg.LLM.Backend` to create the appropriate backend:
+- [x] Switch on `cfg.LLM.Backend` to create the appropriate backend:
   - `"ollama"` →
     `NewOllamaBackend(cfg.LLM.Ollama.Endpoint, cfg.LLM.Ollama.Model)`
   - `"anthropic"` →
     `NewAnthropicBackend(WithAnthropicModel(cfg.LLM.Anthropic.Model))`
   - `"openai_compat"` →
     `NewOpenAICompatBackend(cfg.LLM.OpenAICompat.Endpoint, cfg.LLM.OpenAICompat.Model)`
-- [ ] Create `NewLLMExtractor(backend)`
-- [ ] Log the configured backend on startup
+- [x] Create `NewLLMExtractor(backend)`
+- [x] Log the configured backend on startup
 
 ### 3.4 Notifier
 
-- [ ] Create a `NoOpNotifier` in `internal/notify/noop.go` that implements
+- [x] Create a `NoOpNotifier` in `internal/notify/noop.go` that implements
       `Notifier` and logs discarded alerts
-- [ ] If `cfg.Notifications.Discord.Enabled` and webhook URL is non-empty:
+- [x] If `cfg.Notifications.Discord.Enabled` and webhook URL is non-empty:
       create `NewDiscordNotifier(cfg.Notifications.Discord.WebhookURL)`
-- [ ] Otherwise: use `NoOpNotifier` and log that notifications are disabled
+- [x] Otherwise: use `NoOpNotifier` and log that notifications are disabled
 
 ### 3.5 Engine
 
-- [ ] Create engine with all four dependencies:
+- [x] Create engine with all four dependencies:
       ```
       NewEngine(store, ebayClient, extractor, notifier,
           WithLogger(slogger),
@@ -207,21 +207,21 @@ failures are logged but do not prevent startup.
           WithStaggerOffset(cfg.Schedule.StaggerOffset),
       )
       ```
-- [ ] If eBay client is nil (credentials missing), pass nil and handle
+- [x] If eBay client is nil (credentials missing), pass nil and handle
       gracefully in engine — or skip engine creation and register handlers
       that return 503 for search/ingest routes
-- [ ] Log which components are active vs disabled
+- [x] Log which components are active vs disabled
 
 ### 3.6 Scheduler
 
-- [ ] Create scheduler:
+- [x] Create scheduler:
       `NewScheduler(engine, cfg.Schedule.IngestionInterval, cfg.Schedule.BaselineInterval, slogger)`
-- [ ] Call `scheduler.Start()` after Echo server starts
-- [ ] Only create scheduler if engine was successfully created
+- [x] Call `scheduler.Start()` after Echo server starts
+- [x] Only create scheduler if engine was successfully created
 
 ### 3.7 Register handlers and routes
 
-- [ ] Instantiate all handlers:
+- [x] Instantiate all handlers:
       ```
       healthH    := handlers.NewHealthHandler(store)
       listingsH  := handlers.NewListingsHandler(store)
@@ -232,7 +232,7 @@ failures are logged but do not prevent startup.
       ingestH    := handlers.NewIngestHandler(engine)
       baselineH  := handlers.NewBaselineRefreshHandler(engine)
       ```
-- [ ] Register routes on Echo:
+- [x] Register routes on Echo:
       ```
       // Health
       e.GET("/healthz", healthH.Healthz)
@@ -257,19 +257,19 @@ failures are logged but do not prevent startup.
       // Prometheus
       e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
       ```
-- [ ] Remove the inline healthz/readyz handlers that are there now
-- [ ] Remove all `TODO(wire)` comments
+- [x] Remove the inline healthz/readyz handlers that are there now
+- [x] Remove all `TODO(wire)` comments
 
 ### 3.8 Shutdown sequence
 
-- [ ] On signal, stop scheduler first, then shut down Echo:
+- [x] On signal, stop scheduler first, then shut down Echo:
       ```
       schedCtx := scheduler.Stop()
       <-schedCtx.Done()
       e.Shutdown(ctx)
       store.Close()
       ```
-- [ ] Remove `TODO(wire)` comment about scheduler stop
+- [x] Remove `TODO(wire)` comment about scheduler stop
 
 **Success criteria:**
 
@@ -370,31 +370,31 @@ are accurate.
 
 ### 5.1 Docker image with wired serve.go
 
-- [ ] Rebuild: `docker build -t server-price-tracker:latest .`
+- [x] Rebuild: `docker build -t server-price-tracker:latest .`
 - [ ] Run with docker-compose (pass config via volume mount or env vars)
 - [ ] Verify the container starts, connects to Postgres, and serves `/healthz`
 
 ### 5.2 Update Kustomize configmap
 
-- [ ] Verify `deploy/base/configmap.yaml` has the config sections needed by the
+- [x] Verify `deploy/base/configmap.yaml` has the config sections needed by the
       wired serve.go
-- [ ] Add any missing config sections (the configmap currently has a minimal
+- [x] Add any missing config sections (the configmap currently has a minimal
       config — may need full sections for LLM backend, scoring, schedule)
 
 ### 5.3 Validate Kustomize manifests
 
-- [ ] `kubectl kustomize deploy/base` — no errors
-- [ ] `kubectl kustomize deploy/overlays/dev` — no errors
-- [ ] `kubectl kustomize deploy/overlays/prod` — no errors
-- [ ] Verify deployment env vars match what serve.go expects
-- [ ] Verify the init container migration command still works with the wired
+- [x] `kubectl kustomize deploy/base` — no errors
+- [x] `kubectl kustomize deploy/overlays/dev` — no errors
+- [x] `kubectl kustomize deploy/overlays/prod` — no errors
+- [x] Verify deployment env vars match what serve.go expects
+- [x] Verify the init container migration command still works with the wired
       config
 
 ### 5.4 Document the deployment
 
-- [ ] Update CLAUDE.md if any deployment details changed
-- [ ] Verify `.env.example` matches all env vars the wired serve.go references
-- [ ] Verify `configs/config.example.yaml` is complete and accurate
+- [x] Update CLAUDE.md if any deployment details changed
+- [x] Verify `.env.example` matches all env vars the wired serve.go references
+- [x] Verify `configs/config.example.yaml` is complete and accurate
 
 **Success criteria:**
 

@@ -23,8 +23,13 @@ BIN_DIR        := $(BUILD_DIR)/bin
 CMD            := ./cmd
 
 ## Dev Variables
-CONFIGS := ./configs
+CONFIGS         := ./configs
 DEV_CONFIG_FILE := $(CONFIGS)/config.dev.yaml
+CONFIG          ?= $(DEV_CONFIG_FILE)
+OLLAMA_MODEL    ?= qwen2.5:3b
+
+## Docker Variables
+DOCKER_COMPOSE  := scripts/docker/docker-compose.yml
 
 ## Version Information
 

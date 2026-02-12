@@ -89,13 +89,13 @@ mocks: ## Generate mocks for testing
 
 ## Application Services
 
-run: ## Go Run
+run: ## Go Run (override config: make run CONFIG=configs/other.yaml)
 	@ $(MAKE) --no-print-directory log-$@
-	@go run $(CMD)/$(PROJECT_NAME) serve --config $(DEV_CONFIG_FILE)
+	@go run $(CMD)/$(PROJECT_NAME) serve --config $(CONFIG)
 
 run-local: build ## Run built binary
 	@ $(MAKE) --no-print-directory log-$@
-	@$(BIN_DIR)/$(PROJECT_NAME) --config $(DEV_CONFIG_FILE)
+	@$(BIN_DIR)/$(PROJECT_NAME) --config $(CONFIG)
 
 ## License Compliance
 

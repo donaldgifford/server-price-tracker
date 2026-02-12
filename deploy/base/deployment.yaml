@@ -16,13 +16,14 @@ spec:
       initContainers:
         - name: migrate
           image: server-price-tracker:latest
-          command: ["server-price-tracker", "migrate"]
-          env:
-            - name: DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: server-price-tracker-secrets
-                  key: database-url
+          command: ["server-price-tracker", "migrate", "--config", "/etc/spt/config.yaml"]
+          envFrom:
+            - secretRef:
+                name: server-price-tracker-secrets
+          volumeMounts:
+            - name: config
+              mountPath: /etc/spt
+              readOnly: true
           resources:
             requests:
               cpu: 50m
@@ -38,27 +39,9 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
-          env:
-            - name: DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: server-price-tracker-secrets
-                  key: database-url
-            - name: EBAY_APP_ID
-              valueFrom:
-                secretKeyRef:
-                  name: server-price-tracker-secrets
-                  key: ebay-app-id
-            - name: EBAY_CERT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: server-price-tracker-secrets
-                  key: ebay-cert-id
-            - name: DISCORD_WEBHOOK_URL
-              valueFrom:
-                secretKeyRef:
-                  name: server-price-tracker-secrets
-                  key: discord-webhook-url
+          envFrom:
+            - secretRef:
+                name: server-price-tracker-secrets
           volumeMounts:
             - name: config
               mountPath: /etc/spt
