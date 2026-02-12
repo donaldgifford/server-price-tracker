@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server-price-tracker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server-price-tracker
+  template:
+    metadata:
+      labels:
+        app: server-price-tracker
+    spec:
+      serviceAccountName: server-price-tracker
+      initContainers:
+        - name: migrate
+          image: server-price-tracker:latest
+          command: ["server-price-tracker", "migrate"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: server-price-tracker-secrets
+                  key: database-url
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      containers:
+        - name: server-price-tracker
+          image: server-price-tracker:latest
+          args: ["serve", "--config", "/etc/spt/config.yaml"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: server-price-tracker-secrets
+                  key: database-url
+            - name: EBAY_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: server-price-tracker-secrets
+                  key: ebay-app-id
+            - name: EBAY_CERT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: server-price-tracker-secrets
+                  key: ebay-cert-id
+            - name: DISCORD_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: server-price-tracker-secrets
+                  key: discord-webhook-url
+          volumeMounts:
+            - name: config
+              mountPath: /etc/spt
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: server-price-tracker-config

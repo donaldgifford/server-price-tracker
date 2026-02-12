@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: server-price-tracker
+spec:
+  selector:
+    app: server-price-tracker
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

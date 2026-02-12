@@ -996,7 +996,7 @@ Note: Full end-to-end deployment depends on external services (eBay API approval
   ```
   - This is **not** the production deployment — just a convenience for local development
 
-- [ ] **9.3 — Kustomize base manifests**
+- [x] **9.3 — Kustomize base manifests**
   ```
   deploy/
   ├── base/
@@ -1018,7 +1018,7 @@ Note: Full end-to-end deployment depends on external services (eBay API approval
       └── application.yaml
   ```
 
-- [ ] **9.4 — Deployment manifest**
+- [x] **9.4 — Deployment manifest**
   - `deploy/base/deployment.yaml`:
     - Single replica (MVP)
     - Liveness probe: `GET /healthz`
@@ -1028,7 +1028,7 @@ Note: Full end-to-end deployment depends on external services (eBay API approval
     - Secrets from Kubernetes Secret (DB creds, API keys, webhook URL)
     - Init container runs `server-price-tracker migrate`
 
-- [ ] **9.5 — Cilium HTTPRoute**
+- [x] **9.5 — Cilium HTTPRoute**
   - `deploy/base/httproute.yaml`:
     ```yaml
     apiVersion: gateway.networking.k8s.io/v1
@@ -1051,7 +1051,7 @@ Note: Full end-to-end deployment depends on external services (eBay API approval
               port: 8080
     ```
 
-- [ ] **9.6 — ServiceMonitor for Prometheus**
+- [x] **9.6 — ServiceMonitor for Prometheus**
   - `deploy/base/servicemonitor.yaml`:
     ```yaml
     apiVersion: monitoring.coreos.com/v1
@@ -1068,11 +1068,11 @@ Note: Full end-to-end deployment depends on external services (eBay API approval
           interval: 15s
     ```
 
-- [ ] **9.7 — ArgoCD Application**
+- [x] **9.7 — ArgoCD Application**
   - `deploy/argocd/application.yaml` pointing to this repo's `deploy/overlays/prod`
   - Auto-sync with prune enabled
 
-- [ ] **9.8 — Kustomize overlays**
+- [x] **9.8 — Kustomize overlays**
   - `dev`: lower resource limits, debug log level, 1 replica
   - `prod`: production resources, info log level, potential HPA
 

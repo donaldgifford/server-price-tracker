@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server-price-tracker-config
+data:
+  config.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 8080
+    logging:
+      level: "debug"
+    ebay:
+      marketplace: "EBAY_US"
+    extraction:
+      backend: "ollama"
+      ollama_url: "http://ollama.ollama.svc:11434"
+      model: "mistral:7b-instruct-q5_K_M"
+      temperature: 0.1
+    scoring:
+      baseline_window_days: 30
+      min_baseline_samples: 10
+    scheduler:
+      ingestion_interval: "30m"
+      baseline_interval: "6h"
