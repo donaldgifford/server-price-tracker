@@ -1,0 +1,10 @@
+.git
+.github
+.claude
+bin
+docs
+*.md
+.env
+.env.*
+coverage.out
+*.out

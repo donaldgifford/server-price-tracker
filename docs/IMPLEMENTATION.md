@@ -955,7 +955,7 @@ Note: Full end-to-end deployment depends on external services (eBay API approval
 
 ### Tasks
 
-- [ ] **9.1 — Dockerfile**
+- [x] **9.1 — Dockerfile**
   ```dockerfile
   FROM golang:1.25-alpine AS builder
   WORKDIR /app
@@ -972,7 +972,7 @@ Note: Full end-to-end deployment depends on external services (eBay API approval
   CMD ["serve"]
   ```
 
-- [ ] **9.2 — Docker Compose (local development only)**
+- [x] **9.2 — Docker Compose (local development only)**
   - Minimal compose for local dev: just Postgres + the app
   - Ollama, Prometheus, Grafana are optional and run separately
   ```yaml
