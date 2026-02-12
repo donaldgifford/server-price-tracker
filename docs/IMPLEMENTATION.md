@@ -910,7 +910,7 @@ This approach means we can build and fully test every component before eBay API 
   | Nil baseline | `pkg/scorer` | Price factor neutral 50 |
   | 0 quantity listing | `pkg/scorer` | Handled without divide-by-zero |
 
-- [ ] **8.3 — Integration tests**
+- [x] **8.3 — Integration tests**
   All tagged `//go:build integration`:
   - Full pipeline with testcontainers (Postgres):
     - Upsert listing → extract (mock LLM) → score → alert → notify (mock)
@@ -918,32 +918,32 @@ This approach means we can build and fully test every component before eBay API 
   - Ollama backend against real Ollama (when available)
   - API server with real store: httptest client → Echo → Postgres
 
-- [ ] **8.4 — Logging strategy**
+- [x] **8.4 — Logging strategy**
   - `charmbracelet/log` with structured fields
   - Log levels: DEBUG (raw responses), INFO (summaries), WARN (failures), ERROR (unrecoverable)
   - Request logging middleware: method, path, status, duration, request ID
 
-- [ ] **8.5 — Request logging middleware**
+- [x] **8.5 — Request logging middleware**
   - Echo middleware that logs all requests
   - Request ID propagated through context for correlation
   - **Tests:** Table-driven middleware test:
     - Request → log entry with correct method/path/status
 
-- [ ] **8.6 — Panic recovery**
+- [x] **8.6 — Panic recovery**
   - Echo recovery middleware
   - Engine loop recovery
   - `// TODO(test): panic recovery tested manually and via integration tests`
 
 ### Success Criteria
 
-- [ ] `go test ./...` passes with 0 failures
-- [ ] Coverage >= 90% on `pkg/`, >= 80% on `internal/`
-- [ ] All edge cases from table have explicit test cases
-- [ ] Integration tests pass with `-tags integration` (where services available)
-- [ ] `golangci-lint run ./...` passes with zero issues
-- [ ] All `// TODO(test):` annotations reviewed — either tests added or rationale documented
-- [ ] No panics escape (recovery middleware verified)
-- [ ] Structured logging verified at all levels
+- [x] `go test ./...` passes with 0 failures
+- [x] Coverage >= 90% on `pkg/`, >= 80% on `internal/`
+- [x] All edge cases from table have explicit test cases
+- [x] Integration tests pass with `-tags integration` (where services available)
+- [x] `golangci-lint run ./...` passes with zero issues
+- [x] All `// TODO(test):` annotations reviewed — either tests added or rationale documented
+- [x] No panics escape (recovery middleware verified)
+- [x] Structured logging verified at all levels
 
 ---
 

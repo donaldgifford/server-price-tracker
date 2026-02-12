@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -39,9 +40,20 @@ func runServe(_ *cobra.Command, _ []string) error {
 		Level: parseLogLevel(cfg.Logging.Level),
 	})
 
+	slogLevel := parseSlogLevel(cfg.Logging.Level)
+	slogger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slogLevel,
+	}))
+
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+
+	// Recovery middleware (must be first to catch panics from other middleware).
+	e.Use(apimw.Recovery(slogger))
+
+	// Request logging middleware.
+	e.Use(apimw.RequestLog(slogger))
 
 	// Prometheus HTTP middleware.
 	e.Use(apimw.Metrics())
@@ -107,5 +119,18 @@ func parseLogLevel(level string) log.Level {
 		return log.ErrorLevel
 	default:
 		return log.InfoLevel
+	}
+}
+
+func parseSlogLevel(level string) slog.Level {
+	switch level {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
 	}
 }
