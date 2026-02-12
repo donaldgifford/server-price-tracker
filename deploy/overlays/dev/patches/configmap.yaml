@@ -7,18 +7,24 @@ data:
     server:
       host: "0.0.0.0"
       port: 8080
+
     logging:
-      level: "debug"
-    ebay:
-      marketplace: "EBAY_US"
-    extraction:
-      backend: "ollama"
-      ollama_url: "http://ollama.ollama.svc:11434"
-      model: "mistral:7b-instruct-q5_K_M"
-      temperature: 0.1
+      level: debug
+      format: text
+
+    llm:
+      backend: ollama
+      ollama:
+        endpoint: http://ollama.ollama.svc:11434
+        model: "mistral:7b-instruct-v0.3-q5_K_M"
+      concurrency: 4
+      timeout: 60s
+
     scoring:
       baseline_window_days: 30
       min_baseline_samples: 10
-    scheduler:
-      ingestion_interval: "30m"
-      baseline_interval: "6h"
+
+    schedule:
+      ingestion_interval: 30m
+      baseline_interval: 6h
+      stagger_offset: 30s
