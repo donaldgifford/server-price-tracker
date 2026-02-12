@@ -137,10 +137,11 @@ func searchHandler(logger *slog.Logger, fixture *browseAPIResponse) http.Handler
 			}
 		}
 
-		// Filter items by query substring match on title.
+		// Filter items: every word in the query must appear in the title.
+		queryWords := strings.Fields(q)
 		var matched []json.RawMessage
 		for _, item := range items {
-			if q == "" || strings.Contains(item.title, q) {
+			if q == "" || containsAllWords(item.title, queryWords) {
 				matched = append(matched, item.raw)
 			}
 		}
@@ -179,4 +180,13 @@ func searchHandler(logger *slog.Logger, fixture *browseAPIResponse) http.Handler
 		json.NewEncoder(w).Encode(resp)
 		logger.Info("search", "query", q, "matched", total, "returned", len(matched), "offset", offset, "limit", limit)
 	}
+}
+
+func containsAllWords(title string, words []string) bool {
+	for _, w := range words {
+		if !strings.Contains(title, w) {
+			return false
+		}
+	}
+	return true
 }

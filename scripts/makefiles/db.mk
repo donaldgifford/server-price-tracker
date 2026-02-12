@@ -9,5 +9,6 @@
 
 ## Migration Targets
 
-migrate: ## run migrations
-	go run $(CMD) migrate
+migrate: ## Run database migrations
+	@ $(MAKE) --no-print-directory log-$@
+	@go run $(CMD)/$(PROJECT_NAME) migrate --config $(CONFIG)

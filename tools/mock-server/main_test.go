@@ -177,6 +177,24 @@ func TestSearchHandler_PaginationOffset(t *testing.T) {
 	}
 }
 
+func TestSearchHandler_MultiWordQuery(t *testing.T) {
+	fixture := loadTestFixture(t)
+	handler := searchHandler(testLogger(), fixture)
+	// "32GB DDR4 ECC" should match items containing all three words.
+	req := httptest.NewRequest(http.MethodGet, "/buy/browse/v1/item_summary/search?q=32GB+DDR4+ECC", http.NoBody)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	var resp browseAPIResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decoding response: %v", err)
+	}
+	if resp.Total == 0 {
+		t.Error("expected multi-word query to match items with all words present")
+	}
+}
+
 func TestSearchHandler_NoResults(t *testing.T) {
 	fixture := loadTestFixture(t)
 	handler := searchHandler(testLogger(), fixture)

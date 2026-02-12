@@ -650,8 +650,9 @@ func TestConvertItemSummary(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			result := convertItemSummary(&tt.item)
-			tt.checkFn(t, result)
+			results := ebay.ToListings([]ebay.ItemSummary{tt.item})
+			require.Len(t, results, 1)
+			tt.checkFn(t, &results[0])
 		})
 	}
 }

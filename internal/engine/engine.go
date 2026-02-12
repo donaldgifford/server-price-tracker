@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"github.com/donaldgifford/server-price-tracker/internal/ebay"
@@ -126,8 +125,9 @@ func (eng *Engine) processWatch(ctx context.Context, w *domain.Watch) error {
 		return fmt.Errorf("searching eBay: %w", err)
 	}
 
-	for i := range resp.Items {
-		listing := convertItemSummary(&resp.Items[i])
+	listings := ebay.ToListings(resp.Items)
+	for i := range listings {
+		listing := &listings[i]
 
 		if err := eng.store.UpsertListing(ctx, listing); err != nil {
 			eng.log.Error("upsert failed", "ebay_id", listing.EbayID, "error", err)
@@ -207,43 +207,4 @@ func (eng *Engine) RunBaselineRefresh(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func convertItemSummary(item *ebay.ItemSummary) *domain.Listing {
-	l := &domain.Listing{
-		EbayID:       item.ItemID,
-		Title:        item.Title,
-		ItemURL:      item.ItemWebURL,
-		Currency:     item.Price.Currency,
-		ConditionRaw: item.Condition,
-		Quantity:     1,
-	}
-
-	if p, err := strconv.ParseFloat(item.Price.Value, 64); err == nil {
-		l.Price = p
-	}
-
-	if item.Image != nil {
-		l.ImageURL = item.Image.ImageURL
-	}
-
-	if item.Seller != nil {
-		l.SellerName = item.Seller.Username
-		l.SellerFeedback = item.Seller.FeedbackScore
-		if pct, err := strconv.ParseFloat(item.Seller.FeedbackPercentage, 64); err == nil {
-			l.SellerFeedbackPct = pct
-		}
-	}
-
-	l.SellerTopRated = item.TopRatedBuyingExperience
-
-	if len(item.ShippingOptions) > 0 && item.ShippingOptions[0].ShippingCost != nil {
-		if sc, err := strconv.ParseFloat(
-			item.ShippingOptions[0].ShippingCost.Value, 64,
-		); err == nil {
-			l.ShippingCost = &sc
-		}
-	}
-
-	return l
 }

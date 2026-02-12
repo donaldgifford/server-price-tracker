@@ -290,60 +290,64 @@ Ollama, and Postgres.
 
 ### 4.1 Bring up local dev environment
 
-- [ ] `make dev-setup` (docker-up + migrate + ollama-pull)
-- [ ] Start mock server: `go run ./tools/mock-server`
-- [ ] Set `EBAY_TOKEN_URL=http://localhost:8089/identity/v1/oauth2/token` and
+- [x] `make dev-setup` (docker-up + migrate + ollama-pull)
+- [x] Start mock server: `docker compose up -d mock-ebay` (runs in
+      docker-compose)
+- [x] Set `EBAY_TOKEN_URL=http://localhost:8089/identity/v1/oauth2/token` and
       `EBAY_BROWSE_URL=http://localhost:8089/buy/browse/v1/item_summary/search`
       in `.env` (or keep sandbox URLs to test against real eBay)
-- [ ] `make run`
-- [ ] Verify `/healthz` returns 200
-- [ ] Verify `/readyz` returns 200 (database connected)
+- [x] `make run`
+- [x] Verify `/healthz` returns 200
+- [x] Verify `/readyz` returns 200 (database connected)
 
 ### 4.2 Create a watch via CLI or curl
 
-- [ ] Create a watch:
+- [x] Create a watch:
       ```bash
       curl -X POST http://localhost:8080/api/v1/watches \
         -H 'Content-Type: application/json' \
         -d '{"name":"DDR4 ECC 32GB","search_query":"32GB DDR4 ECC RDIMM","component_type":"ram","score_threshold":70}'
       ```
-- [ ] Verify watch appears in `GET /api/v1/watches`
+- [x] Verify watch appears in `GET /api/v1/watches`
 
 ### 4.3 Test eBay search (via mock or sandbox)
 
-- [ ] `POST /api/v1/search` with `{"query":"32GB DDR4 ECC","limit":3}`
-- [ ] Verify response contains realistic item summaries
-- [ ] If using sandbox and results are empty, switch to mock server
+- [x] `POST /api/v1/search` with `{"query":"32GB DDR4 ECC","limit":3}`
+- [x] Verify response contains realistic item summaries
+- [x] If using sandbox and results are empty, switch to mock server
 
 ### 4.4 Test LLM extraction
 
-- [ ] `POST /api/v1/extract` with
+- [x] `POST /api/v1/extract` with
       `{"title":"Samsung 32GB DDR4-2666 PC4-21300 ECC Registered RDIMM"}`
-- [ ] Verify response contains `component_type`, `attributes`, `product_key`
-- [ ] Verify Ollama logs show the request was processed
+- [~] Verify response contains `component_type`, `attributes`, `product_key`
+      (qwen2.5:3b on CPU is too slow/inaccurate for full extraction; classify
+      call alone takes >120s and extraction output often missing required
+      fields. Pipeline code works — needs larger model or GPU.)
+- [x] Verify Ollama logs show the request was processed
 
 ### 4.5 Trigger manual ingestion
 
-- [ ] `POST /api/v1/ingest`
-- [ ] Watch server logs for ingestion pipeline steps (search -> extract ->
+- [x] `POST /api/v1/ingest`
+- [x] Watch server logs for ingestion pipeline steps (search -> extract ->
       score -> alert evaluation)
-- [ ] Verify listings appear in `GET /api/v1/listings`
-- [ ] Verify listings have `component_type`, `attributes`, `product_key`, and
-      `score` populated
+- [x] Verify listings appear in `GET /api/v1/listings`
+- [~] Verify listings have `component_type`, `attributes`, `product_key`, and
+      `score` populated (blocked by extraction quality — see 4.4 note)
 
 ### 4.6 Verify scheduled ingestion
 
-- [ ] Set a short ingestion interval in config (e.g., 2m) for testing
-- [ ] Let the server run past one interval
-- [ ] Verify logs show scheduled ingestion firing
-- [ ] Verify new/updated listings appear
+- [x] Set a short ingestion interval in config (e.g., 2m) for testing
+- [x] Let the server run past one interval
+- [x] Verify logs show scheduled ingestion firing
+- [x] Verify new/updated listings appear
 
 ### 4.7 Test baseline and rescoring
 
-- [ ] `POST /api/v1/baselines/refresh`
-- [ ] If enough listings exist, verify baselines are computed
-- [ ] `POST /api/v1/rescore` — verify listings get re-scored with baseline
-      context
+- [x] `POST /api/v1/baselines/refresh`
+- [x] If enough listings exist, verify baselines are computed
+- [x] `POST /api/v1/rescore` — verify listings get re-scored with baseline
+      context (correctly skips unextracted listings)
 
 ### 4.8 Test Discord notifications (optional)
 
@@ -371,8 +375,8 @@ are accurate.
 ### 5.1 Docker image with wired serve.go
 
 - [x] Rebuild: `docker build -t server-price-tracker:latest .`
-- [ ] Run with docker-compose (pass config via volume mount or env vars)
-- [ ] Verify the container starts, connects to Postgres, and serves `/healthz`
+- [x] Run with docker-compose (pass config via volume mount or env vars)
+- [x] Verify the container starts, connects to Postgres, and serves `/healthz`
 
 ### 5.2 Update Kustomize configmap
 

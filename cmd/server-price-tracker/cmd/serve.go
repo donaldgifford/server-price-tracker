@@ -278,7 +278,15 @@ func buildLLMBackend(cfg *config.Config, logger *slog.Logger) extract.LLMBackend
 			logger.Warn("ollama endpoint not configured")
 			return nil
 		}
-		return extract.NewOllamaBackend(cfg.LLM.Ollama.Endpoint, cfg.LLM.Ollama.Model)
+		timeout := cfg.LLM.Timeout
+		if timeout == 0 {
+			timeout = 120 * time.Second
+		}
+		return extract.NewOllamaBackend(
+			cfg.LLM.Ollama.Endpoint,
+			cfg.LLM.Ollama.Model,
+			extract.WithOllamaHTTPClient(&http.Client{Timeout: timeout}),
+		)
 	case "anthropic":
 		return extract.NewAnthropicBackend(
 			extract.WithAnthropicModel(cfg.LLM.Anthropic.Model),

@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/donaldgifford/server-price-tracker/pkg/extract"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
@@ -53,6 +54,7 @@ func toListing(item *ItemSummary) domain.Listing {
 
 	// Condition
 	l.ConditionRaw = item.Condition
+	l.ConditionNorm = extract.NormalizeCondition(item.Condition)
 
 	// Shipping
 	if len(item.ShippingOptions) > 0 {

@@ -38,8 +38,8 @@ llm:
 
   ollama:
     endpoint: http://localhost:11434
-    model: mistral:7b-instruct-v0.3-q5_K_M
-    # Alternative: llama3.1:8b
+    model: qwen2.5:3b
+    # Cluster alternative: mistral:7b-instruct-v0.3-q5_K_M
 
   anthropic:
     # Model to use (claude-haiku-4-20250514 recommended for extraction)
@@ -54,8 +54,8 @@ llm:
   use_grammar: true
   # Max concurrent extraction requests
   concurrency: 4
-  # Timeout per extraction
-  timeout: 30s
+  # Timeout per LLM call (extraction does classify + extract = 2 calls)
+  timeout: 120s
 
 scoring:
   weights:

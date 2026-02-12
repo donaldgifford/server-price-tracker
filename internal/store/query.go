@@ -26,8 +26,8 @@ const defaultOrderBy = "first_seen_at DESC"
 const baseListingsSelect = `SELECT id, ebay_item_id, title, item_url, image_url,
 	price, currency, shipping_cost, listing_type,
 	seller_name, seller_feedback_score, seller_feedback_pct, seller_top_rated,
-	condition_raw, condition_norm, component_type, quantity, attributes,
-	extraction_confidence, product_key, score, score_breakdown,
+	condition_raw, COALESCE(condition_norm, 'unknown'), COALESCE(component_type, ''), quantity, COALESCE(attributes, '{}'),
+	COALESCE(extraction_confidence, 0), COALESCE(product_key, ''), score, score_breakdown,
 	listed_at, sold_at, sold_price, first_seen_at, updated_at
 FROM listings`
 
