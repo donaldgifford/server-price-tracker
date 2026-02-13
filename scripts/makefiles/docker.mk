@@ -39,3 +39,24 @@ dev-setup: docker-up migrate ollama-pull ## Full local dev setup (containers + m
 mock-server: ## Start mock eBay server (port 8089)
 	@ $(MAKE) --no-print-directory log-$@
 	@go run ./tools/mock-server
+
+###############
+##@ Docker
+
+.PHONY: docker-build docker-build-multiarch docker-bake-print docker-push
+
+docker-build: ## Build local dev image (single-arch)
+	@ $(MAKE) --no-print-directory log-$@
+	@docker buildx bake dev
+
+docker-build-multiarch: ## Validate multi-arch build (no push)
+	@ $(MAKE) --no-print-directory log-$@
+	@docker buildx bake ci
+
+docker-bake-print: ## Print resolved bake config (debug)
+	@ $(MAKE) --no-print-directory log-$@
+	@docker buildx bake --print dev
+
+docker-push: ## Build and push multi-arch image to registry
+	@ $(MAKE) --no-print-directory log-$@
+	@docker buildx bake release
