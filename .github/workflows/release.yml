@@ -73,6 +73,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [bump-version, release]
     if: needs.bump-version.outputs.skipped != 'true'
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v6
         with:
