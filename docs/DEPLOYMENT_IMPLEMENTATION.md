@@ -126,7 +126,7 @@ One-time steps performed after the implementation is merged to `main`. These are
 
 ### Tasks
 
-- [ ] Create orphan `gh-pages` branch:
+- [x] Create orphan `gh-pages` branch:
   ```bash
   git checkout --orphan gh-pages
   git rm -rf .
@@ -134,7 +134,7 @@ One-time steps performed after the implementation is merged to `main`. These are
   git push origin gh-pages
   git checkout main
   ```
-- [ ] Enable GitHub Pages in repository settings: Source → `gh-pages` branch, `/ (root)`
+- [x] Enable GitHub Pages in repository settings: Source → `gh-pages` branch, `/ (root)`
 - [ ] Verify Helm repo URL is accessible: `https://donaldgifford.github.io/server-price-tracker/`
 - [ ] Test full release cycle: merge a PR with a `patch` label, verify:
   - [ ] `bump-version` creates a new tag
