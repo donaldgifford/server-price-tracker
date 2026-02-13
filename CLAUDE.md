@@ -201,8 +201,9 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 ## Docker & CI
 
 - **Docker Bake:** `docker-bake.hcl` is the single source of truth for image builds. Three targets: `dev` (local single-arch), `ci` (multi-arch validation), `release` (multi-arch push to GHCR)
-- **CI workflow** (`.github/workflows/ci.yml`): lint, test with coverage, security scan (govulncheck + Trivy), GoReleaser snapshot build, Docker Bake multi-arch validation
-- **Release workflow** (`.github/workflows/release.yml`): semantic version bump, GoReleaser release, Docker multi-arch build+push with metadata-action tags
+- **CI workflow** (`.github/workflows/ci.yml`): lint, test with coverage, security scan (govulncheck + Trivy), GoReleaser snapshot build, Docker Bake multi-arch validation, Helm chart lint + install testing via chart-testing-action (kind cluster)
+- **Release workflow** (`.github/workflows/release.yml`): semantic version bump, GoReleaser release, Docker multi-arch build+push with metadata-action tags, Helm chart version bump + chart-releaser publish to GitHub Pages
+- **Chart testing:** `ct.yaml` configures chart-testing-action. `charts/.yamllint.yml` and `charts/.yamlfmt.yml` provide chart-specific YAML lint/format rules. `charts/server-price-tracker/ci/ci-values.yaml` provides CI install overrides (nginx stub image, no probes/migration)
 - **Security workflow** (`.github/workflows/security.yml`): scheduled weekly govulncheck with SARIF upload to GitHub Code Scanning
 
 ## Design Documentation
@@ -210,3 +211,5 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 - `docs/DESIGN.md` — Full architecture, interface catalog, testing strategy, API endpoints, data model, scoring formula, product key strategy, deployment architecture
 - `docs/IMPLEMENTATION.md` — 10-phase MVP plan with TDD workflow, detailed task checkboxes, table-driven test specifications, and success criteria per phase
 - `docs/EXTRACTION.md` — LLM backend options (Ollama, Claude API, OpenAI-compat), prompts for all 5 component types, GBNF grammars, validation rules, product key generation
+- `docs/DEPLOYMENT_STRATEGY.md` — Helm chart testing and releasing CI/CD strategy, tool descriptions, version strategy
+- `docs/DEPLOYMENT_IMPLEMENTATION.md` — Phased implementation plan with task checklists and success criteria

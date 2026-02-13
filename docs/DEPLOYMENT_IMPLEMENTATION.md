@@ -101,14 +101,14 @@ Add PR labeling for chart changes and run full verification suite.
 
 ### Tasks
 
-- [ ] Add `helm` label entry to `.github/labeler.yml` matching `charts/**`
-- [ ] Run full verification:
-  - [ ] `helm lint charts/server-price-tracker/`
-  - [ ] `helm template test charts/server-price-tracker/` — default values
-  - [ ] `helm template test charts/server-price-tracker/ --values charts/server-price-tracker/ci/ci-values.yaml` — CI values
-  - [ ] `helm template test charts/server-price-tracker/ --set tests.connection.enabled=false` — confirm test pod excluded
-  - [ ] `actionlint` — validates all workflow files
-- [ ] Update `CLAUDE.md` if needed with new CI/deployment details
+- [x] Add `helm` label entry to `.github/labeler.yml` matching `charts/**`
+- [x] Run full verification:
+  - [x] `helm lint charts/server-price-tracker/`
+  - [x] `helm template test charts/server-price-tracker/` — default values
+  - [x] `helm template test charts/server-price-tracker/ --values charts/server-price-tracker/ci/ci-values.yaml` — CI values
+  - [x] `helm template test charts/server-price-tracker/ --set tests.connection.enabled=false` — confirm test pod excluded
+  - [x] `actionlint` — validates all workflow files
+- [x] Update `CLAUDE.md` if needed with new CI/deployment details
 
 ### Success Criteria
 
