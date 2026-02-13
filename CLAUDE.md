@@ -58,8 +58,19 @@ make dev-setup                # Full local dev setup: docker-up + migrate + olla
 # Mock eBay server (for local testing without real eBay credentials)
 make mock-server              # Start mock eBay server on port 8089
 
+# Docker image builds (via Docker Bake)
+make docker-build             # Build local dev image (single-arch)
+make docker-build-multiarch   # Validate multi-arch build (no push)
+make docker-bake-print        # Print resolved bake config (debug)
+make docker-push              # Build and push multi-arch image to registry
+
 # Build cross-platform (via GoReleaser)
 goreleaser build --snapshot --clean
+
+# Helm chart
+helm lint charts/server-price-tracker/
+helm template test charts/server-price-tracker/
+helm template test charts/server-price-tracker/ --set cnpg.enabled=true --set ollama.enabled=true
 ```
 
 ## Architecture
@@ -119,6 +130,8 @@ deploy/                       Kubernetes manifests (Kustomize base + overlays)
   base/                       Base Kustomize resources
   overlays/dev/               Dev overlay (debug logging, lower resources)
   overlays/prod/              Prod overlay (info logging, higher resources)
+charts/server-price-tracker/  Helm chart (alternative to Kustomize deploy/)
+docker-bake.hcl               Docker Bake build definitions (dev, ci, release targets)
 docs/                         Design and implementation documentation
 ```
 
@@ -179,10 +192,18 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 
 - **Target:** Talos Linux Kubernetes cluster
 - **GitOps:** ArgoCD with auto-sync
-- **Manifests:** Kustomize (base + overlays for dev/prod) in `deploy/`
+- **Manifests:** Kustomize (base + overlays for dev/prod) in `deploy/`, or Helm chart in `charts/server-price-tracker/`
+- **Helm chart:** Production-ready with optional CNPG PostgreSQL (`cnpg.enabled`), Ollama StatefulSet (`ollama.enabled`), Prometheus ServiceMonitor (`serviceMonitor.enabled`), create-or-reference secret pattern, and migration init container
 - **Ingress:** Cilium API Gateway (Gateway API HTTPRoute)
 - **Observability:** Prometheus ServiceMonitor scraping `/metrics`, Grafana dashboards
 - **Secrets:** Kubernetes Secrets (sealed-secrets or external-secrets-operator), not in manifests
+
+## Docker & CI
+
+- **Docker Bake:** `docker-bake.hcl` is the single source of truth for image builds. Three targets: `dev` (local single-arch), `ci` (multi-arch validation), `release` (multi-arch push to GHCR)
+- **CI workflow** (`.github/workflows/ci.yml`): lint, test with coverage, security scan (govulncheck + Trivy), GoReleaser snapshot build, Docker Bake multi-arch validation
+- **Release workflow** (`.github/workflows/release.yml`): semantic version bump, GoReleaser release, Docker multi-arch build+push with metadata-action tags
+- **Security workflow** (`.github/workflows/security.yml`): scheduled weekly govulncheck with SARIF upload to GitHub Code Scanning
 
 ## Design Documentation
 
