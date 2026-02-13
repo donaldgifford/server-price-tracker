@@ -131,6 +131,7 @@ jobs:
           ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
 
       - name: Configure Git
         run: |
@@ -162,5 +163,6 @@ jobs:
         uses: helm/chart-releaser-action@v1
         with:
           charts_dir: charts
+          skip_existing: true
         env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
