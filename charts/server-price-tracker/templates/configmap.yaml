@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "server-price-tracker.configMapName" . }}
+  labels:
+    {{- include "server-price-tracker.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    server:
+      host: {{ .Values.config.server.host | quote }}
+      port: {{ .Values.config.server.port }}
+      read_timeout: {{ .Values.config.server.read_timeout }}
+      write_timeout: {{ .Values.config.server.write_timeout }}
+
+    database:
+      host: {{ include "server-price-tracker.databaseHost" . | quote }}
+      port: {{ .Values.config.database.port }}
+      name: {{ .Values.config.database.name | quote }}
+      user: {{ .Values.config.database.user | quote }}
+      password: {{ .Values.config.database.password | quote }}
+      sslmode: {{ .Values.config.database.sslmode }}
+      pool_size: {{ .Values.config.database.pool_size }}
+
+    ebay:
+      app_id: {{ .Values.config.ebay.app_id | quote }}
+      cert_id: {{ .Values.config.ebay.cert_id | quote }}
+      {{- if .Values.config.ebay.token_url }}
+      token_url: {{ .Values.config.ebay.token_url | quote }}
+      {{- end }}
+      {{- if .Values.config.ebay.browse_url }}
+      browse_url: {{ .Values.config.ebay.browse_url | quote }}
+      {{- end }}
+      marketplace: {{ .Values.config.ebay.marketplace }}
+      max_calls_per_cycle: {{ .Values.config.ebay.max_calls_per_cycle }}
+
+    llm:
+      backend: {{ .Values.config.llm.backend }}
+      ollama:
+        endpoint: {{ include "server-price-tracker.ollamaEndpoint" . | quote }}
+        model: {{ .Values.config.llm.ollama.model | quote }}
+      {{- if .Values.config.llm.anthropic.model }}
+      anthropic:
+        model: {{ .Values.config.llm.anthropic.model | quote }}
+      {{- end }}
+      {{- if .Values.config.llm.openai_compat.endpoint }}
+      openai_compat:
+        endpoint: {{ .Values.config.llm.openai_compat.endpoint | quote }}
+        model: {{ .Values.config.llm.openai_compat.model | quote }}
+      {{- end }}
+      use_grammar: {{ .Values.config.llm.use_grammar }}
+      concurrency: {{ .Values.config.llm.concurrency }}
+      timeout: {{ .Values.config.llm.timeout }}
+
+    scoring:
+      weights:
+        price: {{ .Values.config.scoring.weights.price }}
+        seller: {{ .Values.config.scoring.weights.seller }}
+        condition: {{ .Values.config.scoring.weights.condition }}
+        quantity: {{ .Values.config.scoring.weights.quantity }}
+        quality: {{ .Values.config.scoring.weights.quality }}
+        time: {{ .Values.config.scoring.weights.time }}
+      min_baseline_samples: {{ .Values.config.scoring.min_baseline_samples }}
+      baseline_window_days: {{ .Values.config.scoring.baseline_window_days }}
+
+    schedule:
+      ingestion_interval: {{ .Values.config.schedule.ingestion_interval }}
+      baseline_interval: {{ .Values.config.schedule.baseline_interval }}
+      stagger_offset: {{ .Values.config.schedule.stagger_offset }}
+
+    notifications:
+      discord:
+        enabled: {{ .Values.config.notifications.discord.enabled }}
+        webhook_url: {{ .Values.config.notifications.discord.webhook_url | quote }}
+
+    logging:
+      level: {{ .Values.config.logging.level }}
+      format: {{ .Values.config.logging.format }}
