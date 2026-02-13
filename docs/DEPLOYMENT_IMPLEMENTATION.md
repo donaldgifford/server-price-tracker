@@ -68,21 +68,21 @@ Add automated chart versioning and publishing to the release pipeline.
 
 ### Tasks
 
-- [ ] Add `helm-release` job to `.github/workflows/release.yml`
-- [ ] Set dependency chain: `needs: [bump-version, docker]`
-- [ ] Set condition: `if: needs.bump-version.outputs.skipped != 'true'`
-- [ ] Set permissions: `contents: write`
-- [ ] Job steps:
-  - [ ] `actions/checkout@v6` with `ref: main`, `fetch-depth: 0`, `token: ${{ secrets.GITHUB_TOKEN }}`
-  - [ ] Configure git user as `github-actions[bot]`
-  - [ ] `mikefarah/yq@v4` — install yq
-  - [ ] Update Chart.yaml: strip `v` prefix from tag, set `version` and `appVersion`
-  - [ ] `cat charts/server-price-tracker/Chart.yaml` — print for debug visibility
-  - [ ] Commit Chart.yaml with message `chore: bump chart version to <tag> [skip ci]`
-  - [ ] `git pull --rebase origin main && git push origin main`
-  - [ ] `azure/setup-helm@v4`
-  - [ ] `helm/chart-releaser-action@v1` with `charts_dir: charts` and `CR_TOKEN` env var
-- [ ] Verify: `actionlint` passes on `release.yml`
+- [x] Add `helm-release` job to `.github/workflows/release.yml`
+- [x] Set dependency chain: `needs: [bump-version, docker]`
+- [x] Set condition: `if: needs.bump-version.outputs.skipped != 'true'`
+- [x] Set permissions: `contents: write`
+- [x] Job steps:
+  - [x] `actions/checkout@v6` with `ref: main`, `fetch-depth: 0`, `token: ${{ secrets.GITHUB_TOKEN }}`
+  - [x] Configure git user as `github-actions[bot]`
+  - [x] `mikefarah/yq@v4` — install yq
+  - [x] Update Chart.yaml: strip `v` prefix from tag, set `version` and `appVersion`
+  - [x] `cat charts/server-price-tracker/Chart.yaml` — print for debug visibility
+  - [x] Commit Chart.yaml with message `chore: bump chart version to <tag> [skip ci]`
+  - [x] `git pull --rebase origin main && git push origin main`
+  - [x] `azure/setup-helm@v4`
+  - [x] `helm/chart-releaser-action@v1` with `charts_dir: charts` and `CR_TOKEN` env var
+- [x] Verify: `actionlint` passes on `release.yml`
 
 ### Success Criteria
 
