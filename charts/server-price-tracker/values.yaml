@@ -191,6 +191,11 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# -- Helm test hooks
+tests:
+  connection:
+    enabled: true
+
 # -- Prometheus ServiceMonitor
 serviceMonitor:
   enabled: false

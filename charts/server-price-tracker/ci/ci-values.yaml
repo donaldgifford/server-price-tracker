@@ -1,0 +1,29 @@
+---
+# CI-only values for chart install testing in kind.
+# Disables components that require external dependencies.
+
+image:
+  repository: nginx
+  tag: alpine
+  pullPolicy: IfNotPresent
+
+migration:
+  enabled: false
+
+livenessProbe: null
+readinessProbe: null
+
+tests:
+  connection:
+    enabled: false
+
+cnpg:
+  enabled: false
+
+ollama:
+  enabled: false
+
+config:
+  notifications:
+    discord:
+      enabled: false

@@ -10,21 +10,21 @@ Prepare the chart for CI testing by adding config files and making the test-conn
 
 ### Tasks
 
-- [ ] Add `tests.connection.enabled` key (default `true`) to `charts/server-price-tracker/values.yaml`
-- [ ] Wrap `charts/server-price-tracker/templates/tests/test-connection.yaml` in `{{- if .Values.tests.connection.enabled }}` / `{{- end }}` conditional guard
-- [ ] Create `ct.yaml` at repo root with `chart-dirs: [charts]`, `target-branch: main`, `validate-maintainers: false`, and `lint-conf` pointing to `charts/.yamllint.yml`
-- [ ] Create `charts/.yamllint.yml` — inherits `default`, disables `empty-values`, sets `line-length.max: 150`
-- [ ] Create `charts/.yamlfmt.yml` — mirrors root `.yamlfmt.yml` but with `max_line_length: 150`
-- [ ] Create `charts/server-price-tracker/ci/ci-values.yaml` with:
+- [x] Add `tests.connection.enabled` key (default `true`) to `charts/server-price-tracker/values.yaml`
+- [x] Wrap `charts/server-price-tracker/templates/tests/test-connection.yaml` in `{{- if .Values.tests.connection.enabled }}` / `{{- end }}` conditional guard
+- [x] Create `ct.yaml` at repo root with `chart-dirs: [charts]`, `target-branch: main`, `validate-maintainers: false`, and `lint-conf` pointing to `charts/.yamllint.yml`
+- [x] Create `charts/.yamllint.yml` — inherits `default`, disables `empty-values`, sets `line-length.max: 150`
+- [x] Create `charts/.yamlfmt.yml` — mirrors root `.yamlfmt.yml` but with `max_line_length: 150`
+- [x] Create `charts/server-price-tracker/ci/ci-values.yaml` with:
   - `image.repository: nginx`, `image.tag: alpine`
   - `migration.enabled: false`
   - `livenessProbe: null`, `readinessProbe: null`
   - `tests.connection.enabled: false`
   - `cnpg.enabled: false`, `ollama.enabled: false`
   - `config.notifications.discord.enabled: false`
-- [ ] Verify: `helm lint charts/server-price-tracker/` passes
-- [ ] Verify: `helm template test charts/server-price-tracker/ --values charts/server-price-tracker/ci/ci-values.yaml` renders without errors
-- [ ] Verify: default template includes test-connection pod, `--set tests.connection.enabled=false` excludes it
+- [x] Verify: `helm lint charts/server-price-tracker/` passes
+- [x] Verify: `helm template test charts/server-price-tracker/ --values charts/server-price-tracker/ci/ci-values.yaml` renders without errors
+- [x] Verify: default template includes test-connection pod, `--set tests.connection.enabled=false` excludes it
 
 ### Success Criteria
 
