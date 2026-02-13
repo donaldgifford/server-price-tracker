@@ -41,17 +41,17 @@ Add chart linting and install testing to the CI pipeline.
 
 ### Tasks
 
-- [ ] Add `helm-test` job to `.github/workflows/ci.yml` (no `needs` — runs in parallel with existing jobs)
-- [ ] Job steps:
-  - [ ] `actions/checkout@v6` with `fetch-depth: 0`
-  - [ ] `azure/setup-helm@v4`
-  - [ ] `actions/setup-python@v5` with `python-version: "3.12"`
-  - [ ] `helm/chart-testing-action@v2`
-  - [ ] `ct list-changed --config ct.yaml` — set output `changed=true` if charts changed
-  - [ ] `ct lint --config ct.yaml` — gated on `changed == 'true'`
-  - [ ] `helm/kind-action@v1` — gated on `changed == 'true'`
-  - [ ] `ct install --config ct.yaml` — gated on `changed == 'true'`
-- [ ] Verify: `actionlint` passes on `ci.yml`
+- [x] Add `helm-test` job to `.github/workflows/ci.yml` (no `needs` — runs in parallel with existing jobs)
+- [x] Job steps:
+  - [x] `actions/checkout@v6` with `fetch-depth: 0`
+  - [x] `azure/setup-helm@v4`
+  - [x] `actions/setup-python@v5` with `python-version: "3.12"`
+  - [x] `helm/chart-testing-action@v2`
+  - [x] `ct list-changed --config ct.yaml` — set output `changed=true` if charts changed
+  - [x] `ct lint --config ct.yaml` — gated on `changed == 'true'`
+  - [x] `helm/kind-action@v1` — gated on `changed == 'true'`
+  - [x] `ct install --config ct.yaml` — gated on `changed == 'true'`
+- [x] Verify: `actionlint` passes on `ci.yml`
 
 ### Success Criteria
 
