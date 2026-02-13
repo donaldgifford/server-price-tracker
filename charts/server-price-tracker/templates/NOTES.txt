@@ -1,0 +1,33 @@
+Server Price Tracker has been deployed.
+
+1. Access the API:
+{{- if .Values.ingress.enabled }}
+  {{- range $host := .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}
+  {{- end }}
+{{- else if .Values.httpRoute.enabled }}
+  {{- range .Values.httpRoute.hostnames }}
+  http://{{ . }}
+  {{- end }}
+{{- else }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "server-price-tracker.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+  curl http://localhost:{{ .Values.service.port }}/healthz
+{{- end }}
+
+2. Check health:
+  kubectl --namespace {{ .Release.Namespace }} get pods -l "app.kubernetes.io/name={{ include "server-price-tracker.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
+
+{{- if .Values.cnpg.enabled }}
+
+3. CNPG PostgreSQL:
+  Cluster: {{ include "server-price-tracker.cnpgClusterName" . }}
+  Secret:  {{ include "server-price-tracker.cnpgSecretName" . }} (auto-created by CNPG operator)
+  Service: {{ include "server-price-tracker.cnpgClusterName" . }}-rw
+{{- end }}
+
+{{- if .Values.ollama.enabled }}
+
+{{ if .Values.cnpg.enabled }}4{{ else }}3{{ end }}. Ollama LLM:
+  Service: {{ include "server-price-tracker.ollamaName" . }}:11434
+  Model:   {{ .Values.ollama.model }}
+{{- end }}

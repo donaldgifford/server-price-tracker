@@ -1,13 +1,16 @@
+// Package domain defines the core business types for the server price tracker.
 package domain
 
 import (
 	"encoding/json"
+	"slices"
 	"time"
 )
 
 // ComponentType represents the category of server hardware.
 type ComponentType string
 
+// Component type constants.
 const (
 	ComponentRAM    ComponentType = "ram"
 	ComponentDrive  ComponentType = "drive"
@@ -20,6 +23,7 @@ const (
 // Condition represents normalized listing condition.
 type Condition string
 
+// Condition constants.
 const (
 	ConditionNew         Condition = "new"
 	ConditionLikeNew     Condition = "like_new"
@@ -31,6 +35,7 @@ const (
 // ListingType represents the eBay listing format.
 type ListingType string
 
+// Listing type constants.
 const (
 	ListingAuction   ListingType = "auction"
 	ListingBuyItNow  ListingType = "buy_it_now"
@@ -39,43 +44,43 @@ const (
 
 // Listing represents a processed eBay listing with extracted attributes.
 type Listing struct {
-	ID        string `json:"id" db:"id"`
-	EbayID    string `json:"ebay_item_id" db:"ebay_item_id"`
-	Title     string `json:"title" db:"title"`
-	ItemURL   string `json:"item_url" db:"item_url"`
-	ImageURL  string `json:"image_url,omitempty" db:"image_url"`
+	ID       string `json:"id"                  db:"id"`
+	EbayID   string `json:"ebay_item_id"        db:"ebay_item_id"`
+	Title    string `json:"title"               db:"title"`
+	ItemURL  string `json:"item_url"            db:"item_url"`
+	ImageURL string `json:"image_url,omitempty" db:"image_url"`
 
 	// Pricing
-	Price        float64     `json:"price" db:"price"`
-	Currency     string      `json:"currency" db:"currency"`
+	Price        float64     `json:"price"                   db:"price"`
+	Currency     string      `json:"currency"                db:"currency"`
 	ShippingCost *float64    `json:"shipping_cost,omitempty" db:"shipping_cost"`
-	ListingType  ListingType `json:"listing_type" db:"listing_type"`
+	ListingType  ListingType `json:"listing_type"            db:"listing_type"`
 
 	// Seller
-	SellerName         string  `json:"seller_name" db:"seller_name"`
-	SellerFeedback     int     `json:"seller_feedback_score" db:"seller_feedback_score"`
-	SellerFeedbackPct  float64 `json:"seller_feedback_pct" db:"seller_feedback_pct"`
-	SellerTopRated     bool    `json:"seller_top_rated" db:"seller_top_rated"`
+	SellerName        string  `json:"seller_name"           db:"seller_name"`
+	SellerFeedback    int     `json:"seller_feedback_score" db:"seller_feedback_score"`
+	SellerFeedbackPct float64 `json:"seller_feedback_pct"   db:"seller_feedback_pct"`
+	SellerTopRated    bool    `json:"seller_top_rated"      db:"seller_top_rated"`
 
 	// Extracted data
-	ComponentType        ComponentType          `json:"component_type" db:"component_type"`
-	ConditionRaw         string                 `json:"condition_raw,omitempty" db:"condition_raw"`
-	ConditionNorm        Condition              `json:"condition_norm" db:"condition_norm"`
-	Quantity             int                    `json:"quantity" db:"quantity"`
-	Attributes           map[string]any         `json:"attributes" db:"attributes"`
-	ExtractionConfidence float64                `json:"extraction_confidence" db:"extraction_confidence"`
-	ProductKey           string                 `json:"product_key,omitempty" db:"product_key"`
+	ComponentType        ComponentType  `json:"component_type"          db:"component_type"`
+	ConditionRaw         string         `json:"condition_raw,omitempty" db:"condition_raw"`
+	ConditionNorm        Condition      `json:"condition_norm"          db:"condition_norm"`
+	Quantity             int            `json:"quantity"                db:"quantity"`
+	Attributes           map[string]any `json:"attributes"              db:"attributes"`
+	ExtractionConfidence float64        `json:"extraction_confidence"   db:"extraction_confidence"`
+	ProductKey           string         `json:"product_key,omitempty"   db:"product_key"`
 
 	// Scoring
-	Score          *int            `json:"score,omitempty" db:"score"`
+	Score          *int            `json:"score,omitempty"           db:"score"`
 	ScoreBreakdown json.RawMessage `json:"score_breakdown,omitempty" db:"score_breakdown"`
 
 	// Timestamps
-	ListedAt    *time.Time `json:"listed_at,omitempty" db:"listed_at"`
-	SoldAt      *time.Time `json:"sold_at,omitempty" db:"sold_at"`
+	ListedAt    *time.Time `json:"listed_at,omitempty"  db:"listed_at"`
+	SoldAt      *time.Time `json:"sold_at,omitempty"    db:"sold_at"`
 	SoldPrice   *float64   `json:"sold_price,omitempty" db:"sold_price"`
-	FirstSeenAt time.Time  `json:"first_seen_at" db:"first_seen_at"`
-	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+	FirstSeenAt time.Time  `json:"first_seen_at"        db:"first_seen_at"`
+	UpdatedAt   time.Time  `json:"updated_at"           db:"updated_at"`
 }
 
 // UnitPrice returns the per-unit price including shipping.
@@ -92,16 +97,16 @@ func (l *Listing) UnitPrice() float64 {
 
 // Watch represents a saved search with alert configuration.
 type Watch struct {
-	ID             string        `json:"id" db:"id"`
-	Name           string        `json:"name" db:"name"`
-	SearchQuery    string        `json:"search_query" db:"search_query"`
+	ID             string        `json:"id"                    db:"id"`
+	Name           string        `json:"name"                  db:"name"`
+	SearchQuery    string        `json:"search_query"          db:"search_query"`
 	CategoryID     string        `json:"category_id,omitempty" db:"category_id"`
-	ComponentType  ComponentType `json:"component_type" db:"component_type"`
-	Filters        WatchFilters  `json:"filters" db:"filters"`
-	ScoreThreshold int           `json:"score_threshold" db:"score_threshold"`
-	Enabled        bool          `json:"enabled" db:"enabled"`
-	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
-	UpdatedAt      time.Time     `json:"updated_at" db:"updated_at"`
+	ComponentType  ComponentType `json:"component_type"        db:"component_type"`
+	Filters        WatchFilters  `json:"filters"               db:"filters"`
+	ScoreThreshold int           `json:"score_threshold"       db:"score_threshold"`
+	Enabled        bool          `json:"enabled"               db:"enabled"`
+	CreatedAt      time.Time     `json:"created_at"            db:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"            db:"updated_at"`
 }
 
 // WatchFilters defines the structured filtering criteria.
@@ -134,7 +139,19 @@ type AttributeFilter struct {
 
 // Match checks if a listing's attributes satisfy this filter.
 func (f *WatchFilters) Match(l *Listing) bool {
-	// Price check
+	if !f.matchPrice(l) {
+		return false
+	}
+	if !f.matchSeller(l) {
+		return false
+	}
+	if !f.matchCondition(l) {
+		return false
+	}
+	return f.matchAttributes(l)
+}
+
+func (f *WatchFilters) matchPrice(l *Listing) bool {
 	unitPrice := l.UnitPrice()
 	if f.PriceMax != nil && unitPrice > *f.PriceMax {
 		return false
@@ -142,8 +159,10 @@ func (f *WatchFilters) Match(l *Listing) bool {
 	if f.PriceMin != nil && unitPrice < *f.PriceMin {
 		return false
 	}
+	return true
+}
 
-	// Seller checks
+func (f *WatchFilters) matchSeller(l *Listing) bool {
 	if f.SellerMinFeedback != nil && l.SellerFeedback < *f.SellerMinFeedback {
 		return false
 	}
@@ -153,22 +172,17 @@ func (f *WatchFilters) Match(l *Listing) bool {
 	if f.SellerTopRatedOnly && !l.SellerTopRated {
 		return false
 	}
+	return true
+}
 
-	// Condition check
-	if len(f.Conditions) > 0 {
-		found := false
-		for _, c := range f.Conditions {
-			if c == l.ConditionNorm {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
+func (f *WatchFilters) matchCondition(l *Listing) bool {
+	if len(f.Conditions) == 0 {
+		return true
 	}
+	return slices.Contains(f.Conditions, l.ConditionNorm)
+}
 
-	// Attribute filters checked against l.Attributes
+func (f *WatchFilters) matchAttributes(l *Listing) bool {
 	for key, filter := range f.AttributeFilters {
 		val, ok := l.Attributes[key]
 		if !ok {
@@ -178,7 +192,6 @@ func (f *WatchFilters) Match(l *Listing) bool {
 			return false
 		}
 	}
-
 	return true
 }
 
@@ -187,12 +200,7 @@ func matchAttribute(val any, f AttributeFilter) bool {
 		return val == f.Equals
 	}
 	if f.In != nil {
-		for _, v := range f.In {
-			if val == v {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(f.In, val)
 	}
 	// Range checks for numeric values
 	numVal, ok := toFloat64(val)
@@ -226,27 +234,27 @@ func toFloat64(v any) (float64, bool) {
 
 // PriceBaseline holds percentile statistics for a normalized product key.
 type PriceBaseline struct {
-	ID          string    `json:"id" db:"id"`
-	ProductKey  string    `json:"product_key" db:"product_key"`
+	ID          string    `json:"id"           db:"id"`
+	ProductKey  string    `json:"product_key"  db:"product_key"`
 	SampleCount int       `json:"sample_count" db:"sample_count"`
-	P10         float64   `json:"p10" db:"p10"`
-	P25         float64   `json:"p25" db:"p25"`
-	P50         float64   `json:"p50" db:"p50"`
-	P75         float64   `json:"p75" db:"p75"`
-	P90         float64   `json:"p90" db:"p90"`
-	Mean        float64   `json:"mean" db:"mean"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+	P10         float64   `json:"p10"          db:"p10"`
+	P25         float64   `json:"p25"          db:"p25"`
+	P50         float64   `json:"p50"          db:"p50"`
+	P75         float64   `json:"p75"          db:"p75"`
+	P90         float64   `json:"p90"          db:"p90"`
+	Mean        float64   `json:"mean"         db:"mean"`
+	UpdatedAt   time.Time `json:"updated_at"   db:"updated_at"`
 }
 
 // Alert represents a triggered notification.
 type Alert struct {
-	ID         string    `json:"id" db:"id"`
-	WatchID    string    `json:"watch_id" db:"watch_id"`
-	ListingID  string    `json:"listing_id" db:"listing_id"`
-	Score      int       `json:"score" db:"score"`
-	Notified   bool      `json:"notified" db:"notified"`
+	ID         string     `json:"id"                    db:"id"`
+	WatchID    string     `json:"watch_id"              db:"watch_id"`
+	ListingID  string     `json:"listing_id"            db:"listing_id"`
+	Score      int        `json:"score"                 db:"score"`
+	Notified   bool       `json:"notified"              db:"notified"`
 	NotifiedAt *time.Time `json:"notified_at,omitempty" db:"notified_at"`
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+	CreatedAt  time.Time  `json:"created_at"            db:"created_at"`
 }
 
 // ScoreBreakdown details the per-factor scores for a listing.

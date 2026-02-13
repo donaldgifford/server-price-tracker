@@ -1,0 +1,6 @@
+---
+chart-dirs:
+  - charts
+target-branch: main
+validate-maintainers: false
+lint-conf: charts/.yamllint.yml

@@ -1,3 +1,4 @@
+// Package score implements the composite deal scoring algorithm for eBay listings.
 package score
 
 import (
@@ -38,18 +39,18 @@ type Baseline struct {
 
 // ListingData holds the fields needed for scoring (decoupled from DB model).
 type ListingData struct {
-	UnitPrice          float64
-	SellerFeedback     int
-	SellerFeedbackPct  float64
-	SellerTopRated     bool
-	Condition          string
-	Quantity           int
-	HasImages          bool
-	HasItemSpecifics   bool
-	DescriptionLen     int
-	IsAuction          bool
-	AuctionEndingSoon  bool // within 1 hour
-	IsNewListing       bool // listed within last 2 hours
+	UnitPrice         float64
+	SellerFeedback    int
+	SellerFeedbackPct float64
+	SellerTopRated    bool
+	Condition         string
+	Quantity          int
+	HasImages         bool
+	HasItemSpecifics  bool
+	DescriptionLen    int
+	IsAuction         bool
+	AuctionEndingSoon bool // within 1 hour
+	IsNewListing      bool // listed within last 2 hours
 }
 
 // Breakdown shows per-factor scores.
@@ -64,7 +65,7 @@ type Breakdown struct {
 }
 
 // Score computes the composite deal score for a listing.
-func Score(data ListingData, baseline *Baseline, w Weights) Breakdown {
+func Score(data *ListingData, baseline *Baseline, w Weights) Breakdown {
 	b := Breakdown{}
 
 	// Price percentile score
@@ -127,7 +128,7 @@ func priceScore(unitPrice float64, b *Baseline) float64 {
 }
 
 // sellerScore evaluates seller trustworthiness.
-func sellerScore(d ListingData) float64 {
+func sellerScore(d *ListingData) float64 {
 	// Feedback score component (how many transactions)
 	var fbScore float64
 	switch {
@@ -182,7 +183,7 @@ func conditionScore(condition string) float64 {
 // quantityScore rewards good per-unit value in lots.
 // Single items get a neutral score; lots are evaluated on whether
 // the per-unit pricing typically beats single-item prices.
-func quantityScore(d ListingData) float64 {
+func quantityScore(d *ListingData) float64 {
 	if d.Quantity <= 1 {
 		return 50 // neutral for single items
 	}
@@ -202,7 +203,7 @@ func quantityScore(d ListingData) float64 {
 }
 
 // qualityScore evaluates how well-described the listing is.
-func qualityScore(d ListingData) float64 {
+func qualityScore(d *ListingData) float64 {
 	score := 0.0
 
 	if d.HasImages {
@@ -226,7 +227,7 @@ func qualityScore(d ListingData) float64 {
 }
 
 // timeScore adds urgency for auction endings and new BIN listings.
-func timeScore(d ListingData) float64 {
+func timeScore(d *ListingData) float64 {
 	if d.IsAuction && d.AuctionEndingSoon {
 		return 100
 	}
