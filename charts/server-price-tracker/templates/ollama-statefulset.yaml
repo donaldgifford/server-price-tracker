@@ -38,8 +38,7 @@ spec:
                   - /bin/sh
                   - -c
                   - |
-                    until curl -sf http://localhost:11434/api/tags >/dev/null 2>&1; do sleep 1; done
-                    ollama pull {{ .Values.ollama.model }}
+                    until ollama list >/dev/null 2>&1; do sleep 1; done && ollama pull {{ .Values.ollama.model }}
           livenessProbe:
             httpGet:
               path: /api/tags
