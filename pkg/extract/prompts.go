@@ -33,7 +33,7 @@ Schema:
   "part_number": string | null,
   "capacity_gb": integer | null,
   "quantity": integer,
-  "generation": string | null,
+  "generation": "DDR3" | "DDR4" | "DDR5",
   "speed_mhz": integer | null,
   "ecc": boolean | null,
   "registered": boolean | null,
