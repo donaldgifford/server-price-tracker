@@ -6,6 +6,18 @@ backends), scores listings against historical baselines, and alerts on deals via
 Discord webhooks. The CLI acts as a client to the API, and the API design
 supports future integrations (Discord bot, web UI, Grafana dashboards).
 
+## Extraction Test Results
+
+Validated against `mistral:7b-instruct-v0.3-q5_K_M` via Ollama:
+
+| Type | Title | Key Extractions | Product Key |
+|------|-------|-----------------|-------------|
+| RAM | Samsung 32GB DDR4-2666 PC4-21300 ECC Registered RDIMM | `generation: DDR4`, `speed_mhz: 2666`, `ecc: true`, `registered: true` | `ram:ddr4:ecc_reg:32gb:2666` |
+| Drive | Samsung PM893 960GB SATA 2.5" SSD MZ-7L3960A Enterprise | `interface: SATA`, `form_factor: 2.5`, `type: SSD` | `drive:sata:2.5:960gb:ssd` |
+| Server | Dell PowerEdge R740xd 2U 24x 2.5" SFF 2x Xeon Gold 6130 64GB DDR4 H730P | `manufacturer: Dell`, `model: PowerEdge R740xd`, `form_factor: 2U`, `cpu_count: 2` | `server:dell:poweredge_r740xd:unknown` |
+| CPU | Intel Xeon Gold 6248R 3.0GHz 24-Core 35.75MB LGA3647 CPU Processor SRGZG | `family: Xeon`, `series: Gold`, `model: 6248R`, `cores: 24` | `cpu:intel:xeon:6248r` |
+| NIC | Mellanox ConnectX-4 Lx CX4121A 25GbE SFP28 Dual Port PCIe 3.0 x8 Network Card | `speed: 25GbE`, `port_count: 2`, `port_type: SFP28` | `nic:25gbe:2p:sfp28` |
+
 ## LLM Extraction Schema
 
 The extraction pipeline classifies each eBay listing into a component type, then
