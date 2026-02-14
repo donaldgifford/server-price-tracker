@@ -8,6 +8,10 @@ Server Price Tracker is an API-first Go service that monitors eBay listings for 
 
 **Current state:** MVP implementation is complete (Phases 0-9) and serve.go is fully wired (Phase 3 post-implementation). All components are connected: database, eBay client, LLM extractor, notifier, engine, scheduler, and all API routes. The server starts gracefully even if external services are unavailable. See `docs/IMPLEMENTATION.md` for the MVP build plan and `docs/POST_IMPLEMENTATION.md` for the wiring/integration plan.
 
+## Git Workflow
+
+**Never commit directly to `main`.** Always create a feature branch for changes (e.g., `fix/condition-normalization`, `feat/new-endpoint`, `chore/update-deps`). Push the branch and open a PR for review.
+
 ## Build & Development Commands
 
 Tool versions are managed via `mise.toml` — run `mise install` to set up the toolchain (Go 1.25.7, golangci-lint 2.8.0, Helm 3.19.0, helm-ct, helm-cr, helm-diff, helm-docs, yamllint, yamlfmt, markdownlint-cli2, actionlint, etc.). The `helm-unittest` plugin is installed separately via `helm plugin install https://github.com/helm-unittest/helm-unittest.git`.

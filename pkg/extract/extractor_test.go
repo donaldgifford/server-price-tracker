@@ -240,6 +240,86 @@ func TestLLMExtractor_Extract(t *testing.T) {
 			wantErrMsg: "capacity_gb",
 		},
 		{
+			name:          "LLM returns capitalized condition",
+			componentType: domain.ComponentRAM,
+			title:         "Samsung 32GB DDR4-2666 ECC RDIMM",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: `{
+							"manufacturer": "Samsung",
+							"capacity_gb": 32,
+							"generation": "DDR4",
+							"speed_mhz": 2666,
+							"ecc": true,
+							"registered": true,
+							"condition": "New",
+							"quantity": 1,
+							"confidence": 0.95
+						}`,
+					}, nil).
+					Once()
+			},
+			wantAttrKey: "condition",
+			wantAttrVal: "new",
+		},
+		{
+			name:          "LLM returns eBay-style condition string",
+			componentType: domain.ComponentRAM,
+			title:         "Hynix 16GB DDR4-2400 ECC REG",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: `{
+							"manufacturer": "Hynix",
+							"capacity_gb": 16,
+							"generation": "DDR4",
+							"speed_mhz": 2400,
+							"ecc": true,
+							"registered": true,
+							"condition": "Pre-Owned",
+							"quantity": 1,
+							"confidence": 0.88
+						}`,
+					}, nil).
+					Once()
+			},
+			wantAttrKey: "condition",
+			wantAttrVal: "used_working",
+		},
+		{
+			name:          "LLM returns unrecognized condition defaults to unknown",
+			componentType: domain.ComponentDrive,
+			title:         "Seagate 4TB SAS 3.5 HDD",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: `{
+							"manufacturer": "Seagate",
+							"capacity": "4TB",
+							"interface": "SAS",
+							"form_factor": "3.5",
+							"type": "HDD",
+							"condition": "Refurbished Grade A",
+							"quantity": 1,
+							"confidence": 0.85
+						}`,
+					}, nil).
+					Once()
+			},
+			wantAttrKey: "condition",
+			wantAttrVal: "unknown",
+		},
+		{
 			name:          "backend error",
 			componentType: domain.ComponentCPU,
 			title:         "Test CPU",
@@ -324,6 +404,36 @@ func TestLLMExtractor_ClassifyAndExtract(t *testing.T) {
 					Once()
 			},
 			wantType: domain.ComponentCPU,
+		},
+		{
+			name:  "normalizes LLM condition through full pipeline",
+			title: "Mellanox ConnectX-4 Lx 25GbE SFP28 Dual Port",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == ""
+					})).
+					Return(extract.GenerateResponse{Content: "nic"}, nil).
+					Once()
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: `{
+							"manufacturer": "Mellanox",
+							"model": "ConnectX-4 Lx",
+							"speed": "25GbE",
+							"port_count": 2,
+							"port_type": "SFP28",
+							"condition": "Used",
+							"quantity": 1,
+							"confidence": 0.93
+						}`,
+					}, nil).
+					Once()
+			},
+			wantType: domain.ComponentNIC,
 		},
 		{
 			name:  "classify error stops early",

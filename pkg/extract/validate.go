@@ -45,14 +45,16 @@ var validConditions = []string{
 }
 
 func validateCommon(attrs map[string]any) error {
-	// condition: required enum
+	// condition: required enum (normalize LLM output before validating)
 	cond, ok := attrString(attrs, "condition")
 	if !ok {
 		return fmt.Errorf("condition: %w", ErrMissingField)
 	}
-	if !slices.Contains(validConditions, cond) {
+	normalized := string(NormalizeCondition(cond))
+	if !slices.Contains(validConditions, normalized) {
 		return fmt.Errorf("condition %q: %w", cond, ErrInvalidEnum)
 	}
+	attrs["condition"] = normalized
 
 	// confidence: 0.0-1.0
 	conf, ok := attrFloat(attrs, "confidence")
