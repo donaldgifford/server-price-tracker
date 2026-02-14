@@ -12,6 +12,7 @@ spec:
   selector:
     matchLabels:
       {{- include "server-price-tracker.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: server
   endpoints:
     - port: http
       path: {{ .Values.serviceMonitor.path }}

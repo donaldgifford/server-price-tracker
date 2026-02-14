@@ -30,3 +30,9 @@ tests:
           content:
             app.kubernetes.io/name: server-price-tracker
             app.kubernetes.io/instance: RELEASE-NAME
+
+  - it: has component selector label
+    asserts:
+      - equal:
+          path: spec.selector["app.kubernetes.io/component"]
+          value: server
