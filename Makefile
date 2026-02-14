@@ -6,7 +6,8 @@
 #   - makefiles/go.mk        - Go backend targets
 #   - makefiles/docker.mk    - Docker and LocalStack
 #   - makefiles/db.mk        - Database migrations
-#   - makefiles/docs.mk      - API docs and task management
+#   - makefiles/helm.mk      - helm targets
+#   - makefiles/docs.mk      - docs and task management
 #
 # All domain targets are defined in their respective makefiles.
 # This file only contains orchestration targets that coordinate across domains.
@@ -20,6 +21,8 @@ include scripts/makefiles/common.mk
 include scripts/makefiles/go.mk
 include scripts/makefiles/docker.mk
 include scripts/makefiles/db.mk
+include scripts/makefiles/helm.mk
+include scripts/makefiles/docs.mk
 
 ######################
 ##@ Orchestration
