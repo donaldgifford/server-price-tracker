@@ -50,3 +50,40 @@ MD030: false
 # https://github.com/DavidAnson/markdownlint/blob/main/doc/md033.md
 MD033: false
 # allowed_elements: ["a", "img", "div"]
+
+# No duplicate heading text
+# Disabled: phased implementation docs reuse "Tasks" and "Success Criteria"
+# under different parent headings
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md024.md
+MD024: false
+
+# Fenced code blocks should have a language specified
+# Disabled: many existing docs use bare ``` for pseudocode/output
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md040.md
+MD040: false
+
+# Blanks around fences
+# Disabled: existing implementation docs embed code blocks in list items
+# without surrounding blank lines
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md031.md
+MD031: false
+
+# Blanks around lists
+# Disabled: existing docs use lists directly after paragraphs
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md032.md
+MD032: false
+
+# No space in code spans
+# Disabled: existing docs have multi-line code in backtick spans
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md038.md
+MD038: false
+
+# First line in file should be a top-level heading
+# Disabled: some files start with frontmatter or metadata
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md041.md
+MD041: false
+
+# Blanks around tables
+# Disabled: existing docs embed tables in list context
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md058.md
+MD058: false

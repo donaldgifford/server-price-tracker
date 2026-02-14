@@ -452,12 +452,14 @@ func ProductKey(componentType string, attrs map[string]any) string {
 After parsing the JSON response from any backend, validate per component type:
 
 ### RAM
+
 - `capacity_gb`: 1–1024 (required)
 - `speed_mhz`: 800–8400 (optional)
 - `generation`: one of DDR3, DDR4, DDR5 (required)
 - `quantity`: >= 1
 
 ### Drive
+
 - `capacity`: non-empty string (required)
 - `interface`: one of SAS, SATA, NVMe, U.2 (required)
 - `form_factor`: one of 2.5, 3.5 (optional)
@@ -465,11 +467,13 @@ After parsing the JSON response from any backend, validate per component type:
 - `rpm`: null for SSD, 7200/10000/15000 for HDD (optional)
 
 ### Server
+
 - `manufacturer`: non-empty (required)
 - `model`: non-empty (required)
 - `form_factor`: one of 1U, 2U, 4U, tower (optional)
 
 ### CPU
+
 - `manufacturer`: one of Intel, AMD (required)
 - `family`: one of Xeon, EPYC (required)
 - `model`: non-empty (required)
@@ -478,11 +482,13 @@ After parsing the JSON response from any backend, validate per component type:
 - `tdp_watts`: 10–500 (optional)
 
 ### NIC
+
 - `speed`: one of 1GbE, 10GbE, 25GbE, 40GbE, 100GbE (required)
 - `port_count`: 1–8 (required)
 - `port_type`: one of SFP+, SFP28, QSFP+, QSFP28, RJ45, BaseT (optional)
 
 ### All Types
+
 - `condition`: one of new, like_new, used_working, for_parts, unknown
 - `confidence`: 0.0–1.0
 - `quantity`: >= 1

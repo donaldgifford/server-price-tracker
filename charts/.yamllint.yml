@@ -16,3 +16,6 @@ rules:
     allowed-values: ["true", "false", "yes", "no", "on", "off"]
     check-keys: false
   empty-values: disable
+
+ignore: |-
+  charts/server-price-tracker/templates/

@@ -1,3 +1,4 @@
+---
 # golangci-lint configuration based on Uber's Go Style Guide
 # https://github.com/uber-go/guide/blob/master/style.md
 version: "2"
@@ -15,79 +16,79 @@ linters:
   default: none
   enable:
     # Error Handling (Critical for Uber style)
-    - errcheck # Uber: Always check returned errors
-    - errorlint # Uber: Proper error wrapping with %w
-    - errchkjson # Check JSON marshal/unmarshal errors
-    - errname # Error names should end with Error
+    - errcheck  # Uber: Always check returned errors
+    - errorlint  # Uber: Proper error wrapping with %w
+    - errchkjson  # Check JSON marshal/unmarshal errors
+    - errname  # Error names should end with Error
     # Code Quality & Simplification
-    - govet # Uber: Standard Go static analysis
-    - staticcheck # Uber: Comprehensive static analysis
+    - govet  # Uber: Standard Go static analysis
+    - staticcheck  # Uber: Comprehensive static analysis
     # - gosimple # Uber: Simplify code
-    - unused # Uber: Remove unused code
-    - ineffassign # Catch ineffectual assignments
-    - unconvert # Remove unnecessary type conversions
+    - unused  # Uber: Remove unused code
+    - ineffassign  # Catch ineffectual assignments
+    - unconvert  # Remove unnecessary type conversions
     # Performance (Uber emphasis)
-    - prealloc # Uber: Preallocate slices when size is known
-    - gocritic # Performance and style checks
-    - nolintlint # Ensure nolint directives are properly used
+    - prealloc  # Uber: Preallocate slices when size is known
+    - gocritic  # Performance and style checks
+    - nolintlint  # Ensure nolint directives are properly used
     # Complexity & Maintainability
-    - gocyclo # Uber: Limit cyclomatic complexity
-    - gocognit # Cognitive complexity
-    - funlen # Function length limits
-    - nestif # Deep nesting detection
+    - gocyclo  # Uber: Limit cyclomatic complexity
+    - gocognit  # Cognitive complexity
+    - funlen  # Function length limits
+    - nestif  # Deep nesting detection
     # Best Practices
-    - goconst # Uber: Use constants for repeated strings
-    - misspell # Catch spelling errors
-    - nakedret # Uber: Avoid naked returns
-    - unparam # Detect unused function parameters
-    - revive # Comprehensive linting (replaces golint)
+    - goconst  # Uber: Use constants for repeated strings
+    - misspell  # Catch spelling errors
+    - nakedret  # Uber: Avoid naked returns
+    - unparam  # Detect unused function parameters
+    - revive  # Comprehensive linting (replaces golint)
     # Concurrency & Context (Uber emphasis)
-    - contextcheck # Uber: Proper context usage
-    - noctx # HTTP requests should use context
+    - contextcheck  # Uber: Proper context usage
+    - noctx  # HTTP requests should use context
     # Resource Management
-    - bodyclose # Uber: Close HTTP response bodies
-    - sqlclosecheck # Uber: Close SQL resources
-    - rowserrcheck # Check sql.Rows.Err
+    - bodyclose  # Uber: Close HTTP response bodies
+    - sqlclosecheck  # Uber: Close SQL resources
+    - rowserrcheck  # Check sql.Rows.Err
     # Nil & Pointer Safety
-    - nilerr # Uber: Check returning nil explicitly
-    - nilnil # Simultaneous nil return values
+    - nilerr  # Uber: Check returning nil explicitly
+    - nilnil  # Simultaneous nil return values
     # - nilaway # Nil pointer dereference detection
 
     # Testing
-    - testifylint # Proper use of testify assertions
-    - thelper # Test helper functions should call t.Helper()
-    - tparallel # Proper use of t.Parallel()
+    - testifylint  # Proper use of testify assertions
+    - thelper  # Test helper functions should call t.Helper()
+    - tparallel  # Proper use of t.Parallel()
     # Security
-    - gosec # Security issues
+    - gosec  # Security issues
     # Style & Conventions
     # - stylecheck # Uber: Follow Go style conventions
-    - godot # Comments should end with periods
-    - goheader # License header
+    - godot  # Comments should end with periods
+    - goheader  # License header
   settings:
     # Error handling
     errcheck:
       check-type-assertions: true
       check-blank: true
       exclude-functions:
-        - (io.Closer).Close # Common pattern to defer close
+        - (io.Closer).Close  # Common pattern to defer close
     errorlint:
       errorf: true
       asserts: true
       comparison: true
     # Complexity limits (Uber recommendations)
     gocyclo:
-      min-complexity: 15 # Uber: Keep functions simple
+      min-complexity: 15  # Uber: Keep functions simple
     gocognit:
       min-complexity: 30
     funlen:
-      lines: 100 # Uber: Prefer smaller functions
+      lines: 100  # Uber: Prefer smaller functions
       statements: 50
     nestif:
-      min-complexity: 4 # Uber: Avoid deep nesting
+      min-complexity: 4  # Uber: Avoid deep nesting
     # Code quality
     goconst:
       min-len: 3
-      min-occurrences: 3 # Uber: Extract repeated strings
+      min-occurrences: 3  # Uber: Extract repeated strings
     gocritic:
       enabled-tags:
         - diagnostic
@@ -95,21 +96,21 @@ linters:
         - performance
         - experimental
       disabled-checks:
-        - whyNoLint # We prefer explicit nolint comments
-        - unnamedResult # Sometimes okay for simple functions
+        - whyNoLint  # We prefer explicit nolint comments
+        - unnamedResult  # Sometimes okay for simple functions
       settings:
         hugeParam:
-          sizeThreshold: 80 # Uber: Pass large structs by pointer
+          sizeThreshold: 80  # Uber: Pass large structs by pointer
         rangeValCopy:
           sizeThreshold: 128
     # Testing
     testifylint:
       enable-all: true
       disable:
-        - float-compare # Sometimes we need exact float comparison
+        - float-compare  # Sometimes we need exact float comparison
     # Style
     nakedret:
-      max-func-lines: 5 # Uber: Very limited naked returns
+      max-func-lines: 5  # Uber: Very limited naked returns
     revive:
       enable-all-rules: false
       rules:
@@ -124,15 +125,15 @@ linters:
         - name: package-comments
         - name: receiver-naming
         # Code organization
-        - name: indent-error-flow # Uber: Handle errors first
-        - name: early-return # Uber: Early returns preferred
+        - name: indent-error-flow  # Uber: Handle errors first
+        - name: early-return  # Uber: Early returns preferred
         - name: blank-imports
-        - name: context-as-argument # Uber: Context as first param
-        - name: context-keys-type # Uber: Typed context keys
-        - name: dot-imports # Uber: Avoid dot imports
+        - name: context-as-argument  # Uber: Context as first param
+        - name: context-keys-type  # Uber: Typed context keys
+        - name: dot-imports  # Uber: Avoid dot imports
         # Best practices
         - name: constant-logical-expr
-        - name: defer # Uber: Proper defer usage
+        - name: defer  # Uber: Proper defer usage
         - name: empty-block
         - name: identical-branches
         - name: increment-decrement
@@ -140,13 +141,13 @@ linters:
         - name: range-val-in-closure
         - name: range-val-address
         - name: superfluous-else
-        - name: time-naming # Uber: Duration variable names
+        - name: time-naming  # Uber: Duration variable names
         - name: unreachable-code
         - name: unused-parameter
         - name: unused-receiver
         - name: var-declaration
         # Performance
-        - name: string-of-int # Uber: Use strconv, not string()
+        - name: string-of-int  # Uber: Use strconv, not string()
     # Resource management
     nolintlint:
       allow-unused: false
@@ -197,10 +198,10 @@ issues:
 formatters:
   enable:
     # Formatting & Imports
-    - gofmt # Uber: Always use gofmt
-    - goimports # Uber: Group and format imports properly
-    - gci # Uber: Deterministic import ordering
-    - gofumpt # Stricter gofmt
+    - gofmt  # Uber: Always use gofmt
+    - goimports  # Uber: Group and format imports properly
+    - gci  # Uber: Deterministic import ordering
+    - gofumpt  # Stricter gofmt
     - golines
   settings:
     gofmt:
@@ -212,9 +213,9 @@ formatters:
       max-len: 150
     gci:
       sections:
-        - standard # Standard library
-        - default # Default (third-party)
-        - prefix(github.com/donaldgifford) # Local packages
+        - standard  # Standard library
+        - default  # Default (third-party)
+        - prefix(github.com/donaldgifford)  # Local packages
       custom-order: true
   exclusions:
     generated: lax

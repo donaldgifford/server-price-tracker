@@ -1,0 +1,57 @@
+---
+suite: ingress
+templates:
+  - templates/ingress.yaml
+  - templates/httproute.yaml
+tests:
+  - it: Ingress does not render when ingress.enabled is false
+    template: templates/ingress.yaml
+    set:
+      ingress.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: Ingress renders with hosts and paths when enabled
+    template: templates/ingress.yaml
+    set:
+      ingress.enabled: true
+      ingress.hosts:
+        - host: spt.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: spec.rules[0].host
+          value: spt.example.com
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /
+      - equal:
+          path: spec.rules[0].http.paths[0].pathType
+          value: Prefix
+
+  - it: HTTPRoute does not render when httpRoute.enabled is false
+    template: templates/httproute.yaml
+    set:
+      httpRoute.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: HTTPRoute renders when enabled
+    template: templates/httproute.yaml
+    set:
+      httpRoute.enabled: true
+    asserts:
+      - isKind:
+          of: HTTPRoute
+      - equal:
+          path: apiVersion
+          value: gateway.networking.k8s.io/v1
+      - equal:
+          path: spec.hostnames[0]
+          value: chart-example.local

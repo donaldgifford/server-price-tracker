@@ -149,6 +149,48 @@ jobs:
           set: |-
             *.cache-from=type=gha
 
+  lint-repo:
+    name: Lint Repo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up mise
+        uses: jdx/mise-action@v2
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Lint repo YAML
+        run: yamllint -c .yamllint.yml .
+
+      - name: Lint chart YAML
+        run: yamllint -c charts/.yamllint.yml charts/
+
+      - name: Check YAML formatting
+        run: yamlfmt -lint '**/*.yaml' '**/*.yml'
+
+      - name: Lint Markdown
+        run: markdownlint-cli2 '**/*.md' '#node_modules' '#vendor'
+
+      - name: Lint GitHub Actions
+        run: actionlint
+
+      - name: Lint Helm chart
+        run: helm lint charts/server-price-tracker/
+
+  helm-unittest:
+    name: Helm Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run helm-unittest
+        uses: d3adb5/helm-unittest-action@v2
+        with:
+          charts: charts/server-price-tracker
+          flags: --color
+
   helm-test:
     name: Helm Chart Test
     runs-on: ubuntu-latest

@@ -10,9 +10,9 @@ Server Price Tracker is an API-first Go service that monitors eBay listings for 
 
 ## Build & Development Commands
 
-Tool versions are managed via `mise.toml` — run `mise install` to set up the toolchain (Go 1.25.7, golangci-lint 2.8.0, etc.).
+Tool versions are managed via `mise.toml` — run `mise install` to set up the toolchain (Go 1.25.7, golangci-lint 2.8.0, Helm 3.19.0, helm-ct, helm-cr, helm-diff, helm-docs, yamllint, yamlfmt, markdownlint-cli2, actionlint, etc.). The `helm-unittest` plugin is installed separately via `helm plugin install https://github.com/helm-unittest/helm-unittest.git`.
 
-The build system uses a modular Makefile structure: root `Makefile` includes domain-specific files from `scripts/makefiles/` (common.mk, go.mk, docker.mk, db.mk).
+The build system uses a modular Makefile structure: root `Makefile` includes domain-specific files from `scripts/makefiles/` (common.mk, go.mk, docker.mk, db.mk, helm.mk, docs.mk).
 
 ```bash
 # Build
@@ -67,10 +67,33 @@ make docker-push              # Build and push multi-arch image to registry
 # Build cross-platform (via GoReleaser)
 goreleaser build --snapshot --clean
 
-# Helm chart
-helm lint charts/server-price-tracker/
-helm template test charts/server-price-tracker/
-helm template test charts/server-price-tracker/ --set cnpg.enabled=true --set ollama.enabled=true
+# Helm chart development (see scripts/makefiles/helm.mk)
+make helm-lint                # Lint the Helm chart
+make helm-template            # Render chart templates with default values
+make helm-template-ci         # Render with CI values (nginx stub, no probes/migration)
+make helm-package             # Package chart into .tgz archive
+
+# Helm testing
+make helm-unittest            # Run helm-unittest plugin tests
+make helm-test                # Run all Helm tests (lint + unit tests)
+
+# Helm chart-testing (ct) — requires kind cluster for install
+make helm-ct-lint             # ct lint (yamllint + helm lint via ct.yaml)
+make helm-ct-list-changed     # List charts changed since target branch
+make helm-ct-install          # Install and test charts in kind cluster
+
+# Helm tools
+make helm-docs                # Generate chart docs with helm-docs
+make helm-diff-check RELEASE=spt  # Diff installed release vs local chart
+make helm-cr-package          # Package chart with chart-releaser
+
+# Repo-wide linting (see scripts/makefiles/docs.mk)
+make lint-yaml                # yamllint repo YAML (excludes charts/)
+make lint-yaml-charts         # yamllint chart YAML (relaxed rules)
+make lint-yaml-fmt            # yamlfmt formatting check (no modify)
+make lint-md                  # markdownlint-cli2
+make lint-actions             # actionlint on GitHub Actions workflows
+make lint-all                 # All linters: Go + YAML + Markdown + Actions + Helm
 ```
 
 ## Architecture
@@ -118,7 +141,7 @@ configs/                      YAML configuration files
   config.dev.yaml             Local development configuration
 migrations/                   PostgreSQL schema migrations (source of truth)
 internal/store/migrations/    Embedded copy for Go embed.FS
-scripts/makefiles/            Modular Makefile includes (common, go, docker, db)
+scripts/makefiles/            Modular Makefile includes (common, go, docker, db, helm, docs)
 tools/mock-server/            Mock eBay API server for local dev (JSON fixtures)
 test/                         Top-level test directories
   e2e/                        End-to-end tests (//go:build e2e)
@@ -203,7 +226,8 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 - **Docker Bake:** `docker-bake.hcl` is the single source of truth for image builds. Three targets: `dev` (local single-arch), `ci` (multi-arch validation), `release` (multi-arch push to GHCR)
 - **CI workflow** (`.github/workflows/ci.yml`): lint, test with coverage, security scan (govulncheck + Trivy), GoReleaser snapshot build, Docker Bake multi-arch validation, Helm chart lint + install testing via chart-testing-action (kind cluster)
 - **Release workflow** (`.github/workflows/release.yml`): semantic version bump, GoReleaser release, Docker multi-arch build+push with metadata-action tags, Helm chart version bump + chart-releaser publish to GitHub Pages
-- **Chart testing:** `ct.yaml` configures chart-testing-action. `charts/.yamllint.yml` and `charts/.yamlfmt.yml` provide chart-specific YAML lint/format rules. `charts/server-price-tracker/ci/ci-values.yaml` provides CI install overrides (nginx stub image, no probes/migration)
+- **Chart testing:** `ct.yaml` configures chart-testing-action. `charts/.yamllint.yml` and `charts/.yamlfmt.yml` provide chart-specific YAML lint/format rules. `charts/server-price-tracker/ci/ci-values.yaml` provides CI install overrides (nginx stub image, no probes/migration). Helm unit tests use `helm-unittest` plugin in `charts/server-price-tracker/tests/`
+- **Helm repo:** Charts are published to GitHub Pages at `https://donaldgifford.github.io/server-price-tracker/` via chart-releaser-action. Add with `helm repo add spt https://donaldgifford.github.io/server-price-tracker/`
 - **Security workflow** (`.github/workflows/security.yml`): scheduled weekly govulncheck with SARIF upload to GitHub Code Scanning
 
 ## Design Documentation
@@ -213,3 +237,5 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 - `docs/EXTRACTION.md` — LLM backend options (Ollama, Claude API, OpenAI-compat), prompts for all 5 component types, GBNF grammars, validation rules, product key generation
 - `docs/DEPLOYMENT_STRATEGY.md` — Helm chart testing and releasing CI/CD strategy, tool descriptions, version strategy
 - `docs/DEPLOYMENT_IMPLEMENTATION.md` — Phased implementation plan with task checklists and success criteria
+- `docs/helm-chore.md` — Plan for chart docs, helm-unittest, and CI linting
+- `docs/helm-chore-impl.md` — Phased implementation guide for helm-chore work

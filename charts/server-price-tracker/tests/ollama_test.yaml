@@ -1,0 +1,77 @@
+---
+suite: ollama
+templates:
+  - templates/ollama-statefulset.yaml
+  - templates/ollama-service.yaml
+tests:
+  - it: StatefulSet does not render when ollama.enabled is false
+    template: templates/ollama-statefulset.yaml
+    set:
+      ollama.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: Service does not render when ollama.enabled is false
+    template: templates/ollama-service.yaml
+    set:
+      ollama.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders StatefulSet with correct model when enabled
+    template: templates/ollama-statefulset.yaml
+    set:
+      ollama.enabled: true
+    asserts:
+      - isKind:
+          of: StatefulSet
+      - matchRegex:
+          path: spec.template.spec.containers[0].lifecycle.postStart.exec.command[2]
+          pattern: "mistral:7b-instruct-v0.3-q5_K_M"
+
+  - it: renders Service when enabled
+    template: templates/ollama-service.yaml
+    set:
+      ollama.enabled: true
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.ports[0].port
+          value: 11434
+
+  - it: has correct resources when enabled
+    template: templates/ollama-statefulset.yaml
+    set:
+      ollama.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: 4Gi
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 8Gi
+
+  - it: has correct PVC storage size
+    template: templates/ollama-statefulset.yaml
+    set:
+      ollama.enabled: true
+      ollama.persistence.enabled: true
+      ollama.persistence.size: 50Gi
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.resources.requests.storage
+          value: 50Gi
+
+  - it: renders storageClass when specified
+    template: templates/ollama-statefulset.yaml
+    set:
+      ollama.enabled: true
+      ollama.persistence.enabled: true
+      ollama.persistence.storageClass: fast-ssd
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.storageClassName
+          value: fast-ssd
