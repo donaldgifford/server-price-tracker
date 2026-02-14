@@ -43,20 +43,16 @@ mock-server: ## Start mock eBay server (port 8089)
 ###############
 ##@ Docker
 
-.PHONY: docker-build docker-build-multiarch docker-bake-print docker-push
+.PHONY: docker-build docker-bake-print docker-push
 
-docker-build: ## Build local dev image (single-arch)
+docker-build: ## Build local dev image
 	@ $(MAKE) --no-print-directory log-$@
 	@docker buildx bake dev
-
-docker-build-multiarch: ## Validate multi-arch build (no push)
-	@ $(MAKE) --no-print-directory log-$@
-	@docker buildx bake ci
 
 docker-bake-print: ## Print resolved bake config (debug)
 	@ $(MAKE) --no-print-directory log-$@
 	@docker buildx bake --print dev
 
-docker-push: ## Build and push multi-arch image to registry
+docker-push: ## Build and push image to registry
 	@ $(MAKE) --no-print-directory log-$@
 	@docker buildx bake release

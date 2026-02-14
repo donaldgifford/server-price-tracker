@@ -1,9 +1,9 @@
 // docker-bake.hcl — single source of truth for all Docker image builds.
 //
 // Targets:
-//   dev     — local single-arch build, loads into Docker daemon
-//   ci      — multi-arch validation build, no push
-//   release — multi-arch build, pushes to registry
+//   dev     — local build, loads into Docker daemon
+//   ci      — validation build, no push
+//   release — build and push to registry
 
 variable "REGISTRY" {
   default = "ghcr.io"
@@ -54,11 +54,11 @@ target "dev" {
   output   = ["type=docker"]
 }
 
-// CI validation build — multi-arch, no push.
+// CI validation build — no push.
 target "ci" {
   inherits   = ["_common"]
   tags       = tags(VERSION)
-  platforms  = ["linux/amd64", "linux/arm64"]
+  platforms  = ["linux/amd64"]
   output     = ["type=cacheonly"]
   cache-from = ["type=gha"]
   cache-to   = ["type=gha,mode=max"]
@@ -70,11 +70,11 @@ target "docker-metadata-action" {
   tags = tags(VERSION)
 }
 
-// Release build — multi-arch, pushes to registry.
+// Release build — pushes to registry.
 // Tags are inherited from docker-metadata-action (overridden by metadata-action in CI).
 target "release" {
   inherits   = ["_common", "docker-metadata-action"]
-  platforms  = ["linux/amd64", "linux/arm64"]
+  platforms  = ["linux/amd64"]
   output     = ["type=registry"]
   cache-from = ["type=gha"]
   cache-to   = ["type=gha,mode=max"]
