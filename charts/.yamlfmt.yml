@@ -1,3 +1,4 @@
+---
 # yamlfmt configuration for Helm charts
 formatter:
   type: basic

@@ -8,7 +8,7 @@
 
 lint-yaml: ## Lint repo YAML files (excludes charts/)
 	@ $(MAKE) --no-print-directory log-$@
-	@yamllint -c .yamllint.yml . -e charts/
+	@yamllint -c .yamllint.yml .
 	@echo "✓ YAML lint passed"
 
 lint-yaml-charts: ## Lint chart YAML files (relaxed rules)
@@ -18,7 +18,7 @@ lint-yaml-charts: ## Lint chart YAML files (relaxed rules)
 
 lint-yaml-fmt: ## Check YAML formatting (no modify)
 	@ $(MAKE) --no-print-directory log-$@
-	@yamlfmt -lint .
+	@yamlfmt -lint '**/*.yaml' '**/*.yml'
 	@echo "✓ YAML formatting check passed"
 
 lint-md: ## Lint markdown files with markdownlint-cli2
@@ -28,7 +28,7 @@ lint-md: ## Lint markdown files with markdownlint-cli2
 
 lint-actions: ## Lint GitHub Actions workflow files
 	@ $(MAKE) --no-print-directory log-$@
-	@actionlint
+	@mise exec -- actionlint
 	@echo "✓ Actions lint passed"
 
 lint-all: lint lint-yaml lint-yaml-charts lint-md lint-actions helm-lint ## Run all linters (Go + YAML + Markdown + Actions + Helm)

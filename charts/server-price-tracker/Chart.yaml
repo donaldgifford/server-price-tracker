@@ -1,3 +1,4 @@
+---
 apiVersion: v2
 name: server-price-tracker
 description: eBay server hardware deal tracker with LLM extraction, scoring, and Discord alerts

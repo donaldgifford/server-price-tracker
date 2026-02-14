@@ -46,6 +46,11 @@ rules:
     max-spaces-inside: 1
 
 ignore: |-
+  charts/
   node_modules/
   vendor/
   .git/
+  # Tool-generated configs with non-standard formatting
+  .mockery.yaml
+  .forge-lock.yaml
+  scripts/docker/

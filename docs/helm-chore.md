@@ -47,7 +47,7 @@ helm-unittest is a Helm plugin, not a standalone binary. Installation is via `he
 
 Convention: one test file per template, named `<template>_test.yaml`.
 
-### Test files to create (8):
+### Test files to create (8)
 
 #### 1. `deployment_test.yaml`
 

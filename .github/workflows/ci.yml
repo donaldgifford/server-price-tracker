@@ -162,13 +162,13 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Lint repo YAML
-        run: yamllint -c .yamllint.yml . -e charts/
+        run: yamllint -c .yamllint.yml .
 
       - name: Lint chart YAML
         run: yamllint -c charts/.yamllint.yml charts/
 
       - name: Check YAML formatting
-        run: yamlfmt -lint .
+        run: yamlfmt -lint '**/*.yaml' '**/*.yml'
 
       - name: Lint Markdown
         run: markdownlint-cli2 '**/*.md' '#node_modules' '#vendor'

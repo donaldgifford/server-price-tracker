@@ -1,4 +1,11 @@
+---
 # yamlfmt configuration for project
+doublestar: true
+exclude:
+  - charts/server-price-tracker/templates/**
+  - .mockery.yaml
+  - .forge-lock.yaml
+  - scripts/docker/**
 formatter:
   type: basic
   indent: 2

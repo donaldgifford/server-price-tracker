@@ -218,18 +218,18 @@ Run full verification suite and update project documentation.
 
 ### Tasks
 
-- [ ] Run full local verification:
-  - [ ] `make helm-lint`
-  - [ ] `make helm-unittest`
-  - [ ] `make helm-template` -- default values
-  - [ ] `make helm-template-ci` -- CI values
-  - [ ] `make lint-yaml`
-  - [ ] `make lint-yaml-charts`
-  - [ ] `make lint-yaml-fmt`
-  - [ ] `make lint-md`
-  - [ ] `make lint-actions`
+- [x] Run full local verification:
+  - [x] `make helm-lint`
+  - [x] `make helm-unittest`
+  - [x] `make helm-template` -- default values
+  - [x] `make helm-template-ci` -- CI values
+  - [x] `make lint-yaml`
+  - [x] `make lint-yaml-charts`
+  - [x] `make lint-yaml-fmt`
+  - [x] `make lint-md`
+  - [x] `make lint-actions`
 - [x] Update `CLAUDE.md` if needed with new targets/tools
-- [ ] Fix any lint issues found during full verification run
+- [x] Fix any lint issues found during full verification run
 
 ### Success Criteria
 
