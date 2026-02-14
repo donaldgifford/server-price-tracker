@@ -34,13 +34,13 @@ Schema:
   "capacity_gb": integer | null,
   "quantity": integer,
   "generation": "DDR3" | "DDR4" | "DDR5",
-  "speed_mhz": integer | null,
+  "speed_mhz": integer (e.g. 2133, 2400, 2666, 3200) | null,
   "ecc": boolean | null,
   "registered": boolean | null,
   "form_factor": string | null,
   "rank": string | null,
   "voltage": string | null,
-  "condition": string,
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
   "compatible_servers": [string],
   "confidence": float
 }`
@@ -59,15 +59,15 @@ Schema:
   "capacity": string | null,
   "capacity_bytes": integer | null,
   "quantity": integer,
-  "interface": string | null,
-  "form_factor": string | null,
-  "type": string | null,
+  "interface": "SAS" | "SATA" | "NVMe" | "U.2",
+  "form_factor": "2.5" | "3.5" | null,
+  "type": "SSD" | "HDD",
   "rpm": integer | null,
   "endurance": string | null,
   "encryption": boolean | null,
   "carrier_included": boolean | null,
   "carrier_type": string | null,
-  "condition": string,
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
   "confidence": float
 }`
 
@@ -84,7 +84,7 @@ Schema:
   "manufacturer": string | null,
   "model": string | null,
   "generation": string | null,
-  "form_factor": string | null,
+  "form_factor": "1U" | "2U" | "4U" | "tower" | null,
   "drive_bays": string | null,
   "drive_form_factor": string | null,
   "cpu_count": integer | null,
@@ -103,7 +103,7 @@ Schema:
   "bezel_included": boolean | null,
   "network_card": string | null,
   "quantity": integer,
-  "condition": string,
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
   "boots_tested": boolean | null,
   "confidence": float
 }`
@@ -117,10 +117,10 @@ Item Specifics: {{.ItemSpecifics}}
 
 Schema:
 {
-  "manufacturer": string | null,
-  "family": string | null,
+  "manufacturer": "Intel" | "AMD",
+  "family": "Xeon" | "EPYC",
   "series": string | null,
-  "model": string | null,
+  "model": string,
   "generation": string | null,
   "cores": integer | null,
   "threads": integer | null,
@@ -131,7 +131,7 @@ Schema:
   "l3_cache_mb": integer | null,
   "part_number": string | null,
   "quantity": integer,
-  "condition": string,
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
   "matched_pair": boolean | null,
   "confidence": float
 }`
@@ -147,9 +147,9 @@ Schema:
 {
   "manufacturer": string | null,
   "model": string | null,
-  "speed": string | null,
-  "port_count": integer | null,
-  "port_type": string | null,
+  "speed": "1GbE" | "10GbE" | "25GbE" | "40GbE" | "100GbE",
+  "port_count": integer (1-8),
+  "port_type": "SFP+" | "SFP28" | "QSFP+" | "QSFP28" | "RJ45" | "BaseT" | null,
   "interface": string | null,
   "pcie_generation": string | null,
   "firmware_protocol": string | null,
@@ -158,7 +158,7 @@ Schema:
   "low_profile": boolean | null,
   "transceivers_included": boolean | null,
   "quantity": integer,
-  "condition": string,
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
   "confidence": float
 }`
 
