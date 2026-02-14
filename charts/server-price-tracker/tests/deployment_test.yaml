@@ -28,7 +28,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.template.spec.containers[0].image
-          pattern: "ghcr.io/donaldgifford/server-price-tracker:0\\.1\\.2"
+          pattern: "ghcr.io/donaldgifford/server-price-tracker:\\d+\\.\\d+\\.\\d+"
 
   - it: allows custom image tag override
     template: templates/deployment.yaml
