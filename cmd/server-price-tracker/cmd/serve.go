@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/charmbracelet/log"
 	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
@@ -24,6 +23,7 @@ import (
 	"github.com/donaldgifford/server-price-tracker/internal/notify"
 	"github.com/donaldgifford/server-price-tracker/internal/store"
 	"github.com/donaldgifford/server-price-tracker/pkg/extract"
+	sptlog "github.com/donaldgifford/server-price-tracker/pkg/logger"
 )
 
 var serveCmd = &cobra.Command{
@@ -42,14 +42,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	logger := log.NewWithOptions(os.Stderr, log.Options{
-		Level: parseLogLevel(cfg.Logging.Level),
-	})
-
-	slogLevel := parseSlogLevel(cfg.Logging.Level)
-	slogger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slogLevel,
-	}))
+	slogger := sptlog.New(cfg.Logging.Level, cfg.Logging.Format)
 
 	// --- Database ---
 	ctx := context.Background()
@@ -96,7 +89,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	logger.Info("starting server", "addr", addr)
+	slogger.Info("starting server", "addr", addr)
 
 	// Start scheduler.
 	if scheduler != nil {
@@ -107,7 +100,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 	// Start server in a goroutine.
 	go func() {
 		if err := e.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("server error", "err", err)
+			slogger.Error("server error", "err", err)
 		}
 	}()
 
@@ -116,7 +109,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	logger.Info("shutting down server")
+	slogger.Info("shutting down server")
 
 	// Stop scheduler first.
 	if scheduler != nil {
@@ -132,7 +125,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("shutting down server: %w", err)
 	}
 
-	logger.Info("server stopped")
+	slogger.Info("server stopped")
 	return nil
 }
 
@@ -221,7 +214,7 @@ func buildExtractor(cfg *config.Config, logger *slog.Logger) extract.Extractor {
 		return nil
 	}
 	logger.Info("llm extractor configured", "backend", cfg.LLM.Backend)
-	return extract.NewLLMExtractor(backend)
+	return extract.NewLLMExtractor(backend, extract.WithLogger(logger))
 }
 
 func buildNotifier(cfg *config.Config, logger *slog.Logger) notify.Notifier {
@@ -303,31 +296,5 @@ func buildLLMBackend(cfg *config.Config, logger *slog.Logger) extract.LLMBackend
 	default:
 		logger.Error("unknown LLM backend", "backend", cfg.LLM.Backend)
 		return nil
-	}
-}
-
-func parseLogLevel(level string) log.Level {
-	switch level {
-	case "debug":
-		return log.DebugLevel
-	case "warn":
-		return log.WarnLevel
-	case "error":
-		return log.ErrorLevel
-	default:
-		return log.InfoLevel
-	}
-}
-
-func parseSlogLevel(level string) slog.Level {
-	switch level {
-	case "debug":
-		return slog.LevelDebug
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
 	}
 }

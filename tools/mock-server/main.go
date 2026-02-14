@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	sptlog "github.com/donaldgifford/server-price-tracker/pkg/logger"
 )
 
 type browseAPIResponse struct {
@@ -32,7 +34,7 @@ func main() {
 	fixtureFile := flag.String("fixture", "tools/mock-server/testdata/search_response.json", "path to search response fixture")
 	flag.Parse()
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := sptlog.NewWithWriter(os.Stdout, "debug", "text")
 
 	fixture, err := loadFixture(*fixtureFile)
 	if err != nil {
