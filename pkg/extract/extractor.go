@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
@@ -12,6 +13,7 @@ import (
 // LLMExtractor implements the Extractor interface using an LLM backend.
 type LLMExtractor struct {
 	backend     LLMBackend
+	log         *slog.Logger
 	temperature float64
 	maxTokens   int
 }
@@ -33,10 +35,18 @@ func WithMaxTokens(n int) LLMExtractorOption {
 	}
 }
 
+// WithLogger sets a custom logger for extraction diagnostics.
+func WithLogger(l *slog.Logger) LLMExtractorOption {
+	return func(e *LLMExtractor) {
+		e.log = l
+	}
+}
+
 // NewLLMExtractor creates a new LLMExtractor.
 func NewLLMExtractor(backend LLMBackend, opts ...LLMExtractorOption) *LLMExtractor {
 	e := &LLMExtractor{
 		backend:     backend,
+		log:         slog.Default(),
 		temperature: 0.1,
 		maxTokens:   512,
 	}
@@ -75,8 +85,11 @@ func (e *LLMExtractor) Classify(
 	}
 
 	raw := strings.TrimSpace(strings.ToLower(resp.Content))
+	e.log.Debug("classify LLM response", "title", title, "raw_response", resp.Content, "parsed", raw)
+
 	ct, ok := validComponentTypes[raw]
 	if !ok {
+		e.log.Warn("classify returned invalid component type", "title", title, "raw_response", resp.Content, "parsed", raw)
 		return "", fmt.Errorf("invalid component type %q from LLM", raw)
 	}
 
@@ -105,12 +118,18 @@ func (e *LLMExtractor) Extract(
 		return nil, fmt.Errorf("calling LLM for extraction: %w", err)
 	}
 
+	e.log.Debug("extract LLM response", "component_type", componentType, "title", title, "raw_response", resp.Content)
+
 	var attrs map[string]any
 	if err := json.Unmarshal([]byte(resp.Content), &attrs); err != nil {
+		e.log.Warn("extract JSON parse failed",
+			"component_type", componentType, "title", title, "raw_response", resp.Content, "error", err)
 		return nil, fmt.Errorf("parsing LLM JSON response: %w", err)
 	}
 
 	if err := ValidateExtraction(componentType, attrs); err != nil {
+		e.log.Warn("extract validation failed",
+			"component_type", componentType, "title", title, "raw_response", resp.Content, "error", err)
 		return nil, fmt.Errorf("validating extraction: %w", err)
 	}
 
@@ -132,6 +151,9 @@ func (e *LLMExtractor) ClassifyAndExtract(
 	if err != nil {
 		return ct, nil, fmt.Errorf("extracting: %w", err)
 	}
+
+	e.log.Debug("classify and extract complete",
+		"title", title, "component_type", ct, "attribute_count", len(attrs))
 
 	return ct, attrs, nil
 }

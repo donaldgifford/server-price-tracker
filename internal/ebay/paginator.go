@@ -3,8 +3,7 @@ package ebay
 import (
 	"context"
 	"fmt"
-
-	"github.com/charmbracelet/log"
+	"log/slog"
 
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
@@ -24,7 +23,7 @@ type ListingChecker interface {
 type Paginator struct {
 	client   EbayClient
 	checker  ListingChecker
-	logger   *log.Logger
+	logger   *slog.Logger
 	pageSize int
 	maxPages int
 }
@@ -47,7 +46,7 @@ func WithMaxPages(n int) PaginatorOption {
 }
 
 // WithPaginatorLogger sets the logger.
-func WithPaginatorLogger(l *log.Logger) PaginatorOption {
+func WithPaginatorLogger(l *slog.Logger) PaginatorOption {
 	return func(p *Paginator) {
 		p.logger = l
 	}

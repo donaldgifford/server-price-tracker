@@ -3,15 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
-	"github.com/charmbracelet/log"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/cobra"
 
 	"github.com/donaldgifford/server-price-tracker/internal/config"
 	"github.com/donaldgifford/server-price-tracker/internal/store"
+	sptlog "github.com/donaldgifford/server-price-tracker/pkg/logger"
 )
 
 var migrateCmd = &cobra.Command{
@@ -30,9 +29,7 @@ func runMigrate(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	logger := log.NewWithOptions(os.Stderr, log.Options{
-		Level: parseLogLevel(cfg.Logging.Level),
-	})
+	logger := sptlog.New(cfg.Logging.Level, cfg.Logging.Format)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
