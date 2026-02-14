@@ -50,59 +50,59 @@ conditional rendering, and value overrides.
 
 ### Tasks
 
-- [ ] Create `charts/server-price-tracker/tests/` directory
-- [ ] Create `charts/server-price-tracker/tests/deployment_test.yaml`:
-  - [ ] Test: renders a Deployment with correct kind, name, labels
-  - [ ] Test: default image uses `.Chart.AppVersion` when `image.tag` is empty
-  - [ ] Test: custom `image.tag` overrides appVersion
-  - [ ] Test: container args are `["serve", "--config", "/etc/spt/config.yaml"]`
-  - [ ] Test: container port matches `config.server.port` (8080)
-  - [ ] Test: config volume mounted at `/etc/spt` (readOnly)
-  - [ ] Test: envFrom references the secret
-  - [ ] Test: liveness and readiness probes render by default
-  - [ ] Test: probes can be nulled out (`livenessProbe: null`)
-  - [ ] Test: migration init container renders when `migration.enabled=true`
-  - [ ] Test: migration init container absent when `migration.enabled=false`
-  - [ ] Test: CNPG env vars (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME) render when
+- [x] Create `charts/server-price-tracker/tests/` directory
+- [x] Create `charts/server-price-tracker/tests/deployment_test.yaml`:
+  - [x] Test: renders a Deployment with correct kind, name, labels
+  - [x] Test: default image uses `.Chart.AppVersion` when `image.tag` is empty
+  - [x] Test: custom `image.tag` overrides appVersion
+  - [x] Test: container args are `["serve", "--config", "/etc/spt/config.yaml"]`
+  - [x] Test: container port matches `config.server.port` (8080)
+  - [x] Test: config volume mounted at `/etc/spt` (readOnly)
+  - [x] Test: envFrom references the secret
+  - [x] Test: liveness and readiness probes render by default
+  - [x] Test: probes can be nulled out (`livenessProbe: null`)
+  - [x] Test: migration init container renders when `migration.enabled=true`
+  - [x] Test: migration init container absent when `migration.enabled=false`
+  - [x] Test: CNPG env vars (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME) render when
         `cnpg.enabled=true`
-  - [ ] Test: replicas field absent when `autoscaling.enabled=true`
-  - [ ] Test: `checksum/config` annotation present
-- [ ] Create `charts/server-price-tracker/tests/service_test.yaml`:
-  - [ ] Test: renders a Service of type ClusterIP
-  - [ ] Test: service port is 8080
-  - [ ] Test: selector labels match deployment
-- [ ] Create `charts/server-price-tracker/tests/configmap_test.yaml`:
-  - [ ] Test: renders a ConfigMap
-  - [ ] Test: config data includes server, database, ebay, llm sections
-- [ ] Create `charts/server-price-tracker/tests/secret_test.yaml`:
-  - [ ] Test: renders Secret when `secret.create=true`
-  - [ ] Test: does not render when `secret.create=false`
-  - [ ] Test: secret type is Opaque
-- [ ] Create `charts/server-price-tracker/tests/cnpg-cluster_test.yaml`:
-  - [ ] Test: does not render when `cnpg.enabled=false` (default)
-  - [ ] Test: renders CNPG Cluster when `cnpg.enabled=true`
-  - [ ] Test: correct apiVersion (`postgresql.cnpg.io/v1`), kind (`Cluster`)
-  - [ ] Test: instances, imageName, storage size match values
-  - [ ] Test: bootstrap database and owner set correctly
-  - [ ] Test: storageClass rendered when specified
-- [ ] Create `charts/server-price-tracker/tests/ollama_test.yaml`:
-  - [ ] Test: StatefulSet does not render when `ollama.enabled=false` (default)
-  - [ ] Test: Service does not render when `ollama.enabled=false`
-  - [ ] Test: StatefulSet renders with correct model, resources when enabled
-  - [ ] Test: PVC storage size and storageClass correct
-- [ ] Create `charts/server-price-tracker/tests/servicemonitor_test.yaml`:
-  - [ ] Test: does not render when `serviceMonitor.enabled=false` (default)
-  - [ ] Test: renders ServiceMonitor when enabled
-  - [ ] Test: correct path (`/metrics`) and interval (`30s`)
-- [ ] Create `charts/server-price-tracker/tests/ingress_test.yaml`:
-  - [ ] Test: Ingress does not render when `ingress.enabled=false` (default)
-  - [ ] Test: Ingress renders with hosts/paths when enabled
-  - [ ] Test: HTTPRoute does not render when `httpRoute.enabled=false` (default)
-  - [ ] Test: HTTPRoute renders when `httpRoute.enabled=true`
+  - [x] Test: replicas field absent when `autoscaling.enabled=true`
+  - [x] Test: `checksum/config` annotation present
+- [x] Create `charts/server-price-tracker/tests/service_test.yaml`:
+  - [x] Test: renders a Service of type ClusterIP
+  - [x] Test: service port is 8080
+  - [x] Test: selector labels match deployment
+- [x] Create `charts/server-price-tracker/tests/configmap_test.yaml`:
+  - [x] Test: renders a ConfigMap
+  - [x] Test: config data includes server, database, ebay, llm sections
+- [x] Create `charts/server-price-tracker/tests/secret_test.yaml`:
+  - [x] Test: renders Secret when `secret.create=true`
+  - [x] Test: does not render when `secret.create=false`
+  - [x] Test: secret type is Opaque
+- [x] Create `charts/server-price-tracker/tests/cnpg-cluster_test.yaml`:
+  - [x] Test: does not render when `cnpg.enabled=false` (default)
+  - [x] Test: renders CNPG Cluster when `cnpg.enabled=true`
+  - [x] Test: correct apiVersion (`postgresql.cnpg.io/v1`), kind (`Cluster`)
+  - [x] Test: instances, imageName, storage size match values
+  - [x] Test: bootstrap database and owner set correctly
+  - [x] Test: storageClass rendered when specified
+- [x] Create `charts/server-price-tracker/tests/ollama_test.yaml`:
+  - [x] Test: StatefulSet does not render when `ollama.enabled=false` (default)
+  - [x] Test: Service does not render when `ollama.enabled=false`
+  - [x] Test: StatefulSet renders with correct model, resources when enabled
+  - [x] Test: PVC storage size and storageClass correct
+- [x] Create `charts/server-price-tracker/tests/servicemonitor_test.yaml`:
+  - [x] Test: does not render when `serviceMonitor.enabled=false` (default)
+  - [x] Test: renders ServiceMonitor when enabled
+  - [x] Test: correct path (`/metrics`) and interval (`30s`)
+- [x] Create `charts/server-price-tracker/tests/ingress_test.yaml`:
+  - [x] Test: Ingress does not render when `ingress.enabled=false` (default)
+  - [x] Test: Ingress renders with hosts/paths when enabled
+  - [x] Test: HTTPRoute does not render when `httpRoute.enabled=false` (default)
+  - [x] Test: HTTPRoute renders when `httpRoute.enabled=true`
 - [x] Install helm-unittest plugin locally:
       `helm plugin install https://github.com/helm-unittest/helm-unittest.git`
-- [ ] Verify: `make helm-unittest` -- all tests pass
-- [ ] Verify: `make helm-lint` still passes (tests don't break linting)
+- [x] Verify: `make helm-unittest` -- all tests pass (49/49)
+- [x] Verify: `make helm-lint` still passes (tests don't break linting)
 
 ### Success Criteria
 

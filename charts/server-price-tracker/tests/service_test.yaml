@@ -1,0 +1,32 @@
+---
+suite: service
+templates:
+  - templates/service.yaml
+tests:
+  - it: renders a Service of type ClusterIP
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.type
+          value: ClusterIP
+
+  - it: has correct service port
+    asserts:
+      - equal:
+          path: spec.ports[0].port
+          value: 8080
+      - equal:
+          path: spec.ports[0].name
+          value: http
+      - equal:
+          path: spec.ports[0].targetPort
+          value: http
+
+  - it: has selector labels matching deployment
+    asserts:
+      - isSubset:
+          path: spec.selector
+          content:
+            app.kubernetes.io/name: server-price-tracker
+            app.kubernetes.io/instance: RELEASE-NAME

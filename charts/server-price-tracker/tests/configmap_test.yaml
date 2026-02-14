@@ -1,0 +1,36 @@
+---
+suite: configmap
+templates:
+  - templates/configmap.yaml
+tests:
+  - it: renders a ConfigMap
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-server-price-tracker-config
+
+  - it: config data includes server section
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "server:"
+
+  - it: config data includes database section
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "database:"
+
+  - it: config data includes ebay section
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "ebay:"
+
+  - it: config data includes llm section
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "llm:"

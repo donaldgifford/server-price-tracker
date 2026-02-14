@@ -1,0 +1,79 @@
+---
+suite: cnpg-cluster
+templates:
+  - templates/cnpg-cluster.yaml
+tests:
+  - it: does not render when cnpg.enabled is false
+    set:
+      cnpg.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders CNPG Cluster when enabled
+    set:
+      cnpg.enabled: true
+    asserts:
+      - isKind:
+          of: Cluster
+      - equal:
+          path: apiVersion
+          value: postgresql.cnpg.io/v1
+
+  - it: has correct cluster name
+    set:
+      cnpg.enabled: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-server-price-tracker-db
+
+  - it: matches configured instances and imageName
+    set:
+      cnpg.enabled: true
+      cnpg.instances: 3
+      cnpg.imageName: "ghcr.io/cloudnative-pg/postgresql:16.4"
+    asserts:
+      - equal:
+          path: spec.instances
+          value: 3
+      - equal:
+          path: spec.imageName
+          value: "ghcr.io/cloudnative-pg/postgresql:16.4"
+
+  - it: has correct storage size
+    set:
+      cnpg.enabled: true
+      cnpg.storage.size: 20Gi
+    asserts:
+      - equal:
+          path: spec.storage.size
+          value: 20Gi
+
+  - it: sets bootstrap database and owner
+    set:
+      cnpg.enabled: true
+    asserts:
+      - equal:
+          path: spec.bootstrap.initdb.database
+          value: spt
+      - equal:
+          path: spec.bootstrap.initdb.owner
+          value: spt
+
+  - it: renders storageClass when specified
+    set:
+      cnpg.enabled: true
+      cnpg.storage.storageClass: fast-ssd
+    asserts:
+      - equal:
+          path: spec.storage.storageClass
+          value: fast-ssd
+
+  - it: omits storageClass when empty
+    set:
+      cnpg.enabled: true
+      cnpg.storage.storageClass: ""
+    asserts:
+      - isNull:
+          path: spec.storage.storageClass
