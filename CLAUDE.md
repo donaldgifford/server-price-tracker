@@ -8,6 +8,10 @@ Server Price Tracker is an API-first Go service that monitors eBay listings for 
 
 **Current state:** MVP implementation is complete (Phases 0-9) and serve.go is fully wired (Phase 3 post-implementation). All components are connected: database, eBay client, LLM extractor, notifier, engine, scheduler, and all API routes. The server starts gracefully even if external services are unavailable. See `docs/IMPLEMENTATION.md` for the MVP build plan and `docs/POST_IMPLEMENTATION.md` for the wiring/integration plan.
 
+## Git Workflow
+
+**Never commit directly to `main`.** Always create a feature branch for changes (e.g., `fix/condition-normalization`, `feat/new-endpoint`, `chore/update-deps`). Push the branch and open a PR for review.
+
 ## Build & Development Commands
 
 Tool versions are managed via `mise.toml` — run `mise install` to set up the toolchain (Go 1.25.7, golangci-lint 2.8.0, Helm 3.19.0, helm-ct, helm-cr, helm-diff, helm-docs, yamllint, yamlfmt, markdownlint-cli2, actionlint, etc.). The `helm-unittest` plugin is installed separately via `helm plugin install https://github.com/helm-unittest/helm-unittest.git`.
@@ -225,7 +229,7 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 
 - **Docker Bake:** `docker-bake.hcl` is the single source of truth for image builds. Three targets: `dev` (local single-arch), `ci` (multi-arch validation), `release` (multi-arch push to GHCR)
 - **CI workflow** (`.github/workflows/ci.yml`): lint, test with coverage, security scan (govulncheck + Trivy), GoReleaser snapshot build, Docker Bake multi-arch validation, Helm chart lint + install testing via chart-testing-action (kind cluster)
-- **Release workflow** (`.github/workflows/release.yml`): semantic version bump, GoReleaser release, Docker multi-arch build+push with metadata-action tags, Helm chart version bump + chart-releaser publish to GitHub Pages
+- **Release workflow** (`.github/workflows/release.yml`): PR labels (`major`, `minor`, `patch`) drive `pr-semver-bump` to create a git tag on merge to `main`. Then: GoReleaser release, Docker multi-arch build+push with metadata-action tags, and automatic Helm chart versioning — CI bumps `Chart.yaml` `appVersion` to match the release tag and auto-increments the chart `version` patch number. **Do not manually bump `Chart.yaml` version or appVersion; CI owns both.** Charts are published to GitHub Pages via chart-releaser.
 - **Chart testing:** `ct.yaml` configures chart-testing-action. `charts/.yamllint.yml` and `charts/.yamlfmt.yml` provide chart-specific YAML lint/format rules. `charts/server-price-tracker/ci/ci-values.yaml` provides CI install overrides (nginx stub image, no probes/migration). Helm unit tests use `helm-unittest` plugin in `charts/server-price-tracker/tests/`
 - **Helm repo:** Charts are published to GitHub Pages at `https://donaldgifford.github.io/server-price-tracker/` via chart-releaser-action. Add with `helm repo add spt https://donaldgifford.github.io/server-price-tracker/`
 - **Security workflow** (`.github/workflows/security.yml`): scheduled weekly govulncheck with SARIF upload to GitHub Code Scanning

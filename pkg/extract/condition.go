@@ -8,24 +8,26 @@ import (
 
 // conditionMap maps normalized eBay condition strings to domain conditions.
 var conditionMap = map[string]domain.Condition{
-	// new
-	"new":            domain.ConditionNew,
-	"brand new":      domain.ConditionNew,
-	"factory sealed": domain.ConditionNew,
-	// like_new
+	// normalized enum values (identity mappings)
+	"new":          domain.ConditionNew,
+	"like_new":     domain.ConditionLikeNew,
+	"used_working": domain.ConditionUsedWorking,
+	"for_parts":    domain.ConditionForParts,
+	"unknown":      domain.ConditionUnknown,
+	// eBay / LLM variants
+	"brand new":                domain.ConditionNew,
+	"factory sealed":           domain.ConditionNew,
 	"open box":                 domain.ConditionLikeNew,
 	"manufacturer refurbished": domain.ConditionLikeNew,
-	// used_working
-	"used":                domain.ConditionUsedWorking,
-	"pre-owned":           domain.ConditionUsedWorking,
-	"seller refurbished":  domain.ConditionUsedWorking,
-	"pulled from working": domain.ConditionUsedWorking,
-	"tested working":      domain.ConditionUsedWorking,
-	// for_parts
-	"for parts":   domain.ConditionForParts,
-	"not working": domain.ConditionForParts,
-	"parts only":  domain.ConditionForParts,
-	"as-is":       domain.ConditionForParts,
+	"used":                     domain.ConditionUsedWorking,
+	"pre-owned":                domain.ConditionUsedWorking,
+	"seller refurbished":       domain.ConditionUsedWorking,
+	"pulled from working":      domain.ConditionUsedWorking,
+	"tested working":           domain.ConditionUsedWorking,
+	"for parts":                domain.ConditionForParts,
+	"not working":              domain.ConditionForParts,
+	"parts only":               domain.ConditionForParts,
+	"as-is":                    domain.ConditionForParts,
 }
 
 // NormalizeCondition maps a raw condition string (from eBay or LLM) to a

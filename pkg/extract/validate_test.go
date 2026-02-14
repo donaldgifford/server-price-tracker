@@ -26,12 +26,25 @@ func TestValidateExtraction_Common(t *testing.T) {
 			wantErr: "condition",
 		},
 		{
-			name: "invalid condition enum",
+			name: "unrecognized condition normalizes to unknown",
 			attrs: map[string]any{
 				"condition":  "broken",
 				"confidence": 0.9,
 			},
-			wantErr: "invalid enum",
+		},
+		{
+			name: "capitalized condition normalizes correctly",
+			attrs: map[string]any{
+				"condition":  "New",
+				"confidence": 0.9,
+			},
+		},
+		{
+			name: "eBay condition string normalizes correctly",
+			attrs: map[string]any{
+				"condition":  "Pre-Owned",
+				"confidence": 0.9,
+			},
 		},
 		{
 			name: "missing confidence",
@@ -71,8 +84,12 @@ func TestValidateExtraction_Common(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			err := extract.ValidateExtraction(domain.ComponentOther, tt.attrs)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.wantErr)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
@@ -472,6 +489,35 @@ func TestValidateExtraction_NIC(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestValidateExtraction_ConditionNormalization(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{name: "capitalized New", input: "New", expected: "new"},
+		{name: "uppercase USED", input: "Pre-Owned", expected: "used_working"},
+		{name: "mixed case Open Box", input: "Open Box", expected: "like_new"},
+		{name: "already normalized", input: "for_parts", expected: "for_parts"},
+		{name: "unrecognized defaults to unknown", input: "broken", expected: "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			attrs := map[string]any{
+				"condition":  tt.input,
+				"confidence": 0.9,
+			}
+			err := extract.ValidateExtraction(domain.ComponentOther, attrs)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, attrs["condition"])
 		})
 	}
 }
