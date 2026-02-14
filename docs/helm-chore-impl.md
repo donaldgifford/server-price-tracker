@@ -12,27 +12,27 @@ artifacts.
 
 ### Tasks
 
-- [ ] Create `charts/server-price-tracker/README.md` with the following
+- [x] Create `charts/server-price-tracker/README.md` with the following
       sections:
-  - [ ] Header with chart name, description, badges (version, appVersion)
-  - [ ] Prerequisites section (Kubernetes 1.27+, Helm 3.x, optional operators)
-  - [ ] Usage section:
-    - [ ] Adding the Helm repo (`helm repo add spt ...`)
-    - [ ] Installing the chart (`helm install ...`)
-    - [ ] Dependencies (CNPG operator, Ollama, Prometheus Operator -- when each
+  - [x] Header with chart name, description, badges (version, appVersion)
+  - [x] Prerequisites section (Kubernetes 1.27+, Helm 3.x, optional operators)
+  - [x] Usage section:
+    - [x] Adding the Helm repo (`helm repo add spt ...`)
+    - [x] Installing the chart (`helm install ...`)
+    - [x] Dependencies (CNPG operator, Ollama, Prometheus Operator -- when each
           is needed)
-    - [ ] Uninstalling (`helm uninstall ...`)
-    - [ ] Upgrading (`helm upgrade ...`)
-  - [ ] Configuration table -- key `values.yaml` parameters grouped by section
+    - [x] Uninstalling (`helm uninstall ...`)
+    - [x] Upgrading (`helm upgrade ...`)
+  - [x] Configuration table -- key `values.yaml` parameters grouped by section
         (image, config, secret, migration, probes, ingress/httproute, cnpg,
         ollama, serviceMonitor, autoscaling, tests)
-  - [ ] Workarounds & Known Issues section
-  - [ ] Further Information section with links to project docs
-- [ ] Update `charts/server-price-tracker/.helmignore` -- add `tests/`,
+  - [x] Workarounds & Known Issues section
+  - [x] Further Information section with links to project docs
+- [x] Update `charts/server-price-tracker/.helmignore` -- add `tests/`,
       `README.md`, `ci/`
-- [ ] Verify: `helm package charts/server-price-tracker/` produces a `.tgz` that
+- [x] Verify: `helm package charts/server-price-tracker/` produces a `.tgz` that
       does NOT contain `tests/`, `README.md`, or `ci/`
-- [ ] Verify: `helm lint charts/server-price-tracker/` still passes
+- [x] Verify: `helm lint charts/server-price-tracker/` still passes
 
 ### Success Criteria
 
@@ -99,50 +99,57 @@ conditional rendering, and value overrides.
   - [ ] Test: Ingress renders with hosts/paths when enabled
   - [ ] Test: HTTPRoute does not render when `httpRoute.enabled=false` (default)
   - [ ] Test: HTTPRoute renders when `httpRoute.enabled=true`
-- [ ] Install helm-unittest plugin locally:
+- [x] Install helm-unittest plugin locally:
       `helm plugin install https://github.com/helm-unittest/helm-unittest.git`
-- [ ] Verify: `helm unittest charts/server-price-tracker/` -- all tests pass
-- [ ] Verify: `helm lint charts/server-price-tracker/` still passes (tests don't
-      break linting)
+- [ ] Verify: `make helm-unittest` -- all tests pass
+- [ ] Verify: `make helm-lint` still passes (tests don't break linting)
 
 ### Success Criteria
 
 - 8 test files exist in `charts/server-price-tracker/tests/`
-- `helm unittest charts/server-price-tracker/` passes with 0 failures
+- `make helm-unittest` passes with 0 failures
 - Every conditional template (cnpg, ollama, serviceMonitor, ingress, httproute,
   secret, migration) has both enabled and disabled test cases
 - Deployment test covers: image tag override, probes, init container, CNPG env
   vars, autoscaling replicas
-- `helm lint` still passes
+- `make helm-lint` still passes
 
 ---
 
-## Phase 3: Makefile Targets
+## Phase 3: Makefile Targets (DONE)
 
-Add Helm and linting Make targets for local development convenience.
+Helm and linting Make targets have been set up across two domain makefiles.
 
 ### Tasks
 
-- [ ] Create `scripts/makefiles/helm.mk` with targets:
-  - [ ] `helm-lint` -- `helm lint charts/server-price-tracker/`
-  - [ ] `helm-unittest` -- `helm unittest charts/server-price-tracker/`
-  - [ ] `helm-template` -- `helm template test charts/server-price-tracker/`
-  - [ ] `lint-yaml` -- run yamllint with both root and chart configs, run
-        yamlfmt check
-  - [ ] `lint-md` -- run markdownlint-cli2
-- [ ] Update root `Makefile` -- add `include scripts/makefiles/helm.mk`
-- [ ] Verify: `make helm-lint` passes
-- [ ] Verify: `make helm-unittest` passes
-- [ ] Verify: `make helm-template` renders without errors
-- [ ] Verify: `make lint-yaml` runs yamllint and yamlfmt
-- [ ] Verify: `make lint-md` runs markdownlint-cli2
+- [x] Create `scripts/makefiles/helm.mk` with targets:
+  - [x] `helm-lint` -- `helm lint charts/server-price-tracker/`
+  - [x] `helm-unittest` -- `helm unittest charts/server-price-tracker/`
+  - [x] `helm-template` -- `helm template test charts/server-price-tracker/`
+  - [x] `helm-template-ci` -- render with CI values
+  - [x] `helm-package` -- package chart into .tgz
+  - [x] `helm-test` -- lint + unittest combined
+  - [x] `helm-ct-lint`, `helm-ct-list-changed`, `helm-ct-install` -- chart-testing targets
+  - [x] `helm-docs`, `helm-diff-check`, `helm-cr-package` -- helm tools targets
+- [x] Create `scripts/makefiles/docs.mk` with repo-wide linting targets:
+  - [x] `lint-yaml` -- yamllint repo YAML (excludes charts/)
+  - [x] `lint-yaml-charts` -- yamllint chart YAML (relaxed rules)
+  - [x] `lint-yaml-fmt` -- yamlfmt formatting check
+  - [x] `lint-md` -- markdownlint-cli2
+  - [x] `lint-actions` -- actionlint
+  - [x] `lint-all` -- all linters combined (Go + YAML + Markdown + Actions + Helm)
+- [x] Update root `Makefile` -- include `helm.mk` and `docs.mk`
+- [x] Add Helm tools to `mise.toml` -- helm, helm-cr, helm-ct, helm-diff, helm-docs
+- [x] Install helm-unittest Helm plugin locally
+- [x] Update `CLAUDE.md` with all new tools and make targets
 
 ### Success Criteria
 
-- `scripts/makefiles/helm.mk` exists with all 5 targets
-- Root `Makefile` includes `helm.mk`
-- All Make targets execute successfully
-- `make help` shows the new targets
+- [x] `scripts/makefiles/helm.mk` exists with Helm targets
+- [x] `scripts/makefiles/docs.mk` exists with repo linting targets
+- [x] Root `Makefile` includes both `helm.mk` and `docs.mk`
+- [x] All Make targets execute successfully
+- [x] `make help` shows the new targets
 
 ---
 
@@ -160,14 +167,12 @@ tools from `mise.toml`.
   - [ ] `jdx/mise-action@v2` -- installs yamllint, markdownlint-cli2, yamlfmt,
         actionlint
   - [ ] `azure/setup-helm@v4` -- for helm lint
-  - [ ] `yamllint -c .yamllint.yml . -e charts/` -- lint repo YAML (excludes
-        charts/)
-  - [ ] `yamllint -c charts/.yamllint.yml charts/` -- lint chart YAML (relaxed
-        rules)
-  - [ ] `yamlfmt -lint .` -- check YAML formatting (no modify)
-  - [ ] `markdownlint-cli2 '**/*.md' '#node_modules'` -- lint all markdown
-  - [ ] `actionlint` -- validate all GitHub Actions workflow files
-  - [ ] `helm lint charts/server-price-tracker/` -- validate Helm chart
+  - [ ] `make lint-yaml` -- lint repo YAML (excludes charts/)
+  - [ ] `make lint-yaml-charts` -- lint chart YAML (relaxed rules)
+  - [ ] `make lint-yaml-fmt` -- check YAML formatting (no modify)
+  - [ ] `make lint-md` -- lint all markdown
+  - [ ] `make lint-actions` -- validate all GitHub Actions workflow files
+  - [ ] `make helm-lint` -- validate Helm chart
 - [ ] Verify: `mise exec -- actionlint .github/workflows/ci.yml` passes
 
 ### Success Criteria
@@ -214,23 +219,23 @@ Run full verification suite and update project documentation.
 ### Tasks
 
 - [ ] Run full local verification:
-  - [ ] `helm lint charts/server-price-tracker/`
-  - [ ] `helm unittest charts/server-price-tracker/`
-  - [ ] `helm template test charts/server-price-tracker/` -- default values
-  - [ ] `helm template test charts/server-price-tracker/ --values charts/server-price-tracker/ci/ci-values.yaml`
-        -- CI values
-  - [ ] `yamllint -c .yamllint.yml . --exclude charts/`
-  - [ ] `yamllint -c charts/.yamllint.yml charts/`
-  - [ ] `markdownlint-cli2 '**/*.md'`
-  - [ ] `mise exec -- actionlint`
-- [ ] Update `CLAUDE.md` if needed with new targets/tools
+  - [ ] `make helm-lint`
+  - [ ] `make helm-unittest`
+  - [ ] `make helm-template` -- default values
+  - [ ] `make helm-template-ci` -- CI values
+  - [ ] `make lint-yaml`
+  - [ ] `make lint-yaml-charts`
+  - [ ] `make lint-yaml-fmt`
+  - [ ] `make lint-md`
+  - [ ] `make lint-actions`
+- [x] Update `CLAUDE.md` if needed with new targets/tools
 - [ ] Fix any lint issues found during full verification run
 
 ### Success Criteria
 
-- All lint tools pass with no errors
-- All helm unit tests pass
-- `helm template` renders correctly with both default and CI values
-- `actionlint` passes across all workflow files
-- No regressions in existing `helm lint` or `helm template` output
-- All changes committed on the chore branch
+- All lint tools pass with no errors (`make lint-all`)
+- All helm unit tests pass (`make helm-unittest`)
+- `make helm-template` and `make helm-template-ci` render correctly
+- `make lint-actions` passes across all workflow files
+- No regressions in existing `make helm-lint` or `make helm-template` output
+- All changes committed on the feature branch

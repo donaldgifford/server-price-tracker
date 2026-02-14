@@ -21,3 +21,7 @@
 .idea/
 *.tmproj
 .vscode/
+# Chart tests, docs, and CI values (not needed in packaged chart)
+tests/
+README.md
+ci/

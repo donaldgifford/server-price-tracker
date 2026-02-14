@@ -138,21 +138,29 @@ Steps:
 1. `actions/checkout@v6`
 2. `d3adb5/helm-unittest-action@v2` with `charts: charts/server-price-tracker`, `flags: --color`
 
-### Makefile targets
+### Makefile targets (DONE)
 
-Add a new `scripts/makefiles/helm.mk` include with:
+Helm and linting Make targets are already set up across two domain makefiles:
 
-- `helm-lint`: `helm lint charts/server-price-tracker/`
-- `helm-unittest`: `helm unittest charts/server-price-tracker/`
-- `helm-template`: `helm template test charts/server-price-tracker/`
-- `lint-yaml`: run yamllint (both configs) and yamlfmt check
-- `lint-md`: run markdownlint-cli2
+**`scripts/makefiles/helm.mk`** -- Helm-specific targets:
+
+- `helm-lint`, `helm-template`, `helm-template-ci`, `helm-package`
+- `helm-unittest`, `helm-test` (lint + unittest)
+- `helm-ct-lint`, `helm-ct-list-changed`, `helm-ct-install`
+- `helm-docs`, `helm-diff-check`, `helm-cr-package`
+
+**`scripts/makefiles/docs.mk`** -- Repo-wide linting targets:
+
+- `lint-yaml`, `lint-yaml-charts`, `lint-yaml-fmt`
+- `lint-md`, `lint-actions`, `lint-all`
+
+Both are included in the root `Makefile`.
 
 ---
 
 ## Files Summary
 
-### Create (10)
+### Create (9)
 
 | File | Purpose |
 |------|---------|
@@ -165,15 +173,23 @@ Add a new `scripts/makefiles/helm.mk` include with:
 | `charts/server-price-tracker/tests/ollama_test.yaml` | Ollama StatefulSet/Service tests |
 | `charts/server-price-tracker/tests/servicemonitor_test.yaml` | ServiceMonitor template tests |
 | `charts/server-price-tracker/tests/ingress_test.yaml` | Ingress + HTTPRoute tests |
-| `scripts/makefiles/helm.mk` | Helm-related Make targets |
 
-### Modify (3)
+### Modify (2)
 
 | File | Change |
 |------|--------|
 | `charts/server-price-tracker/.helmignore` | Add `tests/`, `README.md`, `ci/` |
 | `.github/workflows/ci.yml` | Add `lint-repo` and `helm-unittest` jobs |
-| `Makefile` | Include `scripts/makefiles/helm.mk` |
+
+### Already Done
+
+| File | Status |
+|------|--------|
+| `scripts/makefiles/helm.mk` | Created -- Helm development, testing, ct, and tools targets |
+| `scripts/makefiles/docs.mk` | Created -- Repo-wide linting targets |
+| `Makefile` | Updated -- includes `helm.mk` and `docs.mk` |
+| `mise.toml` | Updated -- added helm, helm-cr, helm-ct, helm-diff, helm-docs |
+| `CLAUDE.md` | Updated -- all new tools and make targets documented |
 
 ---
 
@@ -184,24 +200,30 @@ Add a new `scripts/makefiles/helm.mk` include with:
 cat charts/server-price-tracker/README.md
 
 # Helm unit tests pass
-helm unittest charts/server-price-tracker/
+make helm-unittest
 
 # Helm lint passes
-helm lint charts/server-price-tracker/
+make helm-lint
 
 # Yamllint passes (both configs)
-yamllint -c .yamllint.yml . --exclude charts/
-yamllint -c charts/.yamllint.yml charts/
+make lint-yaml
+make lint-yaml-charts
+
+# YAML formatting check
+make lint-yaml-fmt
 
 # Markdownlint passes
-markdownlint-cli2 '**/*.md' '#node_modules'
+make lint-md
 
 # Actionlint passes
-actionlint
+make lint-actions
+
+# All linters at once
+make lint-all
 
 # CI workflow is valid
 actionlint .github/workflows/ci.yml
 
 # .helmignore excludes tests from packaging
-helm package charts/server-price-tracker/ && tar -tzf server-price-tracker-*.tgz | grep -c test  # 0
+make helm-package && tar -tzf server-price-tracker-*.tgz | grep -c test  # 0
 ```
