@@ -16,13 +16,18 @@ Title: {{.Title}}
 
 Types: ram, drive, server, cpu, nic, other
 
-Respond with only the type.`
+Respond with ONLY a single word from the list above. No explanation, no parentheses, no extra text.`
 
 // ramTmpl is the RAM extraction prompt template.
 const ramTmpl = `Extract structured attributes from this eBay server RAM listing.
-Respond ONLY with a JSON object matching the schema below.
-If a field cannot be determined, use null.
-For quantity, default to 1 unless the title/description explicitly indicates a lot or bundle.
+Respond ONLY with a valid JSON object. No markdown, no explanation.
+
+Rules:
+- For enum fields, you MUST use one of the listed values exactly. Never return null for enum fields.
+- "condition": if the listing does not specify, use "unknown".
+- "confidence": always return a float between 0.0 and 1.0. Never null.
+- "quantity": default to 1 unless the title explicitly indicates a lot or bundle.
+- Only use null for optional string/integer/boolean fields that truly cannot be determined.
 
 Title: {{.Title}}
 Item Specifics: {{.ItemSpecifics}}
@@ -33,21 +38,30 @@ Schema:
   "part_number": string | null,
   "capacity_gb": integer | null,
   "quantity": integer,
-  "generation": string | null,
-  "speed_mhz": integer | null,
+  "generation": "DDR3" | "DDR4" | "DDR5",
+  "speed_mhz": integer (e.g. 2133, 2400, 2666, 3200) | null,
   "ecc": boolean | null,
   "registered": boolean | null,
   "form_factor": string | null,
   "rank": string | null,
   "voltage": string | null,
-  "condition": string,
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
   "compatible_servers": [string],
-  "confidence": float
+  "confidence": float (0.0-1.0)
 }`
 
 // driveTmpl is the drive extraction prompt template.
 const driveTmpl = `Extract structured attributes from this eBay server drive listing.
-Respond ONLY with a JSON object. If a field cannot be determined, use null.
+Respond ONLY with a valid JSON object. No markdown, no explanation.
+
+Rules:
+- For enum fields, you MUST use one of the listed values exactly. Never return null for enum fields.
+- "interface": determine from the title (e.g. "SATA", "SAS", "NVMe", "U.2"). Never null.
+- "form_factor": use only "2.5" or "3.5" as plain strings without quotes or inch marks.
+- "condition": if the listing does not specify, use "unknown".
+- "confidence": always return a float between 0.0 and 1.0. Never null.
+- "quantity": default to 1 unless the title explicitly indicates a lot or bundle.
+- Only use null for optional string/integer/boolean fields that truly cannot be determined.
 
 Title: {{.Title}}
 Item Specifics: {{.ItemSpecifics}}
@@ -59,21 +73,29 @@ Schema:
   "capacity": string | null,
   "capacity_bytes": integer | null,
   "quantity": integer,
-  "interface": string | null,
-  "form_factor": string | null,
-  "type": string | null,
+  "interface": "SAS" | "SATA" | "NVMe" | "U.2",
+  "form_factor": "2.5" | "3.5" | null,
+  "type": "SSD" | "HDD",
   "rpm": integer | null,
   "endurance": string | null,
   "encryption": boolean | null,
   "carrier_included": boolean | null,
   "carrier_type": string | null,
-  "condition": string,
-  "confidence": float
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
+  "confidence": float (0.0-1.0)
 }`
 
 // serverTmpl is the server extraction prompt template.
 const serverTmpl = `Extract structured attributes from this eBay server listing.
-Respond ONLY with a JSON object. If a field cannot be determined, use null.
+Respond ONLY with a valid JSON object. No markdown, no explanation.
+
+Rules:
+- For enum fields, you MUST use one of the listed values exactly. Never return null for enum fields.
+- "manufacturer" and "model" are required. Never null.
+- "condition": if the listing does not specify, use "unknown".
+- "confidence": always return a float between 0.0 and 1.0. Never null.
+- "quantity": default to 1 unless the title explicitly indicates a lot or bundle.
+- Only use null for optional string/integer/boolean fields that truly cannot be determined.
 
 Title: {{.Title}}
 Item Specifics: {{.ItemSpecifics}}
@@ -81,10 +103,10 @@ Description (first 500 chars): {{.Description}}
 
 Schema:
 {
-  "manufacturer": string | null,
-  "model": string | null,
+  "manufacturer": string,
+  "model": string,
   "generation": string | null,
-  "form_factor": string | null,
+  "form_factor": "1U" | "2U" | "4U" | "tower" | null,
   "drive_bays": string | null,
   "drive_form_factor": string | null,
   "cpu_count": integer | null,
@@ -103,24 +125,33 @@ Schema:
   "bezel_included": boolean | null,
   "network_card": string | null,
   "quantity": integer,
-  "condition": string,
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
   "boots_tested": boolean | null,
-  "confidence": float
+  "confidence": float (0.0-1.0)
 }`
 
 // cpuTmpl is the CPU extraction prompt template.
 const cpuTmpl = `Extract structured attributes from this eBay server CPU listing.
-Respond ONLY with a JSON object. If a field cannot be determined, use null.
+Respond ONLY with a valid JSON object. No markdown, no explanation.
+
+Rules:
+- For enum fields, you MUST use one of the listed values exactly. Never return null for enum fields.
+- "manufacturer": must be "Intel" or "AMD".
+- "family": must be "Xeon" or "EPYC". For "Xeon Gold 6248R", family is "Xeon", series is "Gold", model is "6248R".
+- "condition": if the listing does not specify, use "unknown".
+- "confidence": always return a float between 0.0 and 1.0. Never null.
+- "quantity": default to 1 unless the title explicitly indicates a lot or bundle.
+- Only use null for optional string/integer/boolean fields that truly cannot be determined.
 
 Title: {{.Title}}
 Item Specifics: {{.ItemSpecifics}}
 
 Schema:
 {
-  "manufacturer": string | null,
-  "family": string | null,
+  "manufacturer": "Intel" | "AMD",
+  "family": "Xeon" | "EPYC",
   "series": string | null,
-  "model": string | null,
+  "model": string,
   "generation": string | null,
   "cores": integer | null,
   "threads": integer | null,
@@ -131,14 +162,23 @@ Schema:
   "l3_cache_mb": integer | null,
   "part_number": string | null,
   "quantity": integer,
-  "condition": string,
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
   "matched_pair": boolean | null,
-  "confidence": float
+  "confidence": float (0.0-1.0)
 }`
 
 // nicTmpl is the NIC extraction prompt template.
 const nicTmpl = `Extract structured attributes from this eBay server network card listing.
-Respond ONLY with a JSON object. If a field cannot be determined, use null.
+Respond ONLY with a valid JSON object. No markdown, no explanation.
+
+Rules:
+- For enum fields, you MUST use one of the listed values exactly. Never return null for enum fields.
+- "speed": must be one of the listed values. Determine from the title (e.g. "25GbE", "10GbE").
+- "port_count": determine from the title (e.g. "Dual Port" = 2, "Quad Port" = 4). Never null.
+- "condition": if the listing does not specify, use "unknown".
+- "confidence": always return a float between 0.0 and 1.0. Never null.
+- "quantity": default to 1 unless the title explicitly indicates a lot or bundle.
+- Only use null for optional string/integer/boolean fields that truly cannot be determined.
 
 Title: {{.Title}}
 Item Specifics: {{.ItemSpecifics}}
@@ -147,9 +187,9 @@ Schema:
 {
   "manufacturer": string | null,
   "model": string | null,
-  "speed": string | null,
-  "port_count": integer | null,
-  "port_type": string | null,
+  "speed": "1GbE" | "10GbE" | "25GbE" | "40GbE" | "100GbE",
+  "port_count": integer (1-8),
+  "port_type": "SFP+" | "SFP28" | "QSFP+" | "QSFP28" | "RJ45" | "BaseT" | null,
   "interface": string | null,
   "pcie_generation": string | null,
   "firmware_protocol": string | null,
@@ -158,8 +198,8 @@ Schema:
   "low_profile": boolean | null,
   "transceivers_included": boolean | null,
   "quantity": integer,
-  "condition": string,
-  "confidence": float
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
+  "confidence": float (0.0-1.0)
 }`
 
 // PromptData holds the template variables for extraction prompts.

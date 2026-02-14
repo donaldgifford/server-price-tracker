@@ -24,7 +24,7 @@ func TestRenderClassifyPrompt(t *testing.T) {
 			wantSubs: []string{
 				"Title: Samsung 32GB DDR4 ECC",
 				"ram, drive, server, cpu, nic, other",
-				"Respond with only the type",
+				"Respond with ONLY a single word from the list above",
 			},
 		},
 		{
