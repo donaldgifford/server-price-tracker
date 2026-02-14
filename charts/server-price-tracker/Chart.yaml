@@ -4,4 +4,4 @@ name: server-price-tracker
 description: eBay server hardware deal tracker with LLM extraction, scoring, and Discord alerts
 type: application
 version: 0.1.3
-appVersion: "0.1.2"
+appVersion: "0.1.3"
