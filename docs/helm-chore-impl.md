@@ -193,13 +193,13 @@ Add Helm unit testing to the CI pipeline.
 
 ### Tasks
 
-- [ ] Add `helm-unittest` job to `.github/workflows/ci.yml` (no `needs` -- runs
+- [x] Add `helm-unittest` job to `.github/workflows/ci.yml` (no `needs` -- runs
       in parallel)
-- [ ] Job steps:
-  - [ ] `actions/checkout@v6`
-  - [ ] `d3adb5/helm-unittest-action@v2` with
+- [x] Job steps:
+  - [x] `actions/checkout@v6`
+  - [x] `d3adb5/helm-unittest-action@v2` with
         `charts: charts/server-price-tracker` and `flags: --color`
-- [ ] Verify: `mise exec -- actionlint .github/workflows/ci.yml` passes
+- [x] Verify: `mise exec -- actionlint .github/workflows/ci.yml` passes
 
 ### Success Criteria
 
