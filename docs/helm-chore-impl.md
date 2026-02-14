@@ -160,20 +160,20 @@ tools from `mise.toml`.
 
 ### Tasks
 
-- [ ] Add `lint-repo` job to `.github/workflows/ci.yml` (no `needs` -- runs in
+- [x] Add `lint-repo` job to `.github/workflows/ci.yml` (no `needs` -- runs in
       parallel)
-- [ ] Job steps:
-  - [ ] `actions/checkout@v6`
-  - [ ] `jdx/mise-action@v2` -- installs yamllint, markdownlint-cli2, yamlfmt,
+- [x] Job steps:
+  - [x] `actions/checkout@v6`
+  - [x] `jdx/mise-action@v2` -- installs yamllint, markdownlint-cli2, yamlfmt,
         actionlint
-  - [ ] `azure/setup-helm@v4` -- for helm lint
-  - [ ] `make lint-yaml` -- lint repo YAML (excludes charts/)
-  - [ ] `make lint-yaml-charts` -- lint chart YAML (relaxed rules)
-  - [ ] `make lint-yaml-fmt` -- check YAML formatting (no modify)
-  - [ ] `make lint-md` -- lint all markdown
-  - [ ] `make lint-actions` -- validate all GitHub Actions workflow files
-  - [ ] `make helm-lint` -- validate Helm chart
-- [ ] Verify: `mise exec -- actionlint .github/workflows/ci.yml` passes
+  - [x] `azure/setup-helm@v4` -- for helm lint
+  - [x] `make lint-yaml` -- lint repo YAML (excludes charts/)
+  - [x] `make lint-yaml-charts` -- lint chart YAML (relaxed rules)
+  - [x] `make lint-yaml-fmt` -- check YAML formatting (no modify)
+  - [x] `make lint-md` -- lint all markdown
+  - [x] `make lint-actions` -- validate all GitHub Actions workflow files
+  - [x] `make helm-lint` -- validate Helm chart
+- [x] Verify: `mise exec -- actionlint .github/workflows/ci.yml` passes
 
 ### Success Criteria
 
