@@ -81,9 +81,6 @@ jobs:
         with:
           ref: ${{ needs.bump-version.outputs.tag }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -145,14 +142,24 @@ jobs:
         run: |
           VERSION="${{ needs.bump-version.outputs.tag }}"
           VERSION="${VERSION#v}"
-          yq -i '.version = "'"$VERSION"'"' charts/server-price-tracker/Chart.yaml
+
+          # Update appVersion to match the app release
           yq -i '.appVersion = "'"$VERSION"'"' charts/server-price-tracker/Chart.yaml
+
+          # Auto-increment chart patch version for chart-releaser
+          CURRENT=$(yq '.version' charts/server-price-tracker/Chart.yaml)
+          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT" | cut -d. -f3)
+          NEW_CHART_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          yq -i '.version = "'"$NEW_CHART_VERSION"'"' charts/server-price-tracker/Chart.yaml
+
           cat charts/server-price-tracker/Chart.yaml
 
       - name: Commit Chart.yaml version bump
         run: |
           git add charts/server-price-tracker/Chart.yaml
-          git commit -m "chore: bump chart version to ${{ needs.bump-version.outputs.tag }} [skip ci]"
+          git commit -m "chore: bump chart appVersion to ${{ needs.bump-version.outputs.tag }} [skip ci]"
           git pull --rebase origin main
           git push origin main
 
