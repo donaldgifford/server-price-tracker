@@ -98,18 +98,18 @@ See `docs/plans/rate-limit.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Add eBay metrics section to `internal/metrics/metrics.go`:
+- [x] Add eBay metrics section to `internal/metrics/metrics.go`:
   - `EbayAPICallsTotal` — Counter, cumulative eBay API calls
   - `EbayDailyUsage` — Gauge, current daily call count
   - `EbayDailyLimitHits` — Counter, times daily limit was reached
-- [ ] Update `BrowseClient.Search()` in `internal/ebay/browse.go`:
+- [x] Update `BrowseClient.Search()` in `internal/ebay/browse.go`:
   - After successful `Wait()`: increment `EbayAPICallsTotal`
   - After successful `Wait()`: set `EbayDailyUsage` from
     `rateLimiter.DailyCount()`
   - When `Wait()` returns `ErrDailyLimitReached`: increment
     `EbayDailyLimitHits`
   - Guard all metric updates behind `rateLimiter != nil` check
-- [ ] Run `make test && make lint`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 

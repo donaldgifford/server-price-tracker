@@ -3,12 +3,15 @@ package ebay
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 )
 
 const (
@@ -86,8 +89,13 @@ func (c *BrowseClient) Search(
 ) (*SearchResponse, error) {
 	if c.rateLimiter != nil {
 		if err := c.rateLimiter.Wait(ctx); err != nil {
+			if errors.Is(err, ErrDailyLimitReached) {
+				metrics.EbayDailyLimitHits.Inc()
+			}
 			return nil, fmt.Errorf("rate limit: %w", err)
 		}
+		metrics.EbayAPICallsTotal.Inc()
+		metrics.EbayDailyUsage.Set(float64(c.rateLimiter.DailyCount()))
 	}
 
 	token, err := c.tokens.Token(ctx)
