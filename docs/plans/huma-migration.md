@@ -383,17 +383,18 @@ env, and flags.
 
 ### Phase 8: Documentation and CLAUDE.md updates
 
-- [ ] Update `CLAUDE.md`:
+- [x] Update `CLAUDE.md`:
   - Remove swaggo/swagger references
   - Add Huma info to architecture section
-  - Document `/openapi.json`, `/openapi-3.0.json`, `/docs` endpoints
+  - Document `/openapi.json`, `/docs` endpoints
   - Add `make postman` (Portman) and `make postman-test` (Newman) to build
     commands
-  - Add `cmd/spt/` to project layout
+  - Add `cmd/spt/` and `portman/` to project layout
   - Update Key API Endpoints section
 - [ ] Update `docs/DESIGN.md` if it references swaggo or the old handler
-      patterns
-- [ ] Move this plan to `docs/plans/huma-migration.md` (done)
+      patterns (deferred — low priority, design docs describe architecture
+      intent not current implementation detail)
+- [x] Move this plan to `docs/plans/huma-migration.md` (done)
 
 **Success criteria:** All docs reflect the new architecture. New contributors
 can understand the Huma handler pattern from CLAUDE.md.

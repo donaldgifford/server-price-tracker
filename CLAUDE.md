@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Server Price Tracker is an API-first Go service that monitors eBay listings for server hardware deals (RAM, drives, servers, CPUs, NICs). It extracts structured attributes via LLM (Ollama default, Anthropic Claude API optional), scores listings against historical price baselines, and sends deal alerts via Discord webhooks. The CLI acts as a thin client to the HTTP API.
+Server Price Tracker is an API-first Go service that monitors eBay listings for server hardware deals (RAM, drives, servers, CPUs, NICs). It extracts structured attributes via LLM (Ollama default, Anthropic Claude API optional), scores listings against historical price baselines, and sends deal alerts via Discord webhooks. Two binaries: `server-price-tracker` (API server) and `spt` (CLI client).
 
-**Current state:** MVP implementation is complete (Phases 0-9) and serve.go is fully wired (Phase 3 post-implementation). All components are connected: database, eBay client, LLM extractor, notifier, engine, scheduler, and all API routes. The server starts gracefully even if external services are unavailable. See `docs/IMPLEMENTATION.md` for the MVP build plan and `docs/POST_IMPLEMENTATION.md` for the wiring/integration plan.
+**Current state:** MVP implementation is complete. All handlers use Huma v2 typed input/output structs with runtime OpenAPI spec generation. The `spt` CLI client consumes the HTTP API via Cobra + Viper. See `docs/IMPLEMENTATION.md` for the MVP build plan and `docs/plans/huma-migration.md` for the Huma migration plan.
 
 ## Git Workflow
 
@@ -20,7 +20,9 @@ The build system uses a modular Makefile structure: root `Makefile` includes dom
 
 ```bash
 # Build
-make build                    # or: go build -o build/bin/server-price-tracker ./cmd/server-price-tracker
+make build                    # builds both server-price-tracker and spt binaries
+make build-core               # or: go build -o build/bin/server-price-tracker ./cmd/server-price-tracker
+make build-spt                # or: go build -o build/bin/spt ./cmd/spt
 
 # Run the API server + scheduler
 make run                      # or: go run ./cmd/server-price-tracker serve --config configs/config.dev.yaml
@@ -49,11 +51,11 @@ make fmt                      # or: goimports -w . && golines -w .
 # Generate mocks (run after changing any interface)
 make mocks                    # or: mockery
 
-# Generate OpenAPI spec from handler annotations
-make swagger                  # or: swag init --v3.1 ... -o api/openapi
+# Generate Postman collection with contract tests (requires running server)
+make postman                  # portman fetches /openapi.json from running server
 
-# Generate Postman collection from OpenAPI spec
-make postman                  # runs swagger first, then openapi2postmanv2
+# Run Postman tests via Newman (requires running server)
+make postman-test             # runs postman first, then newman
 
 # Apply database migrations
 make migrate                  # or: go run ./cmd/server-price-tracker migrate
@@ -110,12 +112,12 @@ make lint-all                 # All linters: Go + YAML + Markdown + Actions + He
 
 ### API-First Design
 
-All functionality is exposed via an Echo HTTP API (`/api/v1/*`). The CLI is a client to this API. This pattern enables future Discord bot integration, web UI, and external tool access.
+All functionality is exposed via an Echo HTTP API with Huma v2 typed handlers (`/api/v1/*`). The `spt` CLI is a remote client to this API. Huma generates the OpenAPI 3.1 spec at runtime from Go structs — no annotation-based code generation step.
 
 ```
 eBay Browse API → Ingestion Loop → LLM Extract (Ollama/Claude) → PostgreSQL → Scorer → Alert → Discord Webhook
                                                                                         ↓
-                                                                    Echo HTTP API ← CLI Client
+                                                                Echo + Huma API ← spt CLI Client
                                                                         ↓
                                                                     Prometheus → Grafana
 ```
@@ -145,11 +147,14 @@ Every external dependency is abstracted behind a Go interface. Mockery generates
 ### Project Layout
 
 ```
-api/openapi/                  Generated OpenAPI 3.1 spec, Swagger UI handler, Postman collection
-cmd/server-price-tracker/     Cobra CLI entry point (serve, migrate commands)
+cmd/server-price-tracker/     humacli entry point (serve, migrate, version)
+cmd/spt/                      Cobra + Viper CLI client (watches, listings, search, etc.)
 configs/                      YAML configuration files
   config.example.yaml         Template with env var placeholders
   config.dev.yaml             Local development configuration
+portman/                      Portman config for Postman collection generation
+  portman-config.json         Contract test configuration
+  environments/dev.json       Dev environment variables
 migrations/                   PostgreSQL schema migrations (source of truth)
 internal/store/migrations/    Embedded copy for Go embed.FS
 scripts/makefiles/            Modular Makefile includes (common, go, docker, db, helm, docs)
@@ -167,6 +172,7 @@ deploy/                       Kubernetes manifests (Kustomize base + overlays)
 charts/server-price-tracker/  Helm chart (alternative to Kustomize deploy/)
 docker-bake.hcl               Docker Bake build definitions (dev, ci, release targets)
 docs/                         Design and implementation documentation
+  plans/                      Migration and feature plans
 ```
 
 **Exported (`pkg/`)** — importable by external tools:
@@ -175,7 +181,7 @@ docs/                         Design and implementation documentation
 - `pkg/extract/` — `LLMBackend` and `Extractor` interfaces, implementations (Ollama, Anthropic, OpenAI-compatible), extraction orchestrator, prompt templates, response validation.
 
 **Internal (`internal/`)** — application-specific, not importable:
-- `internal/api/` — Echo HTTP server, route handlers, middleware (Prometheus metrics, request logging, panic recovery)
+- `internal/api/` — Echo HTTP server with Huma v2 typed handlers, middleware (Prometheus metrics, request logging, panic recovery), API client for CLI
 - `internal/store/` — `Store` interface (datastore abstraction) + `PostgresStore` implementation (raw SQL with pgx, no ORM)
 - `internal/engine/` — Ingestion loop, baseline recomputation, alert evaluation, scheduler. Takes all dependencies as interfaces.
 - `internal/ebay/` — `EbayClient` and `TokenProvider` interfaces + implementations
@@ -192,13 +198,16 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 
 ### Key API Endpoints
 
-- `GET /swagger/index.html` — Swagger UI (interactive API docs)
+- `GET /openapi.json` — OpenAPI 3.1 spec (generated at runtime by Huma)
+- `GET /docs` — Huma interactive API docs UI
 - `GET /healthz`, `GET /readyz`, `GET /metrics` — operational
-- `POST/GET /api/v1/watches` — watch CRUD
+- `GET/POST /api/v1/watches` — watch CRUD (6 endpoints)
 - `GET /api/v1/listings` — query with filters (component, score, price)
-- `POST /api/v1/ingest` — trigger manual ingestion
+- `POST /api/v1/search` — eBay search
 - `POST /api/v1/extract` — one-off LLM extraction test
+- `POST /api/v1/ingest` — trigger manual ingestion
 - `POST /api/v1/baselines/refresh` — recompute baselines
+- `POST /api/v1/rescore` — rescore all listings
 
 ## Testing Strategy
 
@@ -251,3 +260,4 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 - `docs/DEPLOYMENT_IMPLEMENTATION.md` — Phased implementation plan with task checklists and success criteria
 - `docs/helm-chore.md` — Plan for chart docs, helm-unittest, and CI linting
 - `docs/helm-chore-impl.md` — Phased implementation guide for helm-chore work
+- `docs/plans/huma-migration.md` — 8-phase migration from swaggo to Huma v2 typed handlers, Portman pipeline, and spt CLI client
