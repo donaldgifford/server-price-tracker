@@ -167,12 +167,12 @@ See `docs/plans/rate-limit.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Add `paginator *ebay.Paginator` field to `Engine` struct in
+- [x] Add `paginator *ebay.Paginator` field to `Engine` struct in
       `internal/engine/engine.go`
-- [ ] Add `WithPaginator(p *ebay.Paginator) EngineOption`
-- [ ] Add `maxCallsPerCycle int` field with default 50
-- [ ] Add `WithMaxCallsPerCycle(n int) EngineOption`
-- [ ] Rewrite `processWatch()`:
+- [x] Add `WithPaginator(p *ebay.Paginator) EngineOption`
+- [x] Add `maxCallsPerCycle int` field with default 50
+- [x] Add `WithMaxCallsPerCycle(n int) EngineOption`
+- [x] Rewrite `processWatch()`:
   - Change signature to return `(int, error)` where int is pages used
   - Build `ebay.SearchRequest` from watch fields
   - If `eng.paginator != nil`: call `eng.paginator.Paginate(ctx, req, false)`
@@ -181,7 +181,7 @@ See `docs/plans/rate-limit.md` for the high-level design.
     call (backward compat for tests that don't set paginator)
   - Log `PagesUsed`, `TotalSeen`, `StoppedAt` from `PaginateResult`
   - Return `result.PagesUsed` (or 1 for fallback path)
-- [ ] Update `RunIngestion()`:
+- [x] Update `RunIngestion()`:
   - Track `totalPages` across all watches
   - Before each watch: check `totalPages >= eng.maxCallsPerCycle`,
     break with warning log if exceeded
@@ -189,14 +189,14 @@ See `docs/plans/rate-limit.md` for the high-level design.
     `ebay.ErrDailyLimitReached` — if so, log warning and break
     (don't count as an ingestion error)
   - Always run `ProcessAlerts()` even if budget/daily limit was hit
-- [ ] Update `internal/engine/engine_test.go`:
+- [x] Update `internal/engine/engine_test.go`:
   - Update `TestRunIngestion` tests to account for `processWatch`
     returning `(int, error)` instead of `error`
   - Add `TestRunIngestion_DailyLimitHit`: mock `Search()` to return
     `ErrDailyLimitReached`, verify engine stops gracefully
   - Add `TestRunIngestion_CycleBudgetExhausted`: set
     `maxCallsPerCycle=1`, verify only first watch processes
-- [ ] Run `make test && make lint`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 
