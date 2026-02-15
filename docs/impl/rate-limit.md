@@ -65,19 +65,19 @@ See `docs/plans/rate-limit.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Add `rateLimiter *RateLimiter` field to `BrowseClient` struct
+- [x] Add `rateLimiter *RateLimiter` field to `BrowseClient` struct
       in `internal/ebay/browse.go`
-- [ ] Add `WithRateLimiter(r *RateLimiter) BrowseOption` function
-- [ ] Update `Search()` to call `c.rateLimiter.Wait(ctx)` before the
+- [x] Add `WithRateLimiter(r *RateLimiter) BrowseOption` function
+- [x] Update `Search()` to call `c.rateLimiter.Wait(ctx)` before the
       HTTP request when the rate limiter is non-nil
   - If `Wait()` returns an error, return it wrapped:
     `fmt.Errorf("rate limit: %w", err)`
-- [ ] Add tests in `internal/ebay/browse_test.go`:
+- [x] Add tests in `internal/ebay/browse_test.go`:
   - `TestBrowseClient_Search_RateLimited`: Inject a rate limiter with
     `maxDaily=1`, make 2 calls, second returns `ErrDailyLimitReached`
   - `TestBrowseClient_Search_NoRateLimiter`: Verify existing behavior
     when no rate limiter is set (nil check works)
-- [ ] Run `make test && make lint`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 

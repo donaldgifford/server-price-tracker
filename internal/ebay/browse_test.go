@@ -155,6 +155,63 @@ func TestBrowseClient_Search(t *testing.T) {
 	}
 }
 
+func TestBrowseClient_Search_RateLimited(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"itemSummaries":[],"total":0,"offset":0,"limit":50}`))
+	}))
+	defer srv.Close()
+
+	mockTokens := mocks.NewMockTokenProvider(t)
+	mockTokens.EXPECT().
+		Token(mock.Anything).
+		Return("test-token", nil).
+		Maybe()
+
+	// Rate limiter with daily limit of 1.
+	rl := ebay.NewRateLimiter(100, 10, 1)
+	client := ebay.NewBrowseClient(
+		mockTokens,
+		ebay.WithBrowseURL(srv.URL),
+		ebay.WithRateLimiter(rl),
+	)
+
+	// First call succeeds.
+	_, err := client.Search(context.Background(), ebay.SearchRequest{Query: "test"})
+	require.NoError(t, err)
+
+	// Second call hits daily limit.
+	_, err = client.Search(context.Background(), ebay.SearchRequest{Query: "test"})
+	require.ErrorIs(t, err, ebay.ErrDailyLimitReached)
+	assert.Contains(t, err.Error(), "rate limit:")
+}
+
+func TestBrowseClient_Search_NoRateLimiter(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"itemSummaries":[],"total":0,"offset":0,"limit":50}`))
+	}))
+	defer srv.Close()
+
+	mockTokens := mocks.NewMockTokenProvider(t)
+	mockTokens.EXPECT().
+		Token(mock.Anything).
+		Return("test-token", nil)
+
+	// No rate limiter — should work as before.
+	client := ebay.NewBrowseClient(
+		mockTokens,
+		ebay.WithBrowseURL(srv.URL),
+	)
+
+	_, err := client.Search(context.Background(), ebay.SearchRequest{Query: "test"})
+	require.NoError(t, err)
+}
+
 func TestBrowseClient_Search_HTMLResponse(t *testing.T) {
 	t.Parallel()
 
