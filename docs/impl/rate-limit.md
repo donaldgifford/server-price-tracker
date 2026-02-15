@@ -129,7 +129,7 @@ See `docs/plans/rate-limit.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Create `internal/api/handlers/quota.go`:
+- [x] Create `internal/api/handlers/quota.go`:
   - `QuotaHandler` struct with `rl *ebay.RateLimiter` dependency
   - `NewQuotaHandler(rl *ebay.RateLimiter) *QuotaHandler` constructor
   - `QuotaOutput` struct with `Body` containing:
@@ -142,11 +142,11 @@ See `docs/plans/rate-limit.md` for the high-level design.
   - `RegisterQuotaRoutes(api huma.API, h *QuotaHandler)` wiring func
   - Register `GET /api/v1/quota` with operation ID `get-quota`,
     tag `"ebay"`, summary `"Get eBay API quota status"`
-- [ ] Create `internal/api/handlers/quota_test.go`:
+- [x] Create `internal/api/handlers/quota_test.go`:
   - Test with real `RateLimiter` (not mock): create one with known
     `maxDaily`, call `Wait()` a few times, verify response counts
   - Test with nil rate limiter: returns all zeroes
-- [ ] Run `make test && make lint`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 
