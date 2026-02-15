@@ -227,14 +227,14 @@ formatters:
       - third_party$
       - builtin$
       - examples$
-    # Uber emphasizes:
-    # 1. Always check errors
-    # 2. Use context properly
-    # 3. Close resources (defer close)
-    # 4. Keep functions small and simple
-    # 5. Avoid global mutable state
-    # 6. Use table-driven tests
-    # 7. Handle errors explicitly, wrap with %w
-    # 8. Prefer composition over inheritance
-    # 9. Use functional options for configs
-    # 10. Document exported functions and types
+      # Uber emphasizes:
+      # 1. Always check errors
+      # 2. Use context properly
+      # 3. Close resources (defer close)
+      # 4. Keep functions small and simple
+      # 5. Avoid global mutable state
+      # 6. Use table-driven tests
+      # 7. Handle errors explicitly, wrap with %w
+      # 8. Prefer composition over inheritance
+      # 9. Use functional options for configs
+      # 10. Document exported functions and types

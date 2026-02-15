@@ -1,3 +1,4 @@
+---
 components:
   schemas:
     github_com_donaldgifford_server-price-tracker_pkg_types.AttributeFilter:
@@ -19,34 +20,34 @@ components:
     github_com_donaldgifford_server-price-tracker_pkg_types.ComponentType:
       description: Extracted data
       enum:
-      - ram
-      - drive
-      - server
-      - cpu
-      - nic
-      - other
+        - ram
+        - drive
+        - server
+        - cpu
+        - nic
+        - other
       type: string
       x-enum-varnames:
-      - ComponentRAM
-      - ComponentDrive
-      - ComponentServer
-      - ComponentCPU
-      - ComponentNIC
-      - ComponentOther
+        - ComponentRAM
+        - ComponentDrive
+        - ComponentServer
+        - ComponentCPU
+        - ComponentNIC
+        - ComponentOther
     github_com_donaldgifford_server-price-tracker_pkg_types.Condition:
       enum:
-      - new
-      - like_new
-      - used_working
-      - for_parts
-      - unknown
+        - new
+        - like_new
+        - used_working
+        - for_parts
+        - unknown
       type: string
       x-enum-varnames:
-      - ConditionNew
-      - ConditionLikeNew
-      - ConditionUsedWorking
-      - ConditionForParts
-      - ConditionUnknown
+        - ConditionNew
+        - ConditionLikeNew
+        - ConditionUsedWorking
+        - ConditionForParts
+        - ConditionUnknown
     github_com_donaldgifford_server-price-tracker_pkg_types.Listing:
       properties:
         attributes:
@@ -114,14 +115,14 @@ components:
       type: object
     github_com_donaldgifford_server-price-tracker_pkg_types.ListingType:
       enum:
-      - auction
-      - buy_it_now
-      - best_offer
+        - auction
+        - buy_it_now
+        - best_offer
       type: string
       x-enum-varnames:
-      - ListingAuction
-      - ListingBuyItNow
-      - ListingBestOffer
+        - ListingAuction
+        - ListingBuyItNow
+        - ListingBestOffer
     github_com_donaldgifford_server-price-tracker_pkg_types.Watch:
       properties:
         category_id:
@@ -253,8 +254,9 @@ info:
   contact:
     name: Donald Gifford
     url: https://github.com/donaldgifford/server-price-tracker
-  description: API for monitoring eBay server hardware listings, extracting structured
-    attributes via LLM, scoring deals, and sending alerts.
+    # yamllint disable-line rule:line-length
+  description: API for monitoring eBay server hardware listings, extracting structured attributes via LLM, scoring deals,
+    and sending alerts.
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
@@ -280,20 +282,22 @@ paths:
           description: Internal Server Error
       summary: Refresh price baselines
       tags:
-      - scoring
+        - scoring
   /api/v1/extract:
     post:
-      description: Uses the configured LLM backend to classify the component type
-        and extract structured attributes from a listing title.
+
+      # yamllint disable-line rule:line-length
+      description: Uses the configured LLM backend to classify the component type and extract structured attributes from a
+        listing title.
       requestBody:
         content:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/internal_api_handlers.extractRequest'
-                description: Listing title and optional item specifics
-                summary: body
+                - type: object
+                - $ref: '#/components/schemas/internal_api_handlers.extractRequest'
+                  description: Listing title and optional item specifics
+                  summary: body
         description: Listing title and optional item specifics
         required: true
       responses:
@@ -317,11 +321,11 @@ paths:
           description: Internal Server Error
       summary: Extract attributes from a listing title
       tags:
-      - extract
+        - extract
   /api/v1/ingest:
     post:
-      description: 'Runs the full ingestion pipeline: fetch listings from eBay, extract
-        attributes via LLM, score, and alert.'
+      # yamllint disable-line rule:line-length
+      description: 'Runs the full ingestion pipeline: fetch listings from eBay, extract attributes via LLM, score, and alert.'
       responses:
         "200":
           content:
@@ -337,58 +341,57 @@ paths:
           description: Internal Server Error
       summary: Trigger manual ingestion
       tags:
-      - ingest
+        - ingest
   /api/v1/listings:
     get:
-      description: Returns listings with optional filters for component type, score
-        range, and pagination.
+      description: Returns listings with optional filters for component type, score range, and pagination.
       parameters:
-      - description: Filter by component type
-        in: query
-        name: component_type
-        schema:
-          enum:
-          - ram
-          - drive
-          - server
-          - cpu
-          - nic
-          - other
-          type: string
-      - description: Filter by product key
-        in: query
-        name: product_key
-        schema:
-          type: string
-      - description: Minimum composite score
-        in: query
-        name: min_score
-        schema:
-          type: integer
-      - description: Maximum composite score
-        in: query
-        name: max_score
-        schema:
-          type: integer
-      - description: Number of results (default 50)
-        in: query
-        name: limit
-        schema:
-          type: integer
-      - description: Pagination offset
-        in: query
-        name: offset
-        schema:
-          type: integer
-      - description: Sort field
-        in: query
-        name: order_by
-        schema:
-          enum:
-          - score
-          - price
-          - first_seen_at
-          type: string
+        - description: Filter by component type
+          in: query
+          name: component_type
+          schema:
+            enum:
+              - ram
+              - drive
+              - server
+              - cpu
+              - nic
+              - other
+            type: string
+        - description: Filter by product key
+          in: query
+          name: product_key
+          schema:
+            type: string
+        - description: Minimum composite score
+          in: query
+          name: min_score
+          schema:
+            type: integer
+        - description: Maximum composite score
+          in: query
+          name: max_score
+          schema:
+            type: integer
+        - description: Number of results (default 50)
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Pagination offset
+          in: query
+          name: offset
+          schema:
+            type: integer
+        - description: Sort field
+          in: query
+          name: order_by
+          schema:
+            enum:
+              - score
+              - price
+              - first_seen_at
+            type: string
       responses:
         "200":
           content:
@@ -410,17 +413,17 @@ paths:
           description: Internal Server Error
       summary: List listings
       tags:
-      - listings
+        - listings
   /api/v1/listings/{id}:
     get:
       description: Returns a single listing by its UUID.
       parameters:
-      - description: Listing UUID
-        in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - description: Listing UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
@@ -442,7 +445,7 @@ paths:
           description: Not Found
       summary: Get a listing by ID
       tags:
-      - listings
+        - listings
   /api/v1/rescore:
     post:
       description: Recalculates composite scores for all listings using current baselines.
@@ -462,20 +465,19 @@ paths:
           description: Internal Server Error
       summary: Re-score all listings
       tags:
-      - scoring
+        - scoring
   /api/v1/search:
     post:
-      description: Proxies a search request to the eBay Browse API and returns raw
-        listings.
+      description: Proxies a search request to the eBay Browse API and returns raw listings.
       requestBody:
         content:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/internal_api_handlers.searchRequest'
-                description: Search parameters
-                summary: body
+                - type: object
+                - $ref: '#/components/schemas/internal_api_handlers.searchRequest'
+                  description: Search parameters
+                  summary: body
         description: Search parameters
         required: true
       responses:
@@ -500,19 +502,19 @@ paths:
           description: Bad Gateway
       summary: Search eBay listings
       tags:
-      - search
+        - search
   /api/v1/watches:
     get:
       description: Returns all watches, optionally filtered by enabled status.
       parameters:
-      - description: Filter by enabled status
-        in: query
-        name: enabled
-        schema:
-          enum:
-          - "true"
-          - "false"
-          type: string
+        - description: Filter by enabled status
+          in: query
+          name: enabled
+          schema:
+            enum:
+              - "true"
+              - "false"
+            type: string
       responses:
         "200":
           content:
@@ -530,7 +532,7 @@ paths:
           description: Internal Server Error
       summary: List watches
       tags:
-      - watches
+        - watches
     post:
       description: Creates a new watch with the given configuration.
       requestBody:
@@ -538,10 +540,10 @@ paths:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/github_com_donaldgifford_server-price-tracker_pkg_types.Watch'
-                description: Watch to create
-                summary: watch
+                - type: object
+                - $ref: '#/components/schemas/github_com_donaldgifford_server-price-tracker_pkg_types.Watch'
+                  description: Watch to create
+                  summary: watch
         description: Watch to create
         required: true
       responses:
@@ -565,17 +567,17 @@ paths:
           description: Internal Server Error
       summary: Create a watch
       tags:
-      - watches
+        - watches
   /api/v1/watches/{id}:
     delete:
       description: Deletes a watch by its UUID.
       parameters:
-      - description: Watch UUID
-        in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - description: Watch UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
         "204":
           description: No Content
@@ -587,16 +589,16 @@ paths:
           description: Internal Server Error
       summary: Delete a watch
       tags:
-      - watches
+        - watches
     get:
       description: Returns a single watch by its UUID.
       parameters:
-      - description: Watch UUID
-        in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - description: Watch UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
@@ -612,25 +614,25 @@ paths:
           description: Not Found
       summary: Get a watch by ID
       tags:
-      - watches
+        - watches
     put:
       description: Updates an existing watch by its UUID.
       parameters:
-      - description: Watch UUID
-        in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - description: Watch UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/github_com_donaldgifford_server-price-tracker_pkg_types.Watch'
-                description: Updated watch
-                summary: watch
+                - type: object
+                - $ref: '#/components/schemas/github_com_donaldgifford_server-price-tracker_pkg_types.Watch'
+                  description: Updated watch
+                  summary: watch
         description: Updated watch
         required: true
       responses:
@@ -654,26 +656,26 @@ paths:
           description: Internal Server Error
       summary: Update a watch
       tags:
-      - watches
+        - watches
   /api/v1/watches/{id}/enabled:
     put:
       description: Sets the enabled status of a watch.
       parameters:
-      - description: Watch UUID
-        in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - description: Watch UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/internal_api_handlers.setEnabledRequest'
-                description: Enabled status
-                summary: body
+                - type: object
+                - $ref: '#/components/schemas/internal_api_handlers.setEnabledRequest'
+                  description: Enabled status
+                  summary: body
         description: Enabled status
         required: true
       responses:
@@ -697,7 +699,7 @@ paths:
           description: Internal Server Error
       summary: Enable or disable a watch
       tags:
-      - watches
+        - watches
   /healthz:
     get:
       description: Returns 200 if the process is running.
@@ -710,7 +712,7 @@ paths:
           description: OK
       summary: Liveness check
       tags:
-      - health
+        - health
   /readyz:
     get:
       description: Returns 200 if the database is reachable, 503 otherwise.
@@ -729,7 +731,7 @@ paths:
           description: Service Unavailable
       summary: Readiness check
       tags:
-      - health
+        - health
 servers:
-- description: Local development server
-  url: http://localhost:8080
+  - description: Local development server
+    url: http://localhost:8080
