@@ -356,31 +356,25 @@ the same thing via HTTP; this is the terminal equivalent.
 Uses Cobra for commands and Viper for configuration (server URL, auth, output
 format).
 
-- [ ] Create `cmd/spt/main.go` -- Cobra root command
-- [ ] Create `cmd/spt/cmd/root.go`:
+- [x] Create `cmd/spt/main.go` -- Cobra root command
+- [x] Create `cmd/spt/cmd/root.go`:
   - Viper config: `~/.spt.yaml` or env vars
   - Persistent flags: `--server` (base URL, default `http://localhost:8080`),
-    `--output` (json/table/yaml)
+    `--output` (json/table)
   - `initConfig()` via Viper with env prefix `SPT`
-- [ ] Create API client package `internal/api/client/` (or reuse existing if
-      suitable):
-  - Typed methods matching each API operation
-  - Configurable base URL, HTTP client, auth headers
-  - Error handling that maps Huma's RFC 9457 errors to CLI-friendly messages
-- [ ] Create CLI command files:
-  - `cmd/spt/cmd/watches.go` -- `spt watches list`, `spt watches get <id>`,
-    `spt watches create --name "..." --query "..." --component-type ram`,
-    `spt watches update <id>`, `spt watches enable <id>`,
-    `spt watches disable <id>`, `spt watches delete <id>`
-  - `cmd/spt/cmd/listings.go` --
-    `spt listings list --component-type ram --min-score 70`,
-    `spt listings get <id>`
-  - `cmd/spt/cmd/ingest.go` -- `spt ingest`
-  - `cmd/spt/cmd/extract.go` -- `spt extract --title "Samsung 32GB DDR4..."`
-  - `cmd/spt/cmd/search.go` -- `spt search --query "DDR4 ECC REG"`
-  - `cmd/spt/cmd/baselines.go` -- `spt baselines refresh`
-  - `cmd/spt/cmd/rescore.go` -- `spt rescore`
-- [ ] Add `spt` build target to Makefile
+- [x] Reuse existing `internal/api/client/` package (already had all methods)
+- [x] Create CLI command files:
+  - `cmd/spt/cmd/watches.go` -- list, get, create, enable, disable, delete
+  - `cmd/spt/cmd/listings.go` -- list, get
+  - `cmd/spt/cmd/ingest.go` -- trigger ingestion
+  - `cmd/spt/cmd/extract.go` -- one-off LLM extraction
+  - `cmd/spt/cmd/search.go` -- eBay search
+  - `cmd/spt/cmd/baselines.go` -- list, get, refresh
+  - `cmd/spt/cmd/rescore.go` -- rescore listings
+  - `cmd/spt/cmd/output.go` -- table/JSON output formatters
+- [x] Add `build-spt` target to Makefile
+- [x] Move CLI commands from server binary to `spt` binary (server keeps
+      only serve, migrate, version)
 - [ ] Add `spt` to GoReleaser config for cross-platform builds
 
 **Success criteria:** `spt watches list` calls `GET /api/v1/watches` and prints

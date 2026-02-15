@@ -8,31 +8,41 @@ import (
 	"net/http"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-func extractCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "extract [title]",
-		Short: "Extract structured attributes from an eBay listing title",
-		Long:  "Sends a title to the API server for LLM-based classification and attribute extraction.",
+func searchCmd() *cobra.Command {
+	var searchLimit int
+
+	cmd := &cobra.Command{
+		Use:   "search <query>",
+		Short: "Search eBay for server hardware listings",
+		Long:  "Sends a search request to the API server and displays raw eBay results.",
 		Args:  cobra.ExactArgs(1),
-		RunE:  runExtract,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSearch(cmd, args[0], searchLimit)
+		},
 	}
+	cmd.Flags().IntVar(&searchLimit, "limit", 10, "maximum number of results")
+
+	return cmd
 }
 
-type extractPayload struct {
-	Title string `json:"title"`
+type searchPayload struct {
+	Query string `json:"query"`
+	Limit int    `json:"limit"`
 }
 
-func runExtract(cmd *cobra.Command, args []string) error {
-	opts := getOptions()
-
-	payload, err := json.Marshal(extractPayload{Title: args[0]})
+func runSearch(cmd *cobra.Command, query string, limit int) error {
+	payload, err := json.Marshal(searchPayload{
+		Query: query,
+		Limit: limit,
+	})
 	if err != nil {
 		return fmt.Errorf("encoding request: %w", err)
 	}
 
-	apiURL := opts.APIURL + "/api/v1/extract"
+	apiURL := viper.GetString("server") + "/api/v1/search"
 
 	req, err := http.NewRequestWithContext(
 		cmd.Context(),
@@ -48,7 +58,7 @@ func runExtract(cmd *cobra.Command, args []string) error {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("calling extract API: %w", err)
+		return fmt.Errorf("calling search API: %w", err)
 	}
 	defer resp.Body.Close()
 

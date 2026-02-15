@@ -7,16 +7,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func baselinesCommand() *cobra.Command {
-	var jsonOutput bool
-
-	baselinesCmd := &cobra.Command{
+func baselinesCmd() *cobra.Command {
+	baselinesRoot := &cobra.Command{
 		Use:   "baselines",
-		Short: "Manage baselines",
+		Short: "Manage price baselines",
 	}
-	baselinesCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "output as JSON")
 
-	listCmd := &cobra.Command{
+	baselinesRoot.AddCommand(
+		baselinesListCmd(),
+		baselinesGetCmd(),
+		baselinesRefreshCmd(),
+	)
+
+	return baselinesRoot
+}
+
+func baselinesListCmd() *cobra.Command {
+	return &cobra.Command{
 		Use:   "list",
 		Short: "List all baselines",
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -26,7 +33,7 @@ func baselinesCommand() *cobra.Command {
 				return err
 			}
 
-			if jsonOutput {
+			if jsonOutput() {
 				return outputJSON(baselines)
 			}
 
@@ -38,9 +45,11 @@ func baselinesCommand() *cobra.Command {
 			return printBaselinesTable(baselines)
 		},
 	}
+}
 
-	showCmd := &cobra.Command{
-		Use:   "show [product-key]",
+func baselinesGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <product-key>",
 		Short: "Show baseline details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -50,15 +59,17 @@ func baselinesCommand() *cobra.Command {
 				return err
 			}
 
-			if jsonOutput {
+			if jsonOutput() {
 				return outputJSON(b)
 			}
 
 			return printBaselineDetail(b)
 		},
 	}
+}
 
-	refreshCmd := &cobra.Command{
+func baselinesRefreshCmd() *cobra.Command {
+	return &cobra.Command{
 		Use:   "refresh",
 		Short: "Trigger baseline refresh",
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -71,8 +82,4 @@ func baselinesCommand() *cobra.Command {
 			return nil
 		},
 	}
-
-	baselinesCmd.AddCommand(listCmd, showCmd, refreshCmd)
-
-	return baselinesCmd
 }

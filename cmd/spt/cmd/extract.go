@@ -8,42 +8,30 @@ import (
 	"net/http"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-func searchCommand() *cobra.Command {
-	var searchLimit int
-
-	searchCmd := &cobra.Command{
-		Use:   "search [query]",
-		Short: "Search eBay for server hardware listings",
-		Long:  "Sends a search request to the API server and displays raw eBay results.",
+func extractCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "extract <title>",
+		Short: "Extract structured attributes from a listing title",
+		Long:  "Sends a title to the API server for LLM-based classification and attribute extraction.",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSearch(cmd, args, searchLimit)
-		},
+		RunE:  runExtract,
 	}
-	searchCmd.Flags().IntVar(&searchLimit, "limit", 10, "maximum number of results")
-
-	return searchCmd
 }
 
-type searchPayload struct {
-	Query string `json:"query"`
-	Limit int    `json:"limit"`
+type extractPayload struct {
+	Title string `json:"title"`
 }
 
-func runSearch(cmd *cobra.Command, args []string, limit int) error {
-	opts := getOptions()
-
-	payload, err := json.Marshal(searchPayload{
-		Query: args[0],
-		Limit: limit,
-	})
+func runExtract(cmd *cobra.Command, args []string) error {
+	payload, err := json.Marshal(extractPayload{Title: args[0]})
 	if err != nil {
 		return fmt.Errorf("encoding request: %w", err)
 	}
 
-	apiURL := opts.APIURL + "/api/v1/search"
+	apiURL := viper.GetString("server") + "/api/v1/extract"
 
 	req, err := http.NewRequestWithContext(
 		cmd.Context(),
@@ -59,7 +47,7 @@ func runSearch(cmd *cobra.Command, args []string, limit int) error {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("calling search API: %w", err)
+		return fmt.Errorf("calling extract API: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -74,7 +62,6 @@ func runSearch(cmd *cobra.Command, args []string, limit int) error {
 
 	var pretty bytes.Buffer
 	if err := json.Indent(&pretty, body, "", "  "); err != nil {
-		// Fall back to raw output if JSON indentation fails.
 		fmt.Println(string(body))
 		return nil
 	}

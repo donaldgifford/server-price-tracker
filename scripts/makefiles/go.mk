@@ -3,7 +3,7 @@
 ###############
 ##@ Go Development
 
-.PHONY: build build-core
+.PHONY: build build-core build-spt
 .PHONY: test test-all test-pkg test-report test-coverage test-integration test-integration-all
 .PHONY: lint lint-fix fmt clean generate mocks postman postman-test
 .PHONY: run run-local ci check
@@ -11,13 +11,19 @@
 
 ## Build Targets
 
-build: build-core ## Build everything (core)
+build: build-core build-spt ## Build everything (server + CLI)
 
-build-core: ## Build core binary
+build-core: ## Build server binary
 	@ $(MAKE) --no-print-directory log-$@
 	@mkdir -p $(BIN_DIR)
 	@go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT_HASH)" -o $(BIN_DIR)/$(PROJECT_NAME) $(CMD)/$(PROJECT_NAME)
-	@echo "✓ Core binaries built"
+	@echo "✓ Server binary built"
+
+build-spt: ## Build spt CLI client binary
+	@ $(MAKE) --no-print-directory log-$@
+	@mkdir -p $(BIN_DIR)
+	@go build -o $(BIN_DIR)/spt $(CMD)/spt
+	@echo "✓ spt CLI built"
 
 ## Testing
 

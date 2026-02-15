@@ -6,8 +6,7 @@ import "github.com/danielgtaylor/huma/v2/humacli"
 // Options defines the CLI options for the server-price-tracker service.
 // humacli binds these to flags and environment variables (SERVICE_ prefix).
 type Options struct {
-	Config string `doc:"Config file path"                short:"c" default:"config.yaml"`
-	APIURL string `doc:"API server URL for CLI commands"           default:"http://localhost:8080"`
+	Config string `doc:"Config file path" short:"c" default:"config.yaml"`
 }
 
 var (
@@ -18,7 +17,6 @@ var (
 // Run initializes and runs the CLI.
 func Run() {
 	cli = humacli.New(func(hooks humacli.Hooks, opts *Options) {
-		// Store parsed options so subcommands can access them via getOptions().
 		parsedOpts = opts
 
 		hooks.OnStart(func() {
@@ -38,18 +36,11 @@ func Run() {
 
 	root.AddCommand(migrateCommand())
 	root.AddCommand(versionCommand())
-	root.AddCommand(watchCommand())
-	root.AddCommand(listingsCommand())
-	root.AddCommand(searchCommand())
-	root.AddCommand(extractCommand())
-	root.AddCommand(baselinesCommand())
 
 	cli.Run()
 }
 
 // getOptions returns the parsed CLI options.
-// Safe to call from any subcommand's RunE — options are populated
-// by humacli's PersistentPreRun before any command executes.
 func getOptions() *Options {
 	return parsedOpts
 }
