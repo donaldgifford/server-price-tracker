@@ -19,29 +19,29 @@ See `docs/plans/rate-limit.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Add `RateLimitConfig` struct to `internal/config/config.go`
+- [x] Add `RateLimitConfig` struct to `internal/config/config.go`
   - Fields: `PerSecond float64`, `Burst int`, `DailyLimit int64`
   - YAML tags: `per_second`, `burst`, `daily_limit`
-- [ ] Add `RateLimit RateLimitConfig` field to `EbayConfig`
-- [ ] Add `applyRateLimitDefaults()` function
+- [x] Add `RateLimit RateLimitConfig` field to `EbayConfig`
+- [x] Add `applyRateLimitDefaults()` function
   - `PerSecond`: 5.0, `Burst`: 10, `DailyLimit`: 5000
   - Call from `applyEbayDefaults()`
-- [ ] Add test case to `TestLoad` in `internal/config/config_test.go`
+- [x] Add test case to `TestLoad` in `internal/config/config_test.go`
   - Verify defaults are applied when `rate_limit` section is absent
   - Verify custom values are loaded when `rate_limit` section is present
-- [ ] Add `ErrDailyLimitReached` sentinel error to `internal/ebay/ratelimit.go`
+- [x] Add `ErrDailyLimitReached` sentinel error to `internal/ebay/ratelimit.go`
   - `var ErrDailyLimitReached = errors.New("daily API limit reached")`
   - Update `Wait()` to return `fmt.Errorf("%w (%d/%d)", ErrDailyLimitReached, count, max)`
-- [ ] Add getters to `RateLimiter` in `internal/ebay/ratelimit.go`
+- [x] Add getters to `RateLimiter` in `internal/ebay/ratelimit.go`
   - `MaxDaily() int64`
   - `Remaining() int64` (maxDaily - DailyCount, floored at 0)
   - `ResetAt() time.Time` (mutex-protected read)
-- [ ] Add tests for new `RateLimiter` methods in `internal/ebay/ratelimit_test.go`
+- [x] Add tests for new `RateLimiter` methods in `internal/ebay/ratelimit_test.go`
   - `TestRateLimiter_MaxDaily`
   - `TestRateLimiter_Remaining`
   - `TestRateLimiter_ResetAt`
   - `TestRateLimiter_ErrDailyLimitReached` (verify `errors.Is` works)
-- [ ] Run `make test && make lint`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 
