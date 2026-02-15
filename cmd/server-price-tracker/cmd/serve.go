@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 
+	"github.com/donaldgifford/server-price-tracker/api/openapi"
 	handlers "github.com/donaldgifford/server-price-tracker/internal/api/handlers"
 	apimw "github.com/donaldgifford/server-price-tracker/internal/api/middleware"
 	"github.com/donaldgifford/server-price-tracker/internal/config"
@@ -136,6 +137,9 @@ func registerRoutes(
 	extractor extract.Extractor,
 	eng *engine.Engine,
 ) {
+	// Swagger UI and spec.
+	openapi.RegisterRoutes(e)
+
 	// Health endpoints.
 	healthH := handlers.NewHealthHandler(s)
 	e.GET("/healthz", healthH.Healthz)

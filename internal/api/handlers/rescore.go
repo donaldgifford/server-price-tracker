@@ -20,6 +20,14 @@ func NewRescoreHandler(s store.Store) *RescoreHandler {
 }
 
 // Rescore handles POST /api/v1/rescore.
+//
+// @Summary Re-score all listings
+// @Description Recalculates composite scores for all listings using current baselines.
+// @Tags scoring
+// @Produce json
+// @Success 200 {object} map[string]any "scored count"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/rescore [post]
 func (h *RescoreHandler) Rescore(c echo.Context) error {
 	scored, err := engine.RescoreAll(c.Request().Context(), h.store)
 	if err != nil {

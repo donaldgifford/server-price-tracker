@@ -19,14 +19,25 @@ func NewSearchHandler(client ebay.EbayClient) *SearchHandler {
 }
 
 type searchRequest struct {
-	Query      string            `json:"query"`
-	CategoryID string            `json:"category_id,omitempty"`
-	Limit      int               `json:"limit,omitempty"`
-	Sort       string            `json:"sort,omitempty"`
+	Query      string            `json:"query"                 example:"DDR4 ECC REG 32GB server RAM"`
+	CategoryID string            `json:"category_id,omitempty" example:"170083"`
+	Limit      int               `json:"limit,omitempty"       example:"10"`
+	Sort       string            `json:"sort,omitempty"        example:"newlyListed"`
 	Filters    map[string]string `json:"filters,omitempty"`
 }
 
 // Search handles POST /api/v1/search.
+//
+// @Summary Search eBay listings
+// @Description Proxies a search request to the eBay Browse API and returns raw listings.
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param body body searchRequest true "Search parameters"
+// @Success 200 {object} map[string]any "listings, total, has_more"
+// @Failure 400 {object} ErrorResponse
+// @Failure 502 {object} ErrorResponse
+// @Router /api/v1/search [post]
 func (h *SearchHandler) Search(c echo.Context) error {
 	var req searchRequest
 	if err := c.Bind(&req); err != nil {

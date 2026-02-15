@@ -28,6 +28,14 @@ func NewIngestHandler(ing Ingester) *IngestHandler {
 }
 
 // Ingest handles POST /api/v1/ingest.
+//
+// @Summary Trigger manual ingestion
+// @Description Runs the full ingestion pipeline: fetch listings from eBay, extract attributes via LLM, score, and alert.
+// @Tags ingest
+// @Produce json
+// @Success 200 {object} StatusResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/ingest [post]
 func (h *IngestHandler) Ingest(c echo.Context) error {
 	if err := h.ingester.RunIngestion(c.Request().Context()); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -51,6 +59,14 @@ func NewBaselineRefreshHandler(r BaselineRefresher) *BaselineRefreshHandler {
 }
 
 // Refresh handles POST /api/v1/baselines/refresh.
+//
+// @Summary Refresh price baselines
+// @Description Recomputes percentile price baselines for all product keys.
+// @Tags scoring
+// @Produce json
+// @Success 200 {object} StatusResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/baselines/refresh [post]
 func (h *BaselineRefreshHandler) Refresh(c echo.Context) error {
 	if err := h.refresher.RunBaselineRefresh(c.Request().Context()); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{

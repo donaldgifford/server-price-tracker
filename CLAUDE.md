@@ -49,6 +49,12 @@ make fmt                      # or: goimports -w . && golines -w .
 # Generate mocks (run after changing any interface)
 make mocks                    # or: mockery
 
+# Generate OpenAPI spec from handler annotations
+make swagger                  # or: swag init --v3.1 ... -o api/openapi
+
+# Generate Postman collection from OpenAPI spec
+make postman                  # runs swagger first, then openapi2postmanv2
+
 # Apply database migrations
 make migrate                  # or: go run ./cmd/server-price-tracker migrate
 
@@ -139,6 +145,7 @@ Every external dependency is abstracted behind a Go interface. Mockery generates
 ### Project Layout
 
 ```
+api/openapi/                  Generated OpenAPI 3.1 spec, Swagger UI handler, Postman collection
 cmd/server-price-tracker/     Cobra CLI entry point (serve, migrate commands)
 configs/                      YAML configuration files
   config.example.yaml         Template with env var placeholders
@@ -185,6 +192,7 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 
 ### Key API Endpoints
 
+- `GET /swagger/index.html` — Swagger UI (interactive API docs)
 - `GET /healthz`, `GET /readyz`, `GET /metrics` — operational
 - `POST/GET /api/v1/watches` — watch CRUD
 - `GET /api/v1/listings` — query with filters (component, score, price)
