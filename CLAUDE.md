@@ -138,7 +138,7 @@ Every external dependency is abstracted behind a Go interface. Mockery generates
 ### Pipeline
 
 1. **Watches** define saved searches with component type, filters, and score threshold
-2. **Ingestion** polls eBay per watch on a 15-min schedule (staggered)
+2. **Ingestion** polls eBay per watch on a 15-min schedule (staggered), with rate limiting (token bucket + rolling 24-hour daily quota) and per-cycle budget enforcement
 3. **LLM Extraction** (two-pass): classify component type from title, then extract component-specific attributes using the configured backend
 4. **Product Key** generation normalizes attributes for baseline grouping (e.g., `ram:ddr4:ecc_reg:32gb:2666`)
 5. **Scoring** computes a weighted 0–100 composite score (price 40%, seller 20%, condition 15%, quantity 10%, quality 10%, time 5%). Price factor defaults to neutral 50 when baseline has insufficient samples (cold start).
@@ -208,6 +208,7 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 - `POST /api/v1/ingest` — trigger manual ingestion
 - `POST /api/v1/baselines/refresh` — recompute baselines
 - `POST /api/v1/rescore` — rescore all listings
+- `GET /api/v1/quota` — eBay API quota status (daily usage, remaining, reset time)
 
 ## Testing Strategy
 

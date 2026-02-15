@@ -401,6 +401,42 @@ spt watches enable --server https://spt.yourdomain.dev <watch-id>
 spt watches delete --server https://spt.yourdomain.dev <watch-id>
 ```
 
+### Quota Monitoring
+
+Check the current eBay API quota status:
+
+```bash
+spt quota --server https://spt.yourdomain.dev
+
+# Or via curl
+curl https://spt.yourdomain.dev/api/v1/quota
+# {"daily_limit":5000,"daily_used":142,"remaining":4858,"reset_at":"2025-06-16T14:30:00Z"}
+```
+
+The quota endpoint reports:
+- `daily_limit` — configured daily API call limit
+- `daily_used` — calls used in the current rolling 24-hour window
+- `remaining` — calls remaining before the limit is hit
+- `reset_at` — when the current 24-hour window expires
+
+#### Prometheus Metrics
+
+The following eBay API metrics are exposed at `/metrics`:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `spt_ebay_api_calls_total` | Counter | Total cumulative eBay API calls |
+| `spt_ebay_daily_usage` | Gauge | Current daily call count within the rolling 24-hour window |
+| `spt_ebay_daily_limit_hits_total` | Counter | Times the daily API limit was reached |
+
+#### Grafana Alert Suggestions
+
+- **Daily limit approaching:** Alert when `spt_ebay_daily_usage` exceeds
+  80% of the configured daily limit (e.g., > 4000 for a 5000 limit)
+- **Daily limit hit:** Alert on `rate(spt_ebay_daily_limit_hits_total[5m]) > 0`
+- **Budget anomaly:** At the 12-hour mark, if daily usage is on pace to
+  exceed the budget before the window resets
+
 ### Generate Postman Collection
 
 Generate a Postman collection from the live server for API testing:

@@ -293,16 +293,16 @@ See `docs/plans/rate-limit.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Update `docs/OPERATIONS.md`:
+- [x] Update `docs/OPERATIONS.md`:
   - Add "Quota Monitoring" section under Ongoing Operations
   - Document `GET /api/v1/quota` endpoint
   - Document Prometheus metrics: `spt_ebay_api_calls_total`,
     `spt_ebay_daily_usage`, `spt_ebay_daily_limit_hits_total`
   - Add Grafana alert suggestion for daily limit approaching
-- [ ] Update `CLAUDE.md`:
+- [x] Update `CLAUDE.md`:
   - Add `/api/v1/quota` to Key API Endpoints section
   - Note rate limiter in Architecture section
-- [ ] Run `make lint-md` (if available) or review formatting
+- [x] Run `make lint-md` (if available) or review formatting
 
 ### Success Criteria
 
