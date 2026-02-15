@@ -330,41 +330,17 @@ annotations remain.
 Replace `openapi2postmanv2` with Portman for a fully-featured Postman
 collection.
 
-- [ ] Add `npm:@apideck/portman` to `mise.toml`
-- [ ] Add `npm:newman` to `mise.toml`
-- [ ] Create `portman/portman-config.json`:
+- [x] Add `npm:@apideck/portman` to `mise.toml`
+- [x] `npm:newman` already in `mise.toml`
+- [x] Create `portman/portman-config.json`:
   - Contract tests for all endpoints (status codes, response time, content-type,
-    JSON schema validation)
-  - Variation tests for create/update endpoints (missing required fields -> 422)
-  - Global auth configuration (if applicable)
-  - Environment variable references for base URL
-- [ ] Create `portman/environments/dev.json` with
+    JSON schema validation) via wildcard `*::/*` selector
+- [x] Create `portman/environments/dev.json` with
       `baseUrl: http://localhost:8080`
-- [ ] Create `portman/scripts/` directory for custom test JS files (if needed)
-- [ ] Update `scripts/makefiles/go.mk`:
-
-  ```makefile
-  postman: ## Generate Postman collection with contract tests
-      @portman -l http://localhost:8080/openapi.json \
-          -c portman/portman-config.json \
-          -o api/postman_collection.json
-      @echo "Postman collection generated"
-
-  postman-test: postman ## Run Postman collection tests via Newman
-      @newman run api/postman_collection.json \
-          -e portman/environments/dev.json
-  ```
-
-- [ ] Alternative: add a `make postman-from-spec` target that exports the spec
-      from a test helper (no running server needed):
-  ```makefile
-  postman-from-spec: ## Generate Postman collection from exported spec
-      @go run ./cmd/export-openapi > api/openapi.json
-      @portman -l api/openapi.json \
-          -c portman/portman-config.json \
-          -o api/postman_collection.json
-  ```
-- [ ] Remove `npm:openapi-to-postmanv2` from `mise.toml`
+- [x] Update `scripts/makefiles/go.mk` with `postman` and `postman-test`
+      targets that fetch the spec from a running server
+- [x] Add `portman/postman_collection.json` to `.gitignore` (generated artifact)
+- [x] Remove `npm:openapi-to-postmanv2` from `mise.toml` (done in Phase 5)
 
 **Success criteria:** `make postman` generates a collection with auto-generated
 contract tests. `make postman-test` runs the collection against a local server

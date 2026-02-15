@@ -46,3 +46,6 @@ dist/
 # Generated code
 # Mock files (regenerate with: make mocks)
 mocks/
+
+# Generated Postman collection (regenerate with: make postman)
+portman/postman_collection.json

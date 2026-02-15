@@ -5,7 +5,7 @@
 
 .PHONY: build build-core
 .PHONY: test test-all test-pkg test-report test-coverage test-integration test-integration-all
-.PHONY: lint lint-fix fmt clean generate mocks
+.PHONY: lint lint-fix fmt clean generate mocks postman postman-test
 .PHONY: run run-local ci check
 .PHONY: release-check release-local
 
@@ -86,6 +86,19 @@ mocks: ## Generate mocks for testing
 	@ $(MAKE) --no-print-directory log-$@
 	@mockery --config .mockery.yaml
 	@echo "✓ Mocks generated"
+
+postman: ## Generate Postman collection with contract tests (requires running server)
+	@ $(MAKE) --no-print-directory log-$@
+	@portman -l http://localhost:8080/openapi.json \
+		-c portman/portman-config.json \
+		-o portman/postman_collection.json
+	@echo "✓ Postman collection generated in portman/postman_collection.json"
+
+postman-test: postman ## Run Postman collection tests via Newman (requires running server)
+	@ $(MAKE) --no-print-directory log-$@
+	@newman run portman/postman_collection.json \
+		-e portman/environments/dev.json
+	@echo "✓ Postman tests passed"
 
 ## Application Services
 
