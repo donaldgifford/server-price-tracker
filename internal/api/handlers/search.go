@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/donaldgifford/server-price-tracker/internal/ebay"
+	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
 // SearchHandler handles eBay search requests.
@@ -18,63 +20,62 @@ func NewSearchHandler(client ebay.EbayClient) *SearchHandler {
 	return &SearchHandler{client: client}
 }
 
-type searchRequest struct {
-	Query      string            `json:"query"                 example:"DDR4 ECC REG 32GB server RAM"`
-	CategoryID string            `json:"category_id,omitempty" example:"170083"`
-	Limit      int               `json:"limit,omitempty"       example:"10"`
-	Sort       string            `json:"sort,omitempty"        example:"newlyListed"`
-	Filters    map[string]string `json:"filters,omitempty"`
+// SearchInput is the request body for the search endpoint.
+type SearchInput struct {
+	Body struct {
+		Query      string            `json:"query" minLength:"1" doc:"eBay search query" example:"DDR4 ECC REG 32GB server RAM"`
+		CategoryID string            `json:"category_id,omitempty" doc:"eBay category ID" example:"170083"`
+		Limit      int               `json:"limit,omitempty" minimum:"1" doc:"Maximum results to return (default 10)" example:"10"`
+		Sort       string            `json:"sort,omitempty" doc:"Sort order" example:"newlyListed"`
+		Filters    map[string]string `json:"filters,omitempty" doc:"Additional eBay filters"`
+	}
 }
 
-// Search handles POST /api/v1/search.
-//
-// @Summary Search eBay listings
-// @Description Proxies a search request to the eBay Browse API and returns raw listings.
-// @Tags search
-// @Accept json
-// @Produce json
-// @Param body body searchRequest true "Search parameters"
-// @Success 200 {object} map[string]any "listings, total, has_more"
-// @Failure 400 {object} ErrorResponse
-// @Failure 502 {object} ErrorResponse
-// @Router /api/v1/search [post]
-func (h *SearchHandler) Search(c echo.Context) error {
-	var req searchRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "invalid request body",
-		})
+// SearchOutput is the response body for the search endpoint.
+type SearchOutput struct {
+	Body struct {
+		Listings []domain.Listing `json:"listings" doc:"Converted listing results"`
+		Total    int              `json:"total" doc:"Total matching items"`
+		HasMore  bool             `json:"has_more" doc:"Whether more results are available"`
 	}
+}
 
-	if req.Query == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "query is required",
-		})
-	}
-
-	limit := req.Limit
+// Search proxies a search request to the eBay Browse API.
+func (h *SearchHandler) Search(ctx context.Context, input *SearchInput) (*SearchOutput, error) {
+	limit := input.Body.Limit
 	if limit <= 0 {
 		limit = 10
 	}
 
-	resp, err := h.client.Search(c.Request().Context(), ebay.SearchRequest{
-		Query:      req.Query,
-		CategoryID: req.CategoryID,
+	resp, err := h.client.Search(ctx, ebay.SearchRequest{
+		Query:      input.Body.Query,
+		CategoryID: input.Body.CategoryID,
 		Limit:      limit,
-		Sort:       req.Sort,
-		Filters:    req.Filters,
+		Sort:       input.Body.Sort,
+		Filters:    input.Body.Filters,
 	})
 	if err != nil {
-		return c.JSON(http.StatusBadGateway, map[string]string{
-			"error": "eBay API error: " + err.Error(),
-		})
+		return nil, huma.Error502BadGateway("eBay API error: " + err.Error())
 	}
 
 	listings := ebay.ToListings(resp.Items)
 
-	return c.JSON(http.StatusOK, map[string]any{
-		"listings": listings,
-		"total":    resp.Total,
-		"has_more": resp.HasMore,
-	})
+	out := &SearchOutput{}
+	out.Body.Listings = listings
+	out.Body.Total = resp.Total
+	out.Body.HasMore = resp.HasMore
+	return out, nil
+}
+
+// RegisterSearchRoutes registers search endpoints with the Huma API.
+func RegisterSearchRoutes(api huma.API, h *SearchHandler) {
+	huma.Register(api, huma.Operation{
+		OperationID: "search-ebay",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/search",
+		Summary:     "Search eBay listings",
+		Description: "Proxies a search request to the eBay Browse API and returns raw listings.",
+		Tags:        []string{"search"},
+		Errors:      []int{http.StatusBadGateway},
+	}, h.Search)
 }

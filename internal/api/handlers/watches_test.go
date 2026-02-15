@@ -3,11 +3,10 @@ package handlers_test
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/danielgtaylor/huma/v2/humatest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -22,14 +21,14 @@ func TestWatchHandler_List(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		query      string
+		path       string
 		setupMock  func(*storeMocks.MockStore)
 		wantStatus int
 		wantBody   string
 	}{
 		{
-			name:  "returns watches",
-			query: "",
+			name: "returns watches",
+			path: "/api/v1/watches",
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
 					ListWatches(mock.Anything, false).
@@ -42,8 +41,8 @@ func TestWatchHandler_List(t *testing.T) {
 			wantBody:   `"DDR4 Watch"`,
 		},
 		{
-			name:  "enabled only filter",
-			query: "?enabled=true",
+			name: "enabled only filter",
+			path: "/api/v1/watches?enabled=true",
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
 					ListWatches(mock.Anything, true).
@@ -54,8 +53,8 @@ func TestWatchHandler_List(t *testing.T) {
 			wantBody:   `[]`,
 		},
 		{
-			name:  "store error",
-			query: "",
+			name: "store error",
+			path: "/api/v1/watches",
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
 					ListWatches(mock.Anything, false).
@@ -63,7 +62,7 @@ func TestWatchHandler_List(t *testing.T) {
 					Once()
 			},
 			wantStatus: http.StatusInternalServerError,
-			wantBody:   `"error"`,
+			wantBody:   `listing watches`,
 		},
 	}
 
@@ -75,15 +74,12 @@ func TestWatchHandler_List(t *testing.T) {
 			tt.setupMock(ms)
 			h := handlers.NewWatchHandler(ms)
 
-			e := echo.New()
-			req := httptest.NewRequest(http.MethodGet, "/api/v1/watches"+tt.query, http.NoBody)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
+			_, api := humatest.New(t)
+			handlers.RegisterWatchRoutes(api, h)
 
-			err := h.List(c)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantStatus, rec.Code)
-			assert.Contains(t, rec.Body.String(), tt.wantBody)
+			resp := api.Get(tt.path)
+			require.Equal(t, tt.wantStatus, resp.Code)
+			assert.Contains(t, resp.Body.String(), tt.wantBody)
 		})
 	}
 }
@@ -120,7 +116,7 @@ func TestWatchHandler_Get(t *testing.T) {
 					Once()
 			},
 			wantStatus: http.StatusNotFound,
-			wantBody:   `"watch not found"`,
+			wantBody:   `watch not found`,
 		},
 	}
 
@@ -132,17 +128,12 @@ func TestWatchHandler_Get(t *testing.T) {
 			tt.setupMock(ms)
 			h := handlers.NewWatchHandler(ms)
 
-			e := echo.New()
-			req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
-			c.SetParamNames("id")
-			c.SetParamValues(tt.id)
+			_, api := humatest.New(t)
+			handlers.RegisterWatchRoutes(api, h)
 
-			err := h.Get(c)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantStatus, rec.Code)
-			assert.Contains(t, rec.Body.String(), tt.wantBody)
+			resp := api.Get("/api/v1/watches/" + tt.id)
+			require.Equal(t, tt.wantStatus, resp.Code)
+			assert.Contains(t, resp.Body.String(), tt.wantBody)
 		})
 	}
 }
@@ -152,14 +143,17 @@ func TestWatchHandler_Create(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		body       string
+		body       any
 		setupMock  func(*storeMocks.MockStore)
 		wantStatus int
 		wantBody   string
 	}{
 		{
 			name: "valid watch",
-			body: `{"name":"DDR4 Watch","search_query":"DDR4 ECC"}`,
+			body: map[string]any{
+				"name":         "DDR4 Watch",
+				"search_query": "DDR4 ECC",
+			},
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
 					CreateWatch(mock.Anything, mock.MatchedBy(func(w *domain.Watch) bool {
@@ -172,22 +166,29 @@ func TestWatchHandler_Create(t *testing.T) {
 			wantBody:   `"DDR4 Watch"`,
 		},
 		{
-			name:       "missing name",
-			body:       `{"search_query":"DDR4 ECC"}`,
+			name: "missing name returns 422",
+			body: map[string]any{
+				"search_query": "DDR4 ECC",
+			},
 			setupMock:  func(_ *storeMocks.MockStore) {},
-			wantStatus: http.StatusBadRequest,
-			wantBody:   `"name and search_query are required"`,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody:   `expected required property name to be present`,
 		},
 		{
-			name:       "missing query",
-			body:       `{"name":"Test"}`,
+			name: "missing query returns 422",
+			body: map[string]any{
+				"name": "Test",
+			},
 			setupMock:  func(_ *storeMocks.MockStore) {},
-			wantStatus: http.StatusBadRequest,
-			wantBody:   `"name and search_query are required"`,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody:   `expected required property search_query to be present`,
 		},
 		{
 			name: "store error",
-			body: `{"name":"Test","search_query":"test"}`,
+			body: map[string]any{
+				"name":         "Test",
+				"search_query": "test",
+			},
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
 					CreateWatch(mock.Anything, mock.Anything).
@@ -199,10 +200,10 @@ func TestWatchHandler_Create(t *testing.T) {
 		},
 		{
 			name:       "invalid JSON",
-			body:       `{invalid}`,
+			body:       strings.NewReader(`{invalid}`),
 			setupMock:  func(_ *storeMocks.MockStore) {},
 			wantStatus: http.StatusBadRequest,
-			wantBody:   "invalid request body",
+			wantBody:   "",
 		},
 	}
 
@@ -214,20 +215,14 @@ func TestWatchHandler_Create(t *testing.T) {
 			tt.setupMock(ms)
 			h := handlers.NewWatchHandler(ms)
 
-			e := echo.New()
-			req := httptest.NewRequest(
-				http.MethodPost,
-				"/api/v1/watches",
-				strings.NewReader(tt.body),
-			)
-			req.Header.Set("Content-Type", "application/json")
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
+			_, api := humatest.New(t)
+			handlers.RegisterWatchRoutes(api, h)
 
-			err := h.Create(c)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantStatus, rec.Code)
-			assert.Contains(t, rec.Body.String(), tt.wantBody)
+			resp := api.Post("/api/v1/watches", tt.body)
+			require.Equal(t, tt.wantStatus, resp.Code)
+			if tt.wantBody != "" {
+				assert.Contains(t, resp.Body.String(), tt.wantBody)
+			}
 		})
 	}
 }
@@ -245,18 +240,14 @@ func TestWatchHandler_Update(t *testing.T) {
 
 	h := handlers.NewWatchHandler(ms)
 
-	e := echo.New()
-	body := `{"name":"Updated","search_query":"test"}`
-	req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("w1")
+	_, api := humatest.New(t)
+	handlers.RegisterWatchRoutes(api, h)
 
-	err := h.Update(c)
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, rec.Code)
+	resp := api.Put("/api/v1/watches/w1", map[string]any{
+		"name":         "Updated",
+		"search_query": "test",
+	})
+	require.Equal(t, http.StatusOK, resp.Code)
 }
 
 func TestWatchHandler_SetEnabled(t *testing.T) {
@@ -270,19 +261,14 @@ func TestWatchHandler_SetEnabled(t *testing.T) {
 
 	h := handlers.NewWatchHandler(ms)
 
-	e := echo.New()
-	body := `{"enabled":false}`
-	req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.SetParamNames("id")
-	c.SetParamValues("w1")
+	_, api := humatest.New(t)
+	handlers.RegisterWatchRoutes(api, h)
 
-	err := h.SetEnabled(c)
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), "updated")
+	resp := api.Put("/api/v1/watches/w1/enabled", map[string]any{
+		"enabled": false,
+	})
+	require.Equal(t, http.StatusOK, resp.Code)
+	assert.Contains(t, resp.Body.String(), "updated")
 }
 
 func TestWatchHandler_Delete(t *testing.T) {
@@ -323,16 +309,11 @@ func TestWatchHandler_Delete(t *testing.T) {
 			tt.setupMock(ms)
 			h := handlers.NewWatchHandler(ms)
 
-			e := echo.New()
-			req := httptest.NewRequest(http.MethodDelete, "/", http.NoBody)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
-			c.SetParamNames("id")
-			c.SetParamValues("w1")
+			_, api := humatest.New(t)
+			handlers.RegisterWatchRoutes(api, h)
 
-			err := h.Delete(c)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantStatus, rec.Code)
+			resp := api.Delete("/api/v1/watches/w1")
+			require.Equal(t, tt.wantStatus, resp.Code)
 		})
 	}
 }

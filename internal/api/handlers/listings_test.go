@@ -1,12 +1,11 @@
 package handlers_test
 
 import (
+	"errors"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/labstack/echo/v4"
+	"github.com/danielgtaylor/huma/v2/humatest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -22,14 +21,14 @@ func TestListingsHandler_List(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		query      string
+		path       string
 		setupMock  func(*storeMocks.MockStore)
 		wantStatus int
 		wantBody   string
 	}{
 		{
-			name:  "no filters returns listings",
-			query: "",
+			name: "no filters returns listings",
+			path: "/api/v1/listings",
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
 					ListListings(mock.Anything, mock.Anything).
@@ -42,8 +41,8 @@ func TestListingsHandler_List(t *testing.T) {
 			wantBody:   `"total":1`,
 		},
 		{
-			name:  "component type filter",
-			query: "?component_type=ram",
+			name: "component type filter",
+			path: "/api/v1/listings?component_type=ram",
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
 					ListListings(mock.Anything, mock.MatchedBy(func(q *store.ListingQuery) bool {
@@ -56,8 +55,8 @@ func TestListingsHandler_List(t *testing.T) {
 			wantBody:   `"total":0`,
 		},
 		{
-			name:  "score range filter",
-			query: "?min_score=70&max_score=95",
+			name: "score range filter",
+			path: "/api/v1/listings?min_score=70&max_score=95",
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
 					ListListings(mock.Anything, mock.MatchedBy(func(q *store.ListingQuery) bool {
@@ -70,8 +69,8 @@ func TestListingsHandler_List(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:  "pagination params",
-			query: "?limit=10&offset=20",
+			name: "pagination params",
+			path: "/api/v1/listings?limit=10&offset=20",
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
 					ListListings(mock.Anything, mock.MatchedBy(func(q *store.ListingQuery) bool {
@@ -84,8 +83,8 @@ func TestListingsHandler_List(t *testing.T) {
 			wantBody:   `"limit":10`,
 		},
 		{
-			name:  "order by param",
-			query: "?order_by=score",
+			name: "order by param",
+			path: "/api/v1/listings?order_by=score",
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
 					ListListings(mock.Anything, mock.MatchedBy(func(q *store.ListingQuery) bool {
@@ -97,44 +96,46 @@ func TestListingsHandler_List(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "invalid min_score returns 400",
-			query:      "?min_score=abc",
+			name:       "invalid min_score returns 422",
+			path:       "/api/v1/listings?min_score=abc",
 			setupMock:  func(_ *storeMocks.MockStore) {},
-			wantStatus: http.StatusBadRequest,
-			wantBody:   `"error":"invalid min_score"`,
+			wantStatus: http.StatusUnprocessableEntity,
 		},
 		{
-			name:       "invalid max_score returns 400",
-			query:      "?max_score=xyz",
+			name:       "invalid max_score returns 422",
+			path:       "/api/v1/listings?max_score=xyz",
 			setupMock:  func(_ *storeMocks.MockStore) {},
-			wantStatus: http.StatusBadRequest,
-			wantBody:   `"error":"invalid max_score"`,
+			wantStatus: http.StatusUnprocessableEntity,
 		},
 		{
-			name:       "invalid limit returns 400",
-			query:      "?limit=not_a_number",
+			name:       "invalid limit returns 422",
+			path:       "/api/v1/listings?limit=not_a_number",
 			setupMock:  func(_ *storeMocks.MockStore) {},
-			wantStatus: http.StatusBadRequest,
-			wantBody:   `"error":"invalid limit"`,
+			wantStatus: http.StatusUnprocessableEntity,
 		},
 		{
-			name:       "invalid offset returns 400",
-			query:      "?offset=bad",
+			name:       "invalid offset returns 422",
+			path:       "/api/v1/listings?offset=bad",
 			setupMock:  func(_ *storeMocks.MockStore) {},
-			wantStatus: http.StatusBadRequest,
-			wantBody:   `"error":"invalid offset"`,
+			wantStatus: http.StatusUnprocessableEntity,
 		},
 		{
-			name:  "store error returns 500",
-			query: "",
+			name:       "invalid enum returns 422",
+			path:       "/api/v1/listings?component_type=invalid_type",
+			setupMock:  func(_ *storeMocks.MockStore) {},
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name: "store error returns 500",
+			path: "/api/v1/listings",
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
 					ListListings(mock.Anything, mock.Anything).
-					Return(nil, 0, assert.AnError).
+					Return(nil, 0, errors.New("db error")).
 					Once()
 			},
 			wantStatus: http.StatusInternalServerError,
-			wantBody:   `"error"`,
+			wantBody:   `listing query failed`,
 		},
 	}
 
@@ -142,25 +143,17 @@ func TestListingsHandler_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockStore := storeMocks.NewMockStore(t)
-			tt.setupMock(mockStore)
+			ms := storeMocks.NewMockStore(t)
+			tt.setupMock(ms)
+			h := handlers.NewListingsHandler(ms)
 
-			h := handlers.NewListingsHandler(mockStore)
+			_, api := humatest.New(t)
+			handlers.RegisterListingRoutes(api, h)
 
-			e := echo.New()
-			req := httptest.NewRequest(
-				http.MethodGet,
-				"/api/v1/listings"+tt.query,
-				http.NoBody,
-			)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
-
-			err := h.List(c)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantStatus, rec.Code)
+			resp := api.Get(tt.path)
+			require.Equal(t, tt.wantStatus, resp.Code)
 			if tt.wantBody != "" {
-				assert.Contains(t, rec.Body.String(), tt.wantBody)
+				assert.Contains(t, resp.Body.String(), tt.wantBody)
 			}
 		})
 	}
@@ -189,7 +182,7 @@ func TestListingsHandler_GetByID(t *testing.T) {
 					Once()
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   `"title":"Samsung 32GB DDR4"`,
+			wantBody:   `Samsung 32GB DDR4`,
 		},
 		{
 			name: "not found returns 404",
@@ -197,11 +190,11 @@ func TestListingsHandler_GetByID(t *testing.T) {
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
 					GetListingByID(mock.Anything, "nonexistent").
-					Return(nil, pgx.ErrNoRows).
+					Return(nil, errors.New("not found")).
 					Once()
 			},
 			wantStatus: http.StatusNotFound,
-			wantBody:   `"error":"listing not found"`,
+			wantBody:   `listing not found`,
 		},
 	}
 
@@ -209,26 +202,16 @@ func TestListingsHandler_GetByID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockStore := storeMocks.NewMockStore(t)
-			tt.setupMock(mockStore)
+			ms := storeMocks.NewMockStore(t)
+			tt.setupMock(ms)
+			h := handlers.NewListingsHandler(ms)
 
-			h := handlers.NewListingsHandler(mockStore)
+			_, api := humatest.New(t)
+			handlers.RegisterListingRoutes(api, h)
 
-			e := echo.New()
-			req := httptest.NewRequest(
-				http.MethodGet,
-				"/api/v1/listings/"+tt.id,
-				http.NoBody,
-			)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
-			c.SetParamNames("id")
-			c.SetParamValues(tt.id)
-
-			err := h.GetByID(c)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantStatus, rec.Code)
-			assert.Contains(t, rec.Body.String(), tt.wantBody)
+			resp := api.Get("/api/v1/listings/" + tt.id)
+			require.Equal(t, tt.wantStatus, resp.Code)
+			assert.Contains(t, resp.Body.String(), tt.wantBody)
 		})
 	}
 }

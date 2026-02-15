@@ -10,4 +10,3 @@ RUN apk add --no-cache ca-certificates
 COPY --from=builder /server-price-tracker /usr/local/bin/server-price-tracker
 EXPOSE 8080
 ENTRYPOINT ["server-price-tracker"]
-CMD ["serve"]

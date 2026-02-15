@@ -3,21 +3,27 @@
 ###############
 ##@ Go Development
 
-.PHONY: build build-core
+.PHONY: build build-core build-spt
 .PHONY: test test-all test-pkg test-report test-coverage test-integration test-integration-all
-.PHONY: lint lint-fix fmt clean generate mocks swagger postman
+.PHONY: lint lint-fix fmt clean generate mocks postman postman-test
 .PHONY: run run-local ci check
 .PHONY: release-check release-local
 
 ## Build Targets
 
-build: build-core ## Build everything (core)
+build: build-core build-spt ## Build everything (server + CLI)
 
-build-core: ## Build core binary
+build-core: ## Build server binary
 	@ $(MAKE) --no-print-directory log-$@
 	@mkdir -p $(BIN_DIR)
 	@go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT_HASH)" -o $(BIN_DIR)/$(PROJECT_NAME) $(CMD)/$(PROJECT_NAME)
-	@echo "✓ Core binaries built"
+	@echo "✓ Server binary built"
+
+build-spt: ## Build spt CLI client binary
+	@ $(MAKE) --no-print-directory log-$@
+	@mkdir -p $(BIN_DIR)
+	@go build -o $(BIN_DIR)/spt $(CMD)/spt
+	@echo "✓ spt CLI built"
 
 ## Testing
 
@@ -78,7 +84,7 @@ clean: ## Remove build artifacts
 
 ## Code Generation
 
-generate: mocks swagger ## Generate all code (mocks + swagger)
+generate: mocks ## Generate all code (mocks)
 	@ $(MAKE) --no-print-directory log-$@
 	@echo "✓ Code generation complete"
 
@@ -87,19 +93,18 @@ mocks: ## Generate mocks for testing
 	@mockery --config .mockery.yaml
 	@echo "✓ Mocks generated"
 
-swagger: ## Generate OpenAPI spec from annotations
+postman: ## Generate Postman collection with contract tests (requires running server)
 	@ $(MAKE) --no-print-directory log-$@
-	@swag init --v3.1 --parseDependency --parseInternal \
-		-g cmd/server-price-tracker/main.go \
-		-o api/openapi \
-		--outputTypes go,json,yaml
-	@echo "✓ OpenAPI spec generated in api/openapi/"
+	@portman -l http://localhost:8080/openapi.json \
+		-c portman/portman-config.json \
+		-o portman/postman_collection.json
+	@echo "✓ Postman collection generated in portman/postman_collection.json"
 
-postman: swagger ## Generate Postman collection from OpenAPI spec
+postman-test: postman ## Run Postman collection tests via Newman (requires running server)
 	@ $(MAKE) --no-print-directory log-$@
-	@openapi2postmanv2 -s api/openapi/swagger.json \
-		-o api/openapi/postman_collection.json -p
-	@echo "✓ Postman collection generated in api/openapi/postman_collection.json"
+	@newman run portman/postman_collection.json \
+		-e portman/environments/dev.json
+	@echo "✓ Postman tests passed"
 
 ## Application Services
 

@@ -14,10 +14,34 @@ builds:
     env:
       - CGO_ENABLED=0
 
+  - id: spt
+    binary: spt
+    main: ./cmd/spt
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+
 archives:
-  - id: default
+  - id: server
+    ids:
+      - server-price-tracker
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
-    format: "tar.gz"
+    formats:
+      - tar.gz
+    files:
+      - none*
+
+  - id: cli
+    ids:
+      - spt
+    name_template: "spt_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
     files:
       - none*
 
@@ -69,10 +93,13 @@ release:
 
     #### Linux/macOS (Manual)
     ```bash
-    # Download the appropriate binary for your system
-    # Extract and move to your PATH
+    # Server binary
     tar -xzf server-price-tracker_*.tar.gz
-    mv forge ~/.local/bin/
+    mv server-price-tracker ~/.local/bin/
+
+    # CLI client
+    tar -xzf spt_*.tar.gz
+    mv spt ~/.local/bin/
     ```
 
   footer: |

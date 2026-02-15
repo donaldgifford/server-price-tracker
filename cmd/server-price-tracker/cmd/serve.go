@@ -11,12 +11,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/spf13/cobra"
 
-	"github.com/donaldgifford/server-price-tracker/api/openapi"
-	handlers "github.com/donaldgifford/server-price-tracker/internal/api/handlers"
+	"github.com/donaldgifford/server-price-tracker/internal/api/handlers"
 	apimw "github.com/donaldgifford/server-price-tracker/internal/api/middleware"
 	"github.com/donaldgifford/server-price-tracker/internal/config"
 	"github.com/donaldgifford/server-price-tracker/internal/ebay"
@@ -27,18 +27,8 @@ import (
 	sptlog "github.com/donaldgifford/server-price-tracker/pkg/logger"
 )
 
-var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Start the API server and scheduler",
-	RunE:  runServe,
-}
-
-func init() {
-	rootCmd.AddCommand(serveCmd)
-}
-
-func runServe(_ *cobra.Command, _ []string) error {
-	cfg, err := config.Load(cfgFile)
+func startServer(opts *Options) error {
+	cfg, err := config.Load(opts.Config)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
@@ -83,8 +73,22 @@ func runServe(_ *cobra.Command, _ []string) error {
 	// Prometheus HTTP middleware.
 	e.Use(apimw.Metrics())
 
+	// --- Huma API ---
+	humaConfig := huma.DefaultConfig("Server Price Tracker API", "1.0.0")
+	humaConfig.Info.Description = "API for monitoring eBay server hardware listings, " +
+		"extracting structured attributes via LLM, scoring deals, and sending alerts."
+	humaConfig.Info.Contact = &huma.Contact{
+		Name: "Donald Gifford",
+		URL:  "https://github.com/donaldgifford/server-price-tracker",
+	}
+	humaConfig.Info.License = &huma.License{
+		Name: "Apache 2.0",
+		URL:  "http://www.apache.org/licenses/LICENSE-2.0.html",
+	}
+	humaAPI := humaecho.New(e, humaConfig)
+
 	// --- Routes ---
-	registerRoutes(e, pgStore, ebayClient, extractor, eng)
+	registerRoutes(humaAPI, pgStore, ebayClient, extractor, eng)
 
 	// Prometheus metrics.
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
@@ -130,61 +134,47 @@ func runServe(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
+// registerRoutes sets up all HTTP routes on the Huma API.
 func registerRoutes(
-	e *echo.Echo,
+	humaAPI huma.API,
 	s store.Store,
 	ebayClient ebay.EbayClient,
 	extractor extract.Extractor,
 	eng *engine.Engine,
 ) {
-	// Swagger UI and spec.
-	openapi.RegisterRoutes(e)
-
-	// Health endpoints.
+	// Health endpoints (Huma).
 	healthH := handlers.NewHealthHandler(s)
-	e.GET("/healthz", healthH.Healthz)
-	e.GET("/readyz", healthH.Readyz)
+	handlers.RegisterHealthRoutes(humaAPI, healthH)
 
-	// API v1 group.
-	api := e.Group("/api/v1")
-
-	// Listings.
+	// Store-dependent routes (Huma).
 	if s != nil {
 		listingsH := handlers.NewListingsHandler(s)
-		api.GET("/listings", listingsH.List)
-		api.GET("/listings/:id", listingsH.GetByID)
+		handlers.RegisterListingRoutes(humaAPI, listingsH)
 
 		watchH := handlers.NewWatchHandler(s)
-		api.GET("/watches", watchH.List)
-		api.GET("/watches/:id", watchH.Get)
-		api.POST("/watches", watchH.Create)
-		api.PUT("/watches/:id", watchH.Update)
-		api.PUT("/watches/:id/enabled", watchH.SetEnabled)
-		api.DELETE("/watches/:id", watchH.Delete)
+		handlers.RegisterWatchRoutes(humaAPI, watchH)
 
 		rescoreH := handlers.NewRescoreHandler(s)
-		api.POST("/rescore", rescoreH.Rescore)
+		handlers.RegisterRescoreRoutes(humaAPI, rescoreH)
 	}
 
-	// Search.
+	// Search (Huma).
 	if ebayClient != nil {
 		searchH := handlers.NewSearchHandler(ebayClient)
-		api.POST("/search", searchH.Search)
+		handlers.RegisterSearchRoutes(humaAPI, searchH)
 	}
 
-	// Extract.
+	// Extract (Huma).
 	if extractor != nil {
 		extractH := handlers.NewExtractHandler(extractor)
-		api.POST("/extract", extractH.Extract)
+		handlers.RegisterExtractRoutes(humaAPI, extractH)
 	}
 
-	// Engine-dependent routes.
+	// Engine-dependent routes (Huma for ingest and baseline refresh).
 	if eng != nil {
 		ingestH := handlers.NewIngestHandler(eng)
-		api.POST("/ingest", ingestH.Ingest)
-
 		baselineH := handlers.NewBaselineRefreshHandler(eng)
-		api.POST("/baselines/refresh", baselineH.Refresh)
+		handlers.RegisterTriggerRoutes(humaAPI, ingestH, baselineH)
 	}
 }
 

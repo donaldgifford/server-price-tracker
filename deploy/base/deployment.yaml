@@ -35,7 +35,7 @@ spec:
       containers:
         - name: server-price-tracker
           image: server-price-tracker:latest
-          args: ["serve", "--config", "/etc/spt/config.yaml"]
+          args: ["--config", "/etc/spt/config.yaml"]
           ports:
             - name: http
               containerPort: 8080

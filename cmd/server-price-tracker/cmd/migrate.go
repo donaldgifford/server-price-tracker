@@ -13,18 +13,17 @@ import (
 	sptlog "github.com/donaldgifford/server-price-tracker/pkg/logger"
 )
 
-var migrateCmd = &cobra.Command{
-	Use:   "migrate",
-	Short: "Run database migrations",
-	RunE:  runMigrate,
-}
-
-func init() {
-	rootCmd.AddCommand(migrateCmd)
+func migrateCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "migrate",
+		Short: "Run database migrations",
+		RunE:  runMigrate,
+	}
 }
 
 func runMigrate(_ *cobra.Command, _ []string) error {
-	cfg, err := config.Load(cfgFile)
+	opts := getOptions()
+	cfg, err := config.Load(opts.Config)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
