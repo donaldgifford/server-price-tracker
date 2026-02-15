@@ -256,14 +256,14 @@ See `docs/plans/rate-limit.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Update `configs/config.example.yaml`:
+- [x] Update `configs/config.example.yaml`:
   - Add `rate_limit` section under `ebay` with comments
-- [ ] Update `configs/config.dev.yaml`:
+- [x] Update `configs/config.dev.yaml`:
   - Add `rate_limit` section with dev values (daily_limit: 5000)
-- [ ] Update `charts/server-price-tracker/values.yaml`:
+- [x] Update `charts/server-price-tracker/values.yaml`:
   - Add `rate_limit` under `config.ebay`:
     `per_second: 5`, `burst: 10`, `daily_limit: 5000`
-- [ ] Update `charts/server-price-tracker/templates/configmap.yaml`:
+- [x] Update `charts/server-price-tracker/templates/configmap.yaml`:
   - Add `rate_limit` rendering block under `ebay` section:
     ```yaml
     rate_limit:
@@ -271,8 +271,8 @@ See `docs/plans/rate-limit.md` for the high-level design.
       burst: {{ .Values.config.ebay.rate_limit.burst }}
       daily_limit: {{ .Values.config.ebay.rate_limit.daily_limit }}
     ```
-- [ ] Run `make helm-test` to verify chart renders correctly
-- [ ] Run `make helm-lint`
+- [x] Run `make helm-test` to verify chart renders correctly
+- [x] Run `make helm-lint`
 
 ### Success Criteria
 
