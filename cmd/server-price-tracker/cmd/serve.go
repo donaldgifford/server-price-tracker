@@ -158,13 +158,9 @@ func registerRoutes(
 		api.GET("/listings", listingsH.List)
 		api.GET("/listings/:id", listingsH.GetByID)
 
+		// Watches (Huma).
 		watchH := handlers.NewWatchHandler(s)
-		api.GET("/watches", watchH.List)
-		api.GET("/watches/:id", watchH.Get)
-		api.POST("/watches", watchH.Create)
-		api.PUT("/watches/:id", watchH.Update)
-		api.PUT("/watches/:id/enabled", watchH.SetEnabled)
-		api.DELETE("/watches/:id", watchH.Delete)
+		handlers.RegisterWatchRoutes(humaAPI, watchH)
 
 		// Rescore (Huma).
 		rescoreH := handlers.NewRescoreHandler(s)

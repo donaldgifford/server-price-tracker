@@ -250,7 +250,7 @@ body binding.
 
 **watches.go** (6 endpoints):
 
-- [ ] Define input/output types for each operation:
+- [x] Define input/output types for each operation:
   - `ListWatchesInput` (query: `enabled`), `ListWatchesOutput` (body:
     `[]domain.Watch`)
   - `GetWatchInput` (path: `id`), `GetWatchOutput` (body: `domain.Watch`)
@@ -261,11 +261,11 @@ body binding.
   - `SetWatchEnabledInput` (path: `id`, body: `{enabled bool}`),
     `SetWatchEnabledOutput`
   - `DeleteWatchInput` (path: `id`), no output (status 204)
-- [ ] Rewrite all 6 handlers as Huma handlers
-- [ ] Path param `id` becomes a struct field with `path:"id" doc:"Watch UUID"`
-- [ ] Register all via `huma.Register()`
-- [ ] Remove swaggo annotations
-- [ ] Update `watches_test.go` to use `humatest`
+- [x] Rewrite all 6 handlers as Huma handlers
+- [x] Path param `id` becomes a struct field with `path:"id" doc:"Watch UUID"`
+- [x] Register all via `huma.Register()`
+- [x] Remove swaggo annotations
+- [x] Update `watches_test.go` to use `humatest`
 
 **Success criteria:** 13 endpoints migrated. `make test` passes.
 
