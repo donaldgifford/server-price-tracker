@@ -218,25 +218,25 @@ See `docs/plans/rate-limit.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Update `buildEbayClient()` signature to return
+- [x] Update `buildEbayClient()` signature to return
       `(ebay.EbayClient, *ebay.RateLimiter)`:
   - Create `RateLimiter` from `cfg.Ebay.RateLimit.*`
   - Pass to `NewBrowseClient` via `WithRateLimiter(rl)`
   - Return both client and rate limiter
   - When credentials are missing, return `(nil, nil)`
-- [ ] Update `startServer()` to capture the rate limiter:
+- [x] Update `startServer()` to capture the rate limiter:
   - `ebayClient, rateLimiter := buildEbayClient(cfg, slogger)`
-- [ ] Update `buildEngine()` to accept the store for Paginator creation:
+- [x] Update `buildEngine()` to accept the store for Paginator creation:
   - Create `ebay.NewPaginator(ebayClient, pgStore, ebay.WithPaginatorLogger(logger))`
   - Pass to engine via `engine.WithPaginator(paginator)`
   - Pass `engine.WithMaxCallsPerCycle(cfg.Ebay.MaxCallsPerCycle)`
   - Only create paginator when both `ebayClient` and `pgStore` are non-nil
-- [ ] Update `registerRoutes()` to accept `*ebay.RateLimiter`:
+- [x] Update `registerRoutes()` to accept `*ebay.RateLimiter`:
   - Create `QuotaHandler` and register quota routes
   - Register even when rate limiter is nil (handler returns zeroes)
-- [ ] Log rate limiter configuration at startup:
+- [x] Log rate limiter configuration at startup:
   - `"rate limiter configured"`, `per_second`, `burst`, `daily_limit`
-- [ ] Run `make build && make test && make lint`
+- [x] Run `make build && make test && make lint`
 
 ### Success Criteria
 
