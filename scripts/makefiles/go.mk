@@ -95,7 +95,8 @@ mocks: ## Generate mocks for testing
 
 postman: ## Generate Postman collection with contract tests (requires running server)
 	@ $(MAKE) --no-print-directory log-$@
-	@portman -l http://localhost:8080/openapi.json \
+	@curl -sf $(SPT_SERVER_URL)/openapi.json -o /tmp/spt-openapi.json
+	@portman -l /tmp/spt-openapi.json \
 		-c portman/portman-config.json \
 		-o portman/postman_collection.json
 	@echo "✓ Postman collection generated in portman/postman_collection.json"
@@ -103,7 +104,8 @@ postman: ## Generate Postman collection with contract tests (requires running se
 postman-test: postman ## Run Postman collection tests via Newman (requires running server)
 	@ $(MAKE) --no-print-directory log-$@
 	@newman run portman/postman_collection.json \
-		-e portman/environments/dev.json
+		-e portman/environments/dev.json \
+		--env-var "baseUrl=$(SPT_SERVER_URL)"
 	@echo "✓ Postman tests passed"
 
 ## Application Services
