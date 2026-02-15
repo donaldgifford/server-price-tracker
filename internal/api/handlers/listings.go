@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/donaldgifford/server-price-tracker/internal/store"
+	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
 // ListingsHandler handles listing query endpoints.
@@ -20,13 +21,29 @@ func NewListingsHandler(s store.Store) *ListingsHandler {
 }
 
 type listingsResponse struct {
-	Listings []any `json:"listings"`
-	Total    int   `json:"total"`
-	Limit    int   `json:"limit"`
-	Offset   int   `json:"offset"`
+	Listings []domain.Listing `json:"listings"`
+	Total    int              `json:"total"`
+	Limit    int              `json:"limit"`
+	Offset   int              `json:"offset"`
 }
 
 // List handles GET /api/v1/listings.
+//
+// @Summary List listings
+// @Description Returns listings with optional filters for component type, score range, and pagination.
+// @Tags listings
+// @Produce json
+// @Param component_type query string false "Filter by component type" Enums(ram, drive, server, cpu, nic, other)
+// @Param product_key query string false "Filter by product key"
+// @Param min_score query int false "Minimum composite score"
+// @Param max_score query int false "Maximum composite score"
+// @Param limit query int false "Number of results (default 50)"
+// @Param offset query int false "Pagination offset"
+// @Param order_by query string false "Sort field" Enums(score, price, first_seen_at)
+// @Success 200 {object} listingsResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/listings [get]
 func (h *ListingsHandler) List(c echo.Context) error {
 	q := &store.ListingQuery{}
 
@@ -89,14 +106,8 @@ func (h *ListingsHandler) List(c echo.Context) error {
 		})
 	}
 
-	// Convert to any slice for JSON response.
-	items := make([]any, len(listings))
-	for i := range listings {
-		items[i] = listings[i]
-	}
-
 	return c.JSON(http.StatusOK, listingsResponse{
-		Listings: items,
+		Listings: listings,
 		Total:    total,
 		Limit:    q.Limit,
 		Offset:   q.Offset,
@@ -104,6 +115,16 @@ func (h *ListingsHandler) List(c echo.Context) error {
 }
 
 // GetByID handles GET /api/v1/listings/:id.
+//
+// @Summary Get a listing by ID
+// @Description Returns a single listing by its UUID.
+// @Tags listings
+// @Produce json
+// @Param id path string true "Listing UUID"
+// @Success 200 {object} domain.Listing
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /api/v1/listings/{id} [get]
 func (h *ListingsHandler) GetByID(c echo.Context) error {
 	id := c.Param("id")
 	if id == "" {

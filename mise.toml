@@ -4,6 +4,13 @@
 "go:golang.org/x/tools/cmd/goimports" = "latest"
 "go:github.com/vektra/mockery/v2" = "latest"
 "go:github.com/google/go-licenses" = "latest"
+"go:github.com/swaggo/swag/v2/cmd/swag" = "v2.0.0-rc5"
+
+
+# API documentation tools
+"npm:openapi-to-postmanv2" = "latest"     # Convert OpenAPI to Postman
+"npm:@apidevtools/swagger-cli" = "latest" # Validate OpenAPI specs
+"npm:newman" = "latest"                   # Postman CLI test runner
 
 go = "1.25.7"
 markdownlint-cli2 = "0.18.1"

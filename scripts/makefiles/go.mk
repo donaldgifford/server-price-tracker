@@ -5,7 +5,7 @@
 
 .PHONY: build build-core
 .PHONY: test test-all test-pkg test-report test-coverage test-integration test-integration-all
-.PHONY: lint lint-fix fmt clean generate mocks
+.PHONY: lint lint-fix fmt clean generate mocks swagger postman
 .PHONY: run run-local ci check
 .PHONY: release-check release-local
 
@@ -78,7 +78,7 @@ clean: ## Remove build artifacts
 
 ## Code Generation
 
-generate: mocks ## Generate all code (protobuf + mocks)
+generate: mocks swagger ## Generate all code (mocks + swagger)
 	@ $(MAKE) --no-print-directory log-$@
 	@echo "✓ Code generation complete"
 
@@ -86,6 +86,20 @@ mocks: ## Generate mocks for testing
 	@ $(MAKE) --no-print-directory log-$@
 	@mockery --config .mockery.yaml
 	@echo "✓ Mocks generated"
+
+swagger: ## Generate OpenAPI spec from annotations
+	@ $(MAKE) --no-print-directory log-$@
+	@swag init --v3.1 --parseDependency --parseInternal \
+		-g cmd/server-price-tracker/main.go \
+		-o api/openapi \
+		--outputTypes go,json,yaml
+	@echo "✓ OpenAPI spec generated in api/openapi/"
+
+postman: swagger ## Generate Postman collection from OpenAPI spec
+	@ $(MAKE) --no-print-directory log-$@
+	@openapi2postmanv2 -s api/openapi/swagger.json \
+		-o api/openapi/postman_collection.json -p
+	@echo "✓ Postman collection generated in api/openapi/postman_collection.json"
 
 ## Application Services
 

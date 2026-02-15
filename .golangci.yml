@@ -85,6 +85,10 @@ linters:
       statements: 50
     nestif:
       min-complexity: 4  # Uber: Avoid deep nesting
+    # Comments
+    godot:
+      exclude:
+        - "@(Summary|Description|Tags|Accept|Produce|Param|Success|Failure|Router)"  # Exclude swagger annotations
     # Code quality
     goconst:
       min-len: 3

@@ -20,17 +20,28 @@ func NewExtractHandler(extractor extract.Extractor) *ExtractHandler {
 }
 
 type extractRequest struct {
-	Title         string            `json:"title"`
+	Title         string            `json:"title"                    example:"Samsung 32GB DDR4 2666MHz ECC REG Server RAM"`
 	ItemSpecifics map[string]string `json:"item_specifics,omitempty"`
 }
 
 type extractResponse struct {
-	ComponentType domain.ComponentType `json:"component_type"`
+	ComponentType domain.ComponentType `json:"component_type" example:"ram"`
 	Attributes    map[string]any       `json:"attributes"`
-	ProductKey    string               `json:"product_key"`
+	ProductKey    string               `json:"product_key"    example:"ram:ddr4:ecc_reg:32gb:2666"`
 }
 
 // Extract handles POST /api/v1/extract.
+//
+// @Summary Extract attributes from a listing title
+// @Description Uses the configured LLM backend to classify the component type and extract structured attributes from a listing title.
+// @Tags extract
+// @Accept json
+// @Produce json
+// @Param body body extractRequest true "Listing title and optional item specifics"
+// @Success 200 {object} extractResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/extract [post]
 func (h *ExtractHandler) Extract(c echo.Context) error {
 	var req extractRequest
 	if err := c.Bind(&req); err != nil {
