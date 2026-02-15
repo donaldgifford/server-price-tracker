@@ -8,20 +8,16 @@ import (
 	"net/http"
 
 	"github.com/spf13/cobra"
-
-	"github.com/donaldgifford/server-price-tracker/internal/config"
 )
 
-var extractCmd = &cobra.Command{
-	Use:   "extract [title]",
-	Short: "Extract structured attributes from an eBay listing title",
-	Long:  "Sends a title to the API server for LLM-based classification and attribute extraction.",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runExtract,
-}
-
-func init() {
-	rootCmd.AddCommand(extractCmd)
+func extractCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "extract [title]",
+		Short: "Extract structured attributes from an eBay listing title",
+		Long:  "Sends a title to the API server for LLM-based classification and attribute extraction.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runExtract,
+	}
 }
 
 type extractPayload struct {
@@ -29,21 +25,14 @@ type extractPayload struct {
 }
 
 func runExtract(cmd *cobra.Command, args []string) error {
-	cfg, err := config.Load(cfgFile)
-	if err != nil {
-		return fmt.Errorf("loading config: %w", err)
-	}
+	opts := getOptions()
 
 	payload, err := json.Marshal(extractPayload{Title: args[0]})
 	if err != nil {
 		return fmt.Errorf("encoding request: %w", err)
 	}
 
-	apiURL := fmt.Sprintf(
-		"http://%s:%d/api/v1/extract",
-		cfg.Server.Host,
-		cfg.Server.Port,
-	)
+	apiURL := opts.APIURL + "/api/v1/extract"
 
 	req, err := http.NewRequestWithContext(
 		cmd.Context(),

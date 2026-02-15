@@ -8,23 +8,23 @@ import (
 	"net/http"
 
 	"github.com/spf13/cobra"
-
-	"github.com/donaldgifford/server-price-tracker/internal/config"
 )
 
-var searchLimit int
+func searchCommand() *cobra.Command {
+	var searchLimit int
 
-var searchCmd = &cobra.Command{
-	Use:   "search [query]",
-	Short: "Search eBay for server hardware listings",
-	Long:  "Sends a search request to the API server and displays raw eBay results.",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runSearch,
-}
-
-func init() {
+	searchCmd := &cobra.Command{
+		Use:   "search [query]",
+		Short: "Search eBay for server hardware listings",
+		Long:  "Sends a search request to the API server and displays raw eBay results.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSearch(cmd, args, searchLimit)
+		},
+	}
 	searchCmd.Flags().IntVar(&searchLimit, "limit", 10, "maximum number of results")
-	rootCmd.AddCommand(searchCmd)
+
+	return searchCmd
 }
 
 type searchPayload struct {
@@ -32,25 +32,18 @@ type searchPayload struct {
 	Limit int    `json:"limit"`
 }
 
-func runSearch(cmd *cobra.Command, args []string) error {
-	cfg, err := config.Load(cfgFile)
-	if err != nil {
-		return fmt.Errorf("loading config: %w", err)
-	}
+func runSearch(cmd *cobra.Command, args []string, limit int) error {
+	opts := getOptions()
 
 	payload, err := json.Marshal(searchPayload{
 		Query: args[0],
-		Limit: searchLimit,
+		Limit: limit,
 	})
 	if err != nil {
 		return fmt.Errorf("encoding request: %w", err)
 	}
 
-	apiURL := fmt.Sprintf(
-		"http://%s:%d/api/v1/search",
-		cfg.Server.Host,
-		cfg.Server.Port,
-	)
+	apiURL := opts.APIURL + "/api/v1/search"
 
 	req, err := http.NewRequestWithContext(
 		cmd.Context(),
