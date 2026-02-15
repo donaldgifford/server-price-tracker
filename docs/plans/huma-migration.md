@@ -306,20 +306,21 @@ annotations remain.
 
 ### Phase 5: Remove swaggo and clean up
 
-- [ ] Delete `api/openapi/` directory entirely (docs.go, handler.go,
-      swagger.json, swagger.yaml)
-- [ ] Delete `internal/api/handlers/doc.go` (ErrorResponse/StatusResponse no
+- [x] Delete `api/openapi/` directory entirely (docs.go, handler.go,
+      swagger.json, swagger.yaml) and empty `api/` parent
+- [x] Delete `internal/api/handlers/doc.go` (ErrorResponse/StatusResponse no
       longer needed)
-- [ ] Remove swaggo annotations from `cmd/server-price-tracker/main.go`
-- [ ] Remove `github.com/swaggo/swag/v2` from `go.mod`
-- [ ] Remove `go:github.com/swaggo/swag/v2/cmd/swag` from `mise.toml`
-- [ ] Update `scripts/makefiles/go.mk`:
-  - Remove `swagger` target
-  - Update `postman` target to curl the running spec or export from a test
-    helper
+- [x] Remove swaggo annotations from `cmd/server-price-tracker/main.go`
+      (already done in Phase 0)
+- [x] Remove `github.com/swaggo/swag/v2` from `go.mod`
+- [x] Remove `go:github.com/swaggo/swag/v2/cmd/swag` and
+      `npm:openapi-to-postmanv2` and `npm:@apidevtools/swagger-cli` from
+      `mise.toml`
+- [x] Update `scripts/makefiles/go.mk`:
+  - Remove `swagger` and `postman` targets
   - Update `generate` target to remove `swagger` dependency
-- [ ] Run `go mod tidy`
-- [ ] Verify: `make build && make test && make lint`
+- [x] Run `go mod tidy`
+- [x] Verify: `make build && make test && make lint`
 
 **Success criteria:** No swaggo dependency. Huma serves the full spec at
 `/openapi.json`. `/docs` serves the interactive docs UI. Build is clean.
