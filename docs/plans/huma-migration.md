@@ -168,9 +168,9 @@ huma.Register(humaAPI, huma.Operation{
     shutdown
   - Existing config loading (`internal/config`) stays -- `humacli` handles the
     CLI flags/env, config YAML loading remains separate
-- [ ] Create `internal/api/routes.go` -- new file for Huma operation
-      registration (deferred to Phase 1 when first Huma operations are added;
-      `registerRoutes` in serve.go already accepts `huma.API`)
+- [x] Create `internal/api/routes.go` -- skipped; `registerRoutes` in
+      `cmd/server-price-tracker/cmd/serve.go` handles all Huma route
+      registration directly, a separate file is unnecessary
 - [x] Wire Huma in the server startup:
   - Keep `echo.New()` + all existing middleware (Recovery, RequestLog, Metrics)
   - Add `humaAPI := humaecho.New(e, humaConfig)` after middleware setup
@@ -375,7 +375,7 @@ format).
 - [x] Add `build-spt` target to Makefile
 - [x] Move CLI commands from server binary to `spt` binary (server keeps
       only serve, migrate, version)
-- [ ] Add `spt` to GoReleaser config for cross-platform builds
+- [x] Add `spt` to GoReleaser config for cross-platform builds
 
 **Success criteria:** `spt watches list` calls `GET /api/v1/watches` and prints
 results. All 15 API operations have CLI commands. Viper reads config from file,
@@ -391,9 +391,9 @@ env, and flags.
     commands
   - Add `cmd/spt/` and `portman/` to project layout
   - Update Key API Endpoints section
-- [ ] Update `docs/DESIGN.md` if it references swaggo or the old handler
-      patterns (deferred — low priority, design docs describe architecture
-      intent not current implementation detail)
+- [x] Update `docs/DESIGN.md` if it references swaggo or the old handler
+      patterns (verified — DESIGN.md does not reference swaggo or old
+      handler patterns, no changes needed)
 - [x] Move this plan to `docs/plans/huma-migration.md` (done)
 
 **Success criteria:** All docs reflect the new architecture. New contributors
