@@ -31,6 +31,11 @@ ebay:
   marketplace: EBAY_US
   # Max API calls per ingestion cycle
   max_calls_per_cycle: 50
+  # Rate limiting for eBay API (rolling 24-hour window)
+  rate_limit:
+    per_second: 5
+    burst: 10
+    daily_limit: 5000
 
 llm:
   # Options: ollama, anthropic, openai_compat

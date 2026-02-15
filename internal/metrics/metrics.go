@@ -72,6 +72,27 @@ var (
 	})
 )
 
+// eBay API metrics.
+var (
+	EbayAPICallsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "ebay_api_calls_total",
+		Help:      "Total cumulative eBay API calls.",
+	})
+
+	EbayDailyUsage = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "ebay_daily_usage",
+		Help:      "Current daily eBay API call count within the rolling 24-hour window.",
+	})
+
+	EbayDailyLimitHits = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "ebay_daily_limit_hits_total",
+		Help:      "Total number of times the daily eBay API limit was reached.",
+	})
+)
+
 // Alert metrics.
 var (
 	AlertsFiredTotal = promauto.NewCounter(prometheus.CounterOpts{

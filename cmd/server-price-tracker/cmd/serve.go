@@ -48,7 +48,7 @@ func startServer(opts *Options) error {
 	}
 
 	// --- eBay client ---
-	ebayClient := buildEbayClient(cfg, slogger)
+	ebayClient, rateLimiter := buildEbayClient(cfg, slogger)
 
 	// --- LLM extractor ---
 	extractor := buildExtractor(cfg, slogger)
@@ -88,7 +88,7 @@ func startServer(opts *Options) error {
 	humaAPI := humaecho.New(e, humaConfig)
 
 	// --- Routes ---
-	registerRoutes(humaAPI, pgStore, ebayClient, extractor, eng)
+	registerRoutes(humaAPI, pgStore, ebayClient, extractor, eng, rateLimiter)
 
 	// Prometheus metrics.
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
@@ -141,10 +141,15 @@ func registerRoutes(
 	ebayClient ebay.EbayClient,
 	extractor extract.Extractor,
 	eng *engine.Engine,
+	rl *ebay.RateLimiter,
 ) {
 	// Health endpoints (Huma).
 	healthH := handlers.NewHealthHandler(s)
 	handlers.RegisterHealthRoutes(humaAPI, healthH)
+
+	// Quota endpoint (always registered; returns zeroes when rl is nil).
+	quotaH := handlers.NewQuotaHandler(rl)
+	handlers.RegisterQuotaRoutes(humaAPI, quotaH)
 
 	// Store-dependent routes (Huma).
 	if s != nil {
@@ -178,11 +183,26 @@ func registerRoutes(
 	}
 }
 
-func buildEbayClient(cfg *config.Config, logger *slog.Logger) ebay.EbayClient {
+func buildEbayClient(
+	cfg *config.Config,
+	logger *slog.Logger,
+) (ebay.EbayClient, *ebay.RateLimiter) {
 	if cfg.Ebay.AppID == "" || cfg.Ebay.CertID == "" {
 		logger.Warn("ebay client disabled: AppID or CertID not configured")
-		return nil
+		return nil, nil
 	}
+
+	rl := ebay.NewRateLimiter(
+		cfg.Ebay.RateLimit.PerSecond,
+		cfg.Ebay.RateLimit.Burst,
+		cfg.Ebay.RateLimit.DailyLimit,
+	)
+	logger.Info("rate limiter configured",
+		"per_second", cfg.Ebay.RateLimit.PerSecond,
+		"burst", cfg.Ebay.RateLimit.Burst,
+		"daily_limit", cfg.Ebay.RateLimit.DailyLimit,
+	)
+
 	tokenProvider := ebay.NewOAuthTokenProvider(
 		cfg.Ebay.AppID,
 		cfg.Ebay.CertID,
@@ -192,13 +212,14 @@ func buildEbayClient(cfg *config.Config, logger *slog.Logger) ebay.EbayClient {
 		tokenProvider,
 		ebay.WithBrowseURL(cfg.Ebay.BrowseURL),
 		ebay.WithMarketplace(cfg.Ebay.Marketplace),
+		ebay.WithRateLimiter(rl),
 	)
 	logger.Info("ebay client configured",
 		"marketplace", cfg.Ebay.Marketplace,
 		"token_url", cfg.Ebay.TokenURL,
 		"browse_url", cfg.Ebay.BrowseURL,
 	)
-	return client
+	return client, rl
 }
 
 func buildExtractor(cfg *config.Config, logger *slog.Logger) extract.Extractor {
@@ -233,12 +254,24 @@ func buildEngine(
 		return nil, nil
 	}
 
-	eng := engine.NewEngine(
-		s, ebayClient, extractor, notifier,
+	opts := []engine.EngineOption{
 		engine.WithLogger(logger),
 		engine.WithBaselineWindowDays(cfg.Scoring.BaselineWindowDays),
 		engine.WithStaggerOffset(cfg.Schedule.StaggerOffset),
+	}
+
+	// Wire paginator when both ebay client and store are available.
+	paginator := ebay.NewPaginator(ebayClient, s,
+		ebay.WithPaginatorLogger(logger),
 	)
+	opts = append(opts, engine.WithPaginator(paginator))
+	logger.Info("paginator configured")
+
+	if cfg.Ebay.MaxCallsPerCycle > 0 {
+		opts = append(opts, engine.WithMaxCallsPerCycle(cfg.Ebay.MaxCallsPerCycle))
+	}
+
+	eng := engine.NewEngine(s, ebayClient, extractor, notifier, opts...)
 	logger.Info("engine created")
 
 	sched, err := engine.NewScheduler(

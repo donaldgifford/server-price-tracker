@@ -3,12 +3,15 @@ package ebay
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 )
 
 const (
@@ -22,6 +25,7 @@ type BrowseClient struct {
 	browseURL   string
 	marketplace string
 	client      *http.Client
+	rateLimiter *RateLimiter
 }
 
 // BrowseOption configures the BrowseClient.
@@ -45,6 +49,14 @@ func WithMarketplace(m string) BrowseOption {
 func WithBrowseHTTPClient(hc *http.Client) BrowseOption {
 	return func(c *BrowseClient) {
 		c.client = hc
+	}
+}
+
+// WithRateLimiter injects a rate limiter that controls per-second and daily
+// API call limits. When set, every Search() call goes through Wait() first.
+func WithRateLimiter(r *RateLimiter) BrowseOption {
+	return func(c *BrowseClient) {
+		c.rateLimiter = r
 	}
 }
 
@@ -75,6 +87,17 @@ func (c *BrowseClient) Search(
 	ctx context.Context,
 	req SearchRequest,
 ) (*SearchResponse, error) {
+	if c.rateLimiter != nil {
+		if err := c.rateLimiter.Wait(ctx); err != nil {
+			if errors.Is(err, ErrDailyLimitReached) {
+				metrics.EbayDailyLimitHits.Inc()
+			}
+			return nil, fmt.Errorf("rate limit: %w", err)
+		}
+		metrics.EbayAPICallsTotal.Inc()
+		metrics.EbayDailyUsage.Set(float64(c.rateLimiter.DailyCount()))
+	}
+
 	token, err := c.tokens.Token(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting auth token: %w", err)

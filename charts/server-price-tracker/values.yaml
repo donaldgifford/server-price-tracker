@@ -61,6 +61,10 @@ config:
     browse_url: "${EBAY_BROWSE_URL}"
     marketplace: EBAY_US
     max_calls_per_cycle: 50
+    rate_limit:
+      per_second: 5
+      burst: 10
+      daily_limit: 5000
 
   llm:
     backend: ollama

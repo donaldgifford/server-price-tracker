@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"testing"
@@ -49,6 +50,7 @@ func TestNewEngine_Defaults(t *testing.T) {
 	eng := NewEngine(ms, me, mx, mn)
 	assert.Equal(t, 90, eng.baselineWindowDays)
 	assert.Equal(t, 30*time.Second, eng.staggerOffset)
+	assert.Equal(t, defaultMaxCallsPerCycle, eng.maxCallsPerCycle)
 	assert.NotNil(t, eng.log)
 }
 
@@ -61,15 +63,20 @@ func TestNewEngine_WithOptions(t *testing.T) {
 	mn := notifyMocks.NewMockNotifier(t)
 
 	l := quietLogger()
+	p := ebay.NewPaginator(me, ms)
 	eng := NewEngine(ms, me, mx, mn,
 		WithLogger(l),
 		WithBaselineWindowDays(30),
 		WithStaggerOffset(5*time.Second),
+		WithPaginator(p),
+		WithMaxCallsPerCycle(10),
 	)
 
 	assert.Equal(t, 30, eng.baselineWindowDays)
 	assert.Equal(t, 5*time.Second, eng.staggerOffset)
+	assert.Equal(t, 10, eng.maxCallsPerCycle)
 	assert.Same(t, l, eng.log)
+	assert.Same(t, p, eng.paginator)
 }
 
 func TestRunIngestion_TwoWatchesThreeListingsEach(t *testing.T) {
@@ -779,6 +786,141 @@ func TestRunIngestion_ScoringFails(t *testing.T) {
 	ms.EXPECT().
 		UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(errors.New("score db error")).Once()
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
+
+	err := eng.RunIngestion(context.Background())
+	require.NoError(t, err)
+}
+
+func TestRunIngestion_DailyLimitHit(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	watches := []domain.Watch{
+		{ID: "w1", Name: "Watch 1", SearchQuery: "DDR4", ScoreThreshold: 80, Enabled: true},
+		{ID: "w2", Name: "Watch 2", SearchQuery: "SSD", ScoreThreshold: 80, Enabled: true},
+	}
+	ms.EXPECT().ListWatches(mock.Anything, true).Return(watches, nil).Once()
+
+	// First watch: Search returns ErrDailyLimitReached.
+	me.EXPECT().
+		Search(mock.Anything, ebay.SearchRequest{Query: "DDR4"}).
+		Return(nil, fmt.Errorf("rate limit: %w", ebay.ErrDailyLimitReached)).
+		Once()
+
+	// Second watch should NOT be processed.
+	// Alert processing should still run.
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
+
+	err := eng.RunIngestion(context.Background())
+	require.NoError(t, err)
+}
+
+func TestRunIngestion_CycleBudgetExhausted(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := NewEngine(ms, me, mx, mn,
+		WithLogger(quietLogger()),
+		WithStaggerOffset(0),
+		WithMaxCallsPerCycle(1),
+	)
+
+	watches := []domain.Watch{
+		{ID: "w1", Name: "Watch 1", SearchQuery: "DDR4", ScoreThreshold: 80, Enabled: true},
+		{ID: "w2", Name: "Watch 2", SearchQuery: "SSD", ScoreThreshold: 80, Enabled: true},
+	}
+	ms.EXPECT().ListWatches(mock.Anything, true).Return(watches, nil).Once()
+
+	// Only first watch should be processed (maxCallsPerCycle=1).
+	me.EXPECT().
+		Search(mock.Anything, ebay.SearchRequest{Query: "DDR4"}).
+		Return(&ebay.SearchResponse{Items: []ebay.ItemSummary{
+			{ItemID: "item1", Title: "Item 1", Price: ebay.ItemPrice{Value: "10", Currency: "USD"}},
+		}}, nil).
+		Once()
+
+	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Once()
+	mx.EXPECT().
+		ClassifyAndExtract(mock.Anything, "Item 1", mock.Anything).
+		Return(domain.ComponentRAM, map[string]any{}, nil).Once()
+	ms.EXPECT().
+		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
+		Return(nil).Once()
+	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Once()
+	ms.EXPECT().
+		UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil).Once()
+
+	// Alert processing should still run.
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
+
+	err := eng.RunIngestion(context.Background())
+	require.NoError(t, err)
+}
+
+func TestRunIngestion_WithPaginator(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	paginator := ebay.NewPaginator(me, ms,
+		ebay.WithPaginatorLogger(quietLogger()),
+		ebay.WithMaxPages(1),
+	)
+
+	eng := NewEngine(ms, me, mx, mn,
+		WithLogger(quietLogger()),
+		WithStaggerOffset(0),
+		WithPaginator(paginator),
+	)
+
+	watches := []domain.Watch{
+		{ID: "w1", Name: "Watch 1", SearchQuery: "DDR4", ScoreThreshold: 80, Enabled: true},
+	}
+	ms.EXPECT().ListWatches(mock.Anything, true).Return(watches, nil).Once()
+
+	// Paginator calls Search with pageSize=200.
+	items := []ebay.ItemSummary{
+		{ItemID: "item1", Title: "DDR4 32GB", Price: ebay.ItemPrice{Value: "45", Currency: "USD"}},
+		{ItemID: "item2", Title: "DDR4 16GB", Price: ebay.ItemPrice{Value: "25", Currency: "USD"}},
+	}
+	me.EXPECT().
+		Search(mock.Anything, mock.MatchedBy(func(req ebay.SearchRequest) bool {
+			return req.Query == "DDR4" && req.Limit == 200
+		})).
+		Return(&ebay.SearchResponse{Items: items, HasMore: false}, nil).
+		Once()
+
+	// Paginator calls GetListing for dedup check on each item.
+	ms.EXPECT().GetListing(mock.Anything, "item1").Return(nil, nil).Once()
+	ms.EXPECT().GetListing(mock.Anything, "item2").Return(nil, nil).Once()
+
+	// Standard ingestion flow for 2 new listings.
+	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Times(2)
+	mx.EXPECT().
+		ClassifyAndExtract(mock.Anything, mock.Anything, mock.Anything).
+		Return(domain.ComponentRAM, map[string]any{"capacity_gb": 32.0}, nil).
+		Times(2)
+	ms.EXPECT().
+		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
+		Return(nil).Times(2)
+	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Times(2)
+	ms.EXPECT().
+		UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil).Times(2)
 
 	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
 

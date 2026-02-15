@@ -32,6 +32,10 @@ data:
       {{- end }}
       marketplace: {{ .Values.config.ebay.marketplace }}
       max_calls_per_cycle: {{ .Values.config.ebay.max_calls_per_cycle }}
+      rate_limit:
+        per_second: {{ .Values.config.ebay.rate_limit.per_second }}
+        burst: {{ .Values.config.ebay.rate_limit.burst }}
+        daily_limit: {{ .Values.config.ebay.rate_limit.daily_limit }}
 
     llm:
       backend: {{ .Values.config.llm.backend }}

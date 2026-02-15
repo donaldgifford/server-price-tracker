@@ -70,6 +70,34 @@ llm:
 				assert.Equal(t, 30*time.Second, cfg.Schedule.StaggerOffset)
 				assert.Equal(t, "info", cfg.Logging.Level)
 				assert.Equal(t, "text", cfg.Logging.Format)
+				// Rate limit defaults.
+				assert.Equal(t, 5.0, cfg.Ebay.RateLimit.PerSecond)
+				assert.Equal(t, 10, cfg.Ebay.RateLimit.Burst)
+				assert.Equal(t, int64(5000), cfg.Ebay.RateLimit.DailyLimit)
+			},
+		},
+		{
+			name: "rate limit custom values",
+			yaml: `
+database:
+  host: localhost
+  name: testdb
+  user: testuser
+ebay:
+  rate_limit:
+    per_second: 2.5
+    burst: 5
+    daily_limit: 3000
+llm:
+  backend: ollama
+  ollama:
+    endpoint: http://localhost:11434
+`,
+			checkFunc: func(t *testing.T, cfg *Config) {
+				t.Helper()
+				assert.Equal(t, 2.5, cfg.Ebay.RateLimit.PerSecond)
+				assert.Equal(t, 5, cfg.Ebay.RateLimit.Burst)
+				assert.Equal(t, int64(3000), cfg.Ebay.RateLimit.DailyLimit)
 			},
 		},
 		{

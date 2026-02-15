@@ -52,12 +52,20 @@ func (d *DatabaseConfig) DSN() string {
 
 // EbayConfig defines eBay API settings.
 type EbayConfig struct {
-	AppID            string `yaml:"app_id"`
-	CertID           string `yaml:"cert_id"`
-	TokenURL         string `yaml:"token_url"`
-	BrowseURL        string `yaml:"browse_url"`
-	Marketplace      string `yaml:"marketplace"`
-	MaxCallsPerCycle int    `yaml:"max_calls_per_cycle"`
+	AppID            string          `yaml:"app_id"`
+	CertID           string          `yaml:"cert_id"`
+	TokenURL         string          `yaml:"token_url"`
+	BrowseURL        string          `yaml:"browse_url"`
+	Marketplace      string          `yaml:"marketplace"`
+	MaxCallsPerCycle int             `yaml:"max_calls_per_cycle"`
+	RateLimit        RateLimitConfig `yaml:"rate_limit"`
+}
+
+// RateLimitConfig defines eBay API rate limiting settings.
+type RateLimitConfig struct {
+	PerSecond  float64 `yaml:"per_second"`
+	Burst      int     `yaml:"burst"`
+	DailyLimit int64   `yaml:"daily_limit"`
 }
 
 // LLMConfig defines LLM backend settings.
@@ -178,6 +186,19 @@ func applyEbayDefaults(e *EbayConfig) {
 	}
 	if e.BrowseURL == "" {
 		e.BrowseURL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
+	}
+	applyRateLimitDefaults(&e.RateLimit)
+}
+
+func applyRateLimitDefaults(r *RateLimitConfig) {
+	if r.PerSecond == 0 {
+		r.PerSecond = 5.0
+	}
+	if r.Burst == 0 {
+		r.Burst = 10
+	}
+	if r.DailyLimit == 0 {
+		r.DailyLimit = 5000
 	}
 }
 
