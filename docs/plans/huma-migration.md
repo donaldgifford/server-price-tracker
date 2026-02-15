@@ -277,25 +277,29 @@ eliminates the most code.
 
 **listings.go** (2 endpoints):
 
-- [ ] Define `ListListingsInput` with typed query param fields:
+- [x] Define `ListListingsInput` with typed query param fields (note: Huma does
+      not support pointer types for query params, so non-pointer types with
+      zero-value checks are used instead):
   ```go
   type ListListingsInput struct {
-      ComponentType *string `query:"component_type" enum:"ram,drive,server,cpu,nic,other" doc:"Filter by component type"`
-      ProductKey    *string `query:"product_key" doc:"Filter by product key"`
-      MinScore      *int    `query:"min_score" minimum:"0" maximum:"100" doc:"Minimum composite score"`
-      MaxScore      *int    `query:"max_score" minimum:"0" maximum:"100" doc:"Maximum composite score"`
-      Limit         *int    `query:"limit" minimum:"1" maximum:"1000" doc:"Number of results (default 50)"`
-      Offset        *int    `query:"offset" minimum:"0" doc:"Pagination offset"`
-      OrderBy       *string `query:"order_by" enum:"score,price,first_seen_at" doc:"Sort field"`
+      ComponentType string `query:"component_type" enum:"ram,drive,server,cpu,nic,other," doc:"Filter by component type"`
+      ProductKey    string `query:"product_key" doc:"Filter by product key"`
+      MinScore      int    `query:"min_score" minimum:"0" maximum:"100" doc:"Minimum composite score"`
+      MaxScore      int    `query:"max_score" minimum:"0" maximum:"100" doc:"Maximum composite score"`
+      Limit         int    `query:"limit" minimum:"1" maximum:"1000" doc:"Number of results (default 50)"`
+      Offset        int    `query:"offset" minimum:"0" doc:"Pagination offset"`
+      OrderBy       string `query:"order_by" enum:"score,price,first_seen_at," doc:"Sort field"`
   }
   ```
-- [ ] Define `ListListingsOutput` (body: `listingsResponse`)
-- [ ] Define `GetListingInput` (path: `id`), `GetListingOutput` (body:
+- [x] Define `ListListingsOutput` (body: `listingsResponse`)
+- [x] Define `GetListingInput` (path: `id`), `GetListingOutput` (body:
       `domain.Listing`)
-- [ ] Rewrite both handlers -- all `strconv.Atoi` boilerplate eliminated
-- [ ] Register via `huma.Register()`
-- [ ] Remove swaggo annotations
-- [ ] Update `listings_test.go` to use `humatest`
+- [x] Rewrite both handlers -- all `strconv.Atoi` boilerplate eliminated
+- [x] Register via `huma.Register()`
+- [x] Remove swaggo annotations
+- [x] Update `listings_test.go` to use `humatest`
+- [x] Remove raw Echo `e *echo.Echo` parameter from `registerRoutes` (all
+      routes now registered via Huma)
 
 **Success criteria:** All 15 endpoints migrated. `make test` passes. Zero swaggo
 annotations remain.

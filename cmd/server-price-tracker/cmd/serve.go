@@ -88,7 +88,7 @@ func startServer(opts *Options) error {
 	humaAPI := humaecho.New(e, humaConfig)
 
 	// --- Routes ---
-	registerRoutes(e, humaAPI, pgStore, ebayClient, extractor, eng)
+	registerRoutes(humaAPI, pgStore, ebayClient, extractor, eng)
 
 	// Prometheus metrics.
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
@@ -134,11 +134,8 @@ func startServer(opts *Options) error {
 	return nil
 }
 
-// registerRoutes sets up all HTTP routes on the Echo instance and Huma API.
-// During the migration, raw Echo routes coexist with Huma-registered operations.
-// As handlers are migrated to Huma, they move from Echo registration to Huma registration.
+// registerRoutes sets up all HTTP routes on the Huma API.
 func registerRoutes(
-	e *echo.Echo,
 	humaAPI huma.API,
 	s store.Store,
 	ebayClient ebay.EbayClient,
@@ -149,20 +146,14 @@ func registerRoutes(
 	healthH := handlers.NewHealthHandler(s)
 	handlers.RegisterHealthRoutes(humaAPI, healthH)
 
-	// API v1 group (raw Echo — will migrate to Huma in later phases).
-	api := e.Group("/api/v1")
-
-	// Listings.
+	// Store-dependent routes (Huma).
 	if s != nil {
 		listingsH := handlers.NewListingsHandler(s)
-		api.GET("/listings", listingsH.List)
-		api.GET("/listings/:id", listingsH.GetByID)
+		handlers.RegisterListingRoutes(humaAPI, listingsH)
 
-		// Watches (Huma).
 		watchH := handlers.NewWatchHandler(s)
 		handlers.RegisterWatchRoutes(humaAPI, watchH)
 
-		// Rescore (Huma).
 		rescoreH := handlers.NewRescoreHandler(s)
 		handlers.RegisterRescoreRoutes(humaAPI, rescoreH)
 	}
