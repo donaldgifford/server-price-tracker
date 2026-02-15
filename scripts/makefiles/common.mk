@@ -27,6 +27,7 @@ CONFIGS         := ./configs
 DEV_CONFIG_FILE := $(CONFIGS)/config.dev.yaml
 CONFIG          ?= $(DEV_CONFIG_FILE)
 OLLAMA_MODEL    ?= qwen2.5:3b
+SPT_SERVER_URL  ?= http://localhost:8080
 
 ## Docker Variables
 DOCKER_COMPOSE  := scripts/docker/docker-compose.yml

@@ -34,6 +34,6 @@
     "contentTests": [],
     "extendTests": []
   },
-  "assignVariables": {},
+  "assignVariables": [],
   "overwrites": []
 }
