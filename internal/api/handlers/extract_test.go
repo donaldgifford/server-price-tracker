@@ -3,11 +3,10 @@ package handlers_test
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/danielgtaylor/huma/v2/humatest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -22,14 +21,16 @@ func TestExtractHandler_Extract(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		body       string
+		body       any
 		setupMock  func(*extractMocks.MockExtractor)
 		wantStatus int
 		wantBody   string
 	}{
 		{
 			name: "valid request returns extraction",
-			body: `{"title":"Samsung 32GB 2Rx4 PC4-2666V DDR4 ECC REG"}`,
+			body: map[string]any{
+				"title": "Samsung 32GB 2Rx4 PC4-2666V DDR4 ECC REG",
+			},
 			setupMock: func(m *extractMocks.MockExtractor) {
 				m.EXPECT().
 					ClassifyAndExtract(
@@ -50,22 +51,22 @@ func TestExtractHandler_Extract(t *testing.T) {
 			wantBody:   `"component_type":"ram"`,
 		},
 		{
-			name:       "missing title returns 400",
-			body:       `{}`,
+			name:       "missing title returns 422",
+			body:       map[string]any{},
 			setupMock:  func(_ *extractMocks.MockExtractor) {},
-			wantStatus: http.StatusBadRequest,
-			wantBody:   `"error":"title is required"`,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody:   `expected required property title to be present`,
 		},
 		{
-			name:       "empty title returns 400",
-			body:       `{"title":""}`,
+			name:       "empty title returns 422",
+			body:       map[string]any{"title": ""},
 			setupMock:  func(_ *extractMocks.MockExtractor) {},
-			wantStatus: http.StatusBadRequest,
-			wantBody:   `"error":"title is required"`,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody:   `expected length >= 1`,
 		},
 		{
 			name: "extractor error returns 500",
-			body: `{"title":"test listing"}`,
+			body: map[string]any{"title": "test listing"},
 			setupMock: func(m *extractMocks.MockExtractor) {
 				m.EXPECT().
 					ClassifyAndExtract(mock.Anything, mock.Anything, mock.Anything).
@@ -73,14 +74,14 @@ func TestExtractHandler_Extract(t *testing.T) {
 					Once()
 			},
 			wantStatus: http.StatusInternalServerError,
-			wantBody:   `"error"`,
+			wantBody:   `extraction failed`,
 		},
 		{
 			name:       "invalid JSON returns 400",
-			body:       `not json`,
+			body:       strings.NewReader(`not json`),
 			setupMock:  func(_ *extractMocks.MockExtractor) {},
 			wantStatus: http.StatusBadRequest,
-			wantBody:   `"error":"invalid request body"`,
+			wantBody:   ``,
 		},
 	}
 
@@ -93,20 +94,14 @@ func TestExtractHandler_Extract(t *testing.T) {
 
 			h := handlers.NewExtractHandler(mockExtractor)
 
-			e := echo.New()
-			req := httptest.NewRequest(
-				http.MethodPost,
-				"/api/v1/extract",
-				strings.NewReader(tt.body),
-			)
-			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
+			_, api := humatest.New(t)
+			handlers.RegisterExtractRoutes(api, h)
 
-			err := h.Extract(c)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantStatus, rec.Code)
-			assert.Contains(t, rec.Body.String(), tt.wantBody)
+			resp := api.Post("/api/v1/extract", tt.body)
+			require.Equal(t, tt.wantStatus, resp.Code)
+			if tt.wantBody != "" {
+				assert.Contains(t, resp.Body.String(), tt.wantBody)
+			}
 		})
 	}
 }

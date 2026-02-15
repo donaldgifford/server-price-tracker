@@ -3,11 +3,10 @@ package handlers_test
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/danielgtaylor/huma/v2/humatest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -22,14 +21,17 @@ func TestSearchHandler_Search(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		body       string
+		body       any
 		setupMock  func(*ebayMocks.MockEbayClient)
 		wantStatus int
 		wantBody   string
 	}{
 		{
 			name: "valid request returns listings",
-			body: `{"query":"32GB DDR4 ECC","limit":5}`,
+			body: map[string]any{
+				"query": "32GB DDR4 ECC",
+				"limit": 5,
+			},
 			setupMock: func(m *ebayMocks.MockEbayClient) {
 				m.EXPECT().
 					Search(mock.Anything, mock.MatchedBy(func(r ebay.SearchRequest) bool {
@@ -52,22 +54,22 @@ func TestSearchHandler_Search(t *testing.T) {
 			wantBody:   `"total":1`,
 		},
 		{
-			name:       "missing query returns 400",
-			body:       `{"limit":5}`,
+			name:       "missing query returns 422",
+			body:       map[string]any{"limit": 5},
 			setupMock:  func(_ *ebayMocks.MockEbayClient) {},
-			wantStatus: http.StatusBadRequest,
-			wantBody:   `"error":"query is required"`,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody:   `expected required property query to be present`,
 		},
 		{
-			name:       "empty query returns 400",
-			body:       `{"query":""}`,
+			name:       "empty query returns 422",
+			body:       map[string]any{"query": ""},
 			setupMock:  func(_ *ebayMocks.MockEbayClient) {},
-			wantStatus: http.StatusBadRequest,
-			wantBody:   `"error":"query is required"`,
+			wantStatus: http.StatusUnprocessableEntity,
+			wantBody:   `expected length >= 1`,
 		},
 		{
 			name: "eBay client error returns 502",
-			body: `{"query":"test"}`,
+			body: map[string]any{"query": "test"},
 			setupMock: func(m *ebayMocks.MockEbayClient) {
 				m.EXPECT().
 					Search(mock.Anything, mock.Anything).
@@ -75,14 +77,14 @@ func TestSearchHandler_Search(t *testing.T) {
 					Once()
 			},
 			wantStatus: http.StatusBadGateway,
-			wantBody:   `"error"`,
+			wantBody:   `eBay API error`,
 		},
 		{
 			name:       "invalid JSON returns 400",
-			body:       `not json`,
+			body:       strings.NewReader(`not json`),
 			setupMock:  func(_ *ebayMocks.MockEbayClient) {},
 			wantStatus: http.StatusBadRequest,
-			wantBody:   `"error":"invalid request body"`,
+			wantBody:   ``,
 		},
 	}
 
@@ -95,20 +97,14 @@ func TestSearchHandler_Search(t *testing.T) {
 
 			h := handlers.NewSearchHandler(mockClient)
 
-			e := echo.New()
-			req := httptest.NewRequest(
-				http.MethodPost,
-				"/api/v1/search",
-				strings.NewReader(tt.body),
-			)
-			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
+			_, api := humatest.New(t)
+			handlers.RegisterSearchRoutes(api, h)
 
-			err := h.Search(c)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantStatus, rec.Code)
-			assert.Contains(t, rec.Body.String(), tt.wantBody)
+			resp := api.Post("/api/v1/search", tt.body)
+			require.Equal(t, tt.wantStatus, resp.Code)
+			if tt.wantBody != "" {
+				assert.Contains(t, resp.Body.String(), tt.wantBody)
+			}
 		})
 	}
 }

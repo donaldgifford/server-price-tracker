@@ -224,22 +224,22 @@ typed `Body` fields on the input struct.
 
 **extract.go** (1 endpoint):
 
-- [ ] Move `extractRequest`/`extractResponse` to Huma input/output types with
+- [x] Move `extractRequest`/`extractResponse` to Huma input/output types with
       `doc` and `example` tags
-- [ ] Rewrite `Extract` as Huma handler -- validation (non-empty title) moves to
+- [x] Rewrite `Extract` as Huma handler -- validation (non-empty title) moves to
       struct tags (`minLength:"1"`)
-- [ ] Register via `huma.Register()`
-- [ ] Remove swaggo annotations
-- [ ] Update `extract_test.go` to use `humatest`
+- [x] Register via `RegisterExtractRoutes()` using `huma.Register()`
+- [x] Remove swaggo annotations
+- [x] Update `extract_test.go` to use `humatest`
 
 **search.go** (1 endpoint):
 
-- [ ] Move `searchRequest` to Huma input type with `doc` and `example` tags
-- [ ] Rewrite `Search` as Huma handler -- limit validation moves to struct tags
+- [x] Move `searchRequest` to Huma input type with `doc` and `example` tags
+- [x] Rewrite `Search` as Huma handler -- limit validation moves to struct tags
       (`minimum:"1"`)
-- [ ] Register via `huma.Register()`
-- [ ] Remove swaggo annotations
-- [ ] Update `search_test.go` to use `humatest`
+- [x] Register via `RegisterSearchRoutes()` using `huma.Register()`
+- [x] Remove swaggo annotations
+- [x] Update `search_test.go` to use `humatest`
 
 **Success criteria:** 7 endpoints migrated. `make test` passes.
 

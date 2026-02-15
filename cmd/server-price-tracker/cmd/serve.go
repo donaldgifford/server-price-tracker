@@ -171,16 +171,16 @@ func registerRoutes(
 		handlers.RegisterRescoreRoutes(humaAPI, rescoreH)
 	}
 
-	// Search.
+	// Search (Huma).
 	if ebayClient != nil {
 		searchH := handlers.NewSearchHandler(ebayClient)
-		api.POST("/search", searchH.Search)
+		handlers.RegisterSearchRoutes(humaAPI, searchH)
 	}
 
-	// Extract.
+	// Extract (Huma).
 	if extractor != nil {
 		extractH := handlers.NewExtractHandler(extractor)
-		api.POST("/extract", extractH.Extract)
+		handlers.RegisterExtractRoutes(humaAPI, extractH)
 	}
 
 	// Engine-dependent routes (Huma for ingest and baseline refresh).

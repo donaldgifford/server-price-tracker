@@ -1,9 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/donaldgifford/server-price-tracker/pkg/extract"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
@@ -19,59 +20,53 @@ func NewExtractHandler(extractor extract.Extractor) *ExtractHandler {
 	return &ExtractHandler{extractor: extractor}
 }
 
-type extractRequest struct {
-	Title         string            `json:"title"                    example:"Samsung 32GB DDR4 2666MHz ECC REG Server RAM"`
-	ItemSpecifics map[string]string `json:"item_specifics,omitempty"`
+// ExtractInput is the request body for the extract endpoint.
+type ExtractInput struct {
+	Body struct {
+		Title         string            `json:"title" minLength:"1" doc:"Listing title to extract attributes from" example:"Samsung 32GB DDR4 2666MHz ECC REG Server RAM"`
+		ItemSpecifics map[string]string `json:"item_specifics,omitempty" doc:"Optional eBay item specifics"`
+	}
 }
 
-type extractResponse struct {
-	ComponentType domain.ComponentType `json:"component_type" example:"ram"`
-	Attributes    map[string]any       `json:"attributes"`
-	ProductKey    string               `json:"product_key"    example:"ram:ddr4:ecc_reg:32gb:2666"`
+// ExtractOutput is the response body for the extract endpoint.
+type ExtractOutput struct {
+	Body struct {
+		ComponentType domain.ComponentType `json:"component_type" example:"ram" doc:"Detected component type"`
+		Attributes    map[string]any       `json:"attributes" doc:"Extracted structured attributes"`
+		ProductKey    string               `json:"product_key" example:"ram:ddr4:ecc_reg:32gb:2666" doc:"Normalized product key"`
+	}
 }
 
-// Extract handles POST /api/v1/extract.
-//
-// @Summary Extract attributes from a listing title
-// @Description Uses the configured LLM backend to classify the component type and extract structured attributes from a listing title.
-// @Tags extract
-// @Accept json
-// @Produce json
-// @Param body body extractRequest true "Listing title and optional item specifics"
-// @Success 200 {object} extractResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /api/v1/extract [post]
-func (h *ExtractHandler) Extract(c echo.Context) error {
-	var req extractRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "invalid request body",
-		})
-	}
-
-	if req.Title == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "title is required",
-		})
-	}
-
+// Extract classifies a listing title and extracts structured attributes via LLM.
+func (h *ExtractHandler) Extract(ctx context.Context, input *ExtractInput) (*ExtractOutput, error) {
 	ct, attrs, err := h.extractor.ClassifyAndExtract(
-		c.Request().Context(),
-		req.Title,
-		req.ItemSpecifics,
+		ctx,
+		input.Body.Title,
+		input.Body.ItemSpecifics,
 	)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "extraction failed: " + err.Error(),
-		})
+		return nil, huma.Error500InternalServerError("extraction failed: " + err.Error())
 	}
 
 	pk := extract.ProductKey(string(ct), attrs)
 
-	return c.JSON(http.StatusOK, extractResponse{
-		ComponentType: ct,
-		Attributes:    attrs,
-		ProductKey:    pk,
-	})
+	resp := &ExtractOutput{}
+	resp.Body.ComponentType = ct
+	resp.Body.Attributes = attrs
+	resp.Body.ProductKey = pk
+	return resp, nil
+}
+
+// RegisterExtractRoutes registers extract endpoints with the Huma API.
+func RegisterExtractRoutes(api huma.API, h *ExtractHandler) {
+	huma.Register(api, huma.Operation{
+		OperationID: "extract-attributes",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/extract",
+		Summary:     "Extract attributes from a listing title",
+		Description: "Uses the configured LLM backend to classify the component type " +
+			"and extract structured attributes from a listing title.",
+		Tags:   []string{"extract"},
+		Errors: []int{http.StatusInternalServerError},
+	}, h.Extract)
 }
