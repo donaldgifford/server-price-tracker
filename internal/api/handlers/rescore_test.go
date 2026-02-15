@@ -3,11 +3,10 @@ package handlers_test
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
+	"github.com/danielgtaylor/huma/v2/humatest"
 	"github.com/jackc/pgx/v5"
-	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -73,7 +72,7 @@ func TestRescoreHandler_Rescore(t *testing.T) {
 					Once()
 			},
 			wantStatus: http.StatusInternalServerError,
-			wantBody:   `"error"`,
+			wantBody:   `rescore failed`,
 		},
 	}
 
@@ -86,15 +85,12 @@ func TestRescoreHandler_Rescore(t *testing.T) {
 
 			h := handlers.NewRescoreHandler(mockStore)
 
-			e := echo.New()
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/rescore", http.NoBody)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
+			_, api := humatest.New(t)
+			handlers.RegisterRescoreRoutes(api, h)
 
-			err := h.Rescore(c)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantStatus, rec.Code)
-			assert.Contains(t, rec.Body.String(), tt.wantBody)
+			resp := api.Post("/api/v1/rescore")
+			require.Equal(t, tt.wantStatus, resp.Code)
+			assert.Contains(t, resp.Body.String(), tt.wantBody)
 		})
 	}
 }
@@ -132,13 +128,10 @@ func TestRescoreHandler_Rescore_PartialFailure(t *testing.T) {
 
 	h := handlers.NewRescoreHandler(mockStore)
 
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/rescore", http.NoBody)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
+	_, api := humatest.New(t)
+	handlers.RegisterRescoreRoutes(api, h)
 
-	err := h.Rescore(c)
-	require.NoError(t, err)
+	resp := api.Post("/api/v1/rescore")
 	// Partial failure still returns 500 since engine returns error.
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 }

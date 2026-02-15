@@ -3,10 +3,9 @@ package handlers_test
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/danielgtaylor/huma/v2/humatest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -37,15 +36,12 @@ func TestHealthz(t *testing.T) {
 			mockStore := mocks.NewMockStore(t)
 			h := handlers.NewHealthHandler(mockStore)
 
-			e := echo.New()
-			req := httptest.NewRequest(http.MethodGet, "/healthz", http.NoBody)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
+			_, api := humatest.New(t)
+			handlers.RegisterHealthRoutes(api, h)
 
-			err := h.Healthz(c)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantStatus, rec.Code)
-			assert.JSONEq(t, tt.wantBody, rec.Body.String())
+			resp := api.Get("/healthz")
+			require.Equal(t, tt.wantStatus, resp.Code)
+			assert.JSONEq(t, tt.wantBody, resp.Body.String())
 		})
 	}
 }
@@ -69,7 +65,7 @@ func TestReadyz(t *testing.T) {
 			name:       "returns 503 when store ping fails",
 			pingErr:    errors.New("connection refused"),
 			wantStatus: http.StatusServiceUnavailable,
-			wantBody:   `{"status":"unavailable"}`,
+			wantBody:   `"database unavailable"`,
 		},
 	}
 
@@ -82,15 +78,12 @@ func TestReadyz(t *testing.T) {
 
 			h := handlers.NewHealthHandler(mockStore)
 
-			e := echo.New()
-			req := httptest.NewRequest(http.MethodGet, "/readyz", http.NoBody)
-			rec := httptest.NewRecorder()
-			c := e.NewContext(req, rec)
+			_, api := humatest.New(t)
+			handlers.RegisterHealthRoutes(api, h)
 
-			err := h.Readyz(c)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantStatus, rec.Code)
-			assert.JSONEq(t, tt.wantBody, rec.Body.String())
+			resp := api.Get("/readyz")
+			require.Equal(t, tt.wantStatus, resp.Code)
+			assert.Contains(t, resp.Body.String(), tt.wantBody)
 		})
 	}
 }

@@ -191,27 +191,27 @@ targets.
 
 **health.go** (2 endpoints, 0 parsing boilerplate):
 
-- [ ] Define `HealthzOutput`, `ReadyzOutput` structs
-- [ ] Rewrite `Healthz` and `Readyz` as Huma handlers
-- [ ] Register via `huma.Register()` instead of `e.GET()`
-- [ ] Remove swaggo annotations
-- [ ] Update `health_test.go` to use `humatest`
+- [x] Define `HealthOutput` struct (shared for healthz/readyz)
+- [x] Rewrite `Healthz` and `Readyz` as Huma handlers
+- [x] Register via `RegisterHealthRoutes()` using `huma.Register()`
+- [x] Remove swaggo annotations
+- [x] Update `health_test.go` to use `humatest`
 
 **trigger.go** (2 endpoints, 0 parsing boilerplate):
 
-- [ ] Define `IngestOutput`, `RefreshOutput` structs
-- [ ] Rewrite `Ingest` and `Refresh` as Huma handlers
-- [ ] Register via `huma.Register()`
-- [ ] Remove swaggo annotations
-- [ ] Update `trigger_test.go` to use `humatest`
+- [x] Define `IngestOutput`, `RefreshOutput` structs
+- [x] Rewrite `Ingest` and `Refresh` as Huma handlers
+- [x] Register via `RegisterTriggerRoutes()` using `huma.Register()`
+- [x] Remove swaggo annotations
+- [x] Update `trigger_test.go` to use `humatest`
 
 **rescore.go** (1 endpoint, 0 parsing boilerplate):
 
-- [ ] Define `RescoreOutput` struct
-- [ ] Rewrite `Rescore` as Huma handler
-- [ ] Register via `huma.Register()`
-- [ ] Remove swaggo annotations
-- [ ] Update `rescore_test.go` to use `humatest`
+- [x] Define `RescoreOutput` struct
+- [x] Rewrite `Rescore` as Huma handler
+- [x] Register via `RegisterRescoreRoutes()` using `huma.Register()`
+- [x] Remove swaggo annotations
+- [x] Update `rescore_test.go` to use `humatest`
 
 **Success criteria:** 5 endpoints migrated. `make test` passes. Huma spec at
 `/openapi.json` includes these 5 operations. Raw Echo routes still serve the

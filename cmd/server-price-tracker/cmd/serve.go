@@ -139,18 +139,17 @@ func startServer(opts *Options) error {
 // As handlers are migrated to Huma, they move from Echo registration to Huma registration.
 func registerRoutes(
 	e *echo.Echo,
-	_ huma.API, // humaAPI — will be used as handlers are migrated
+	humaAPI huma.API,
 	s store.Store,
 	ebayClient ebay.EbayClient,
 	extractor extract.Extractor,
 	eng *engine.Engine,
 ) {
-	// Health endpoints (raw Echo — will migrate to Huma in Phase 1).
+	// Health endpoints (Huma).
 	healthH := handlers.NewHealthHandler(s)
-	e.GET("/healthz", healthH.Healthz)
-	e.GET("/readyz", healthH.Readyz)
+	handlers.RegisterHealthRoutes(humaAPI, healthH)
 
-	// API v1 group.
+	// API v1 group (raw Echo — will migrate to Huma in later phases).
 	api := e.Group("/api/v1")
 
 	// Listings.
@@ -167,8 +166,9 @@ func registerRoutes(
 		api.PUT("/watches/:id/enabled", watchH.SetEnabled)
 		api.DELETE("/watches/:id", watchH.Delete)
 
+		// Rescore (Huma).
 		rescoreH := handlers.NewRescoreHandler(s)
-		api.POST("/rescore", rescoreH.Rescore)
+		handlers.RegisterRescoreRoutes(humaAPI, rescoreH)
 	}
 
 	// Search.
@@ -183,13 +183,11 @@ func registerRoutes(
 		api.POST("/extract", extractH.Extract)
 	}
 
-	// Engine-dependent routes.
+	// Engine-dependent routes (Huma for ingest and baseline refresh).
 	if eng != nil {
 		ingestH := handlers.NewIngestHandler(eng)
-		api.POST("/ingest", ingestH.Ingest)
-
 		baselineH := handlers.NewBaselineRefreshHandler(eng)
-		api.POST("/baselines/refresh", baselineH.Refresh)
+		handlers.RegisterTriggerRoutes(humaAPI, ingestH, baselineH)
 	}
 }
 

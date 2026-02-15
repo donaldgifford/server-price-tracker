@@ -1,18 +1,19 @@
-package handlers
+package handlers_test
 
 import (
 	"context"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/labstack/echo/v4"
+	"github.com/danielgtaylor/huma/v2/humatest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/donaldgifford/server-price-tracker/internal/api/handlers"
 )
 
-// mockIngester implements Ingester for testing.
+// mockIngester implements handlers.Ingester for testing.
 type mockIngester struct {
 	err    error
 	called bool
@@ -23,7 +24,7 @@ func (m *mockIngester) RunIngestion(_ context.Context) error {
 	return m.err
 }
 
-// mockRefresher implements BaselineRefresher for testing.
+// mockRefresher implements handlers.BaselineRefresher for testing.
 type mockRefresher struct {
 	err    error
 	called bool
@@ -38,68 +39,60 @@ func TestIngestHandler_Success(t *testing.T) {
 	t.Parallel()
 
 	ing := &mockIngester{}
-	h := NewIngestHandler(ing)
+	ingestH := handlers.NewIngestHandler(ing)
+	baselineH := handlers.NewBaselineRefreshHandler(&mockRefresher{})
 
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/ingest", http.NoBody)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
+	_, api := humatest.New(t)
+	handlers.RegisterTriggerRoutes(api, ingestH, baselineH)
 
-	err := h.Ingest(c)
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, rec.Code)
+	resp := api.Post("/api/v1/ingest")
+	require.Equal(t, http.StatusOK, resp.Code)
 	assert.True(t, ing.called)
-	assert.Contains(t, rec.Body.String(), "ingestion completed")
+	assert.Contains(t, resp.Body.String(), "ingestion completed")
 }
 
 func TestIngestHandler_Error(t *testing.T) {
 	t.Parallel()
 
 	ing := &mockIngester{err: errors.New("eBay API down")}
-	h := NewIngestHandler(ing)
+	ingestH := handlers.NewIngestHandler(ing)
+	baselineH := handlers.NewBaselineRefreshHandler(&mockRefresher{})
 
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/ingest", http.NoBody)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
+	_, api := humatest.New(t)
+	handlers.RegisterTriggerRoutes(api, ingestH, baselineH)
 
-	err := h.Ingest(c)
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, rec.Body.String(), "ingestion failed")
+	resp := api.Post("/api/v1/ingest")
+	require.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Contains(t, resp.Body.String(), "ingestion failed")
 }
 
 func TestBaselineRefreshHandler_Success(t *testing.T) {
 	t.Parallel()
 
 	r := &mockRefresher{}
-	h := NewBaselineRefreshHandler(r)
+	ingestH := handlers.NewIngestHandler(&mockIngester{})
+	baselineH := handlers.NewBaselineRefreshHandler(r)
 
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/baselines/refresh", http.NoBody)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
+	_, api := humatest.New(t)
+	handlers.RegisterTriggerRoutes(api, ingestH, baselineH)
 
-	err := h.Refresh(c)
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, rec.Code)
+	resp := api.Post("/api/v1/baselines/refresh")
+	require.Equal(t, http.StatusOK, resp.Code)
 	assert.True(t, r.called)
-	assert.Contains(t, rec.Body.String(), "baseline refresh completed")
+	assert.Contains(t, resp.Body.String(), "baseline refresh completed")
 }
 
 func TestBaselineRefreshHandler_Error(t *testing.T) {
 	t.Parallel()
 
 	r := &mockRefresher{err: errors.New("db connection lost")}
-	h := NewBaselineRefreshHandler(r)
+	ingestH := handlers.NewIngestHandler(&mockIngester{})
+	baselineH := handlers.NewBaselineRefreshHandler(r)
 
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/baselines/refresh", http.NoBody)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
+	_, api := humatest.New(t)
+	handlers.RegisterTriggerRoutes(api, ingestH, baselineH)
 
-	err := h.Refresh(c)
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, rec.Body.String(), "baseline refresh failed")
+	resp := api.Post("/api/v1/baselines/refresh")
+	require.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Contains(t, resp.Body.String(), "baseline refresh failed")
 }
