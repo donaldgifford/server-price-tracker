@@ -45,7 +45,6 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].args
           value:
-            - serve
             - --config
             - /etc/spt/config.yaml
 
