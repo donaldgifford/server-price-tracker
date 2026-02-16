@@ -36,3 +36,9 @@ tests:
       - equal:
           path: spec.selector["app.kubernetes.io/component"]
           value: server
+
+  - it: has component metadata label for ServiceMonitor matching
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: server
