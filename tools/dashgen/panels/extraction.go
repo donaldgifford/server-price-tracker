@@ -15,11 +15,11 @@ func ExtractionDuration() *timeseries.PanelBuilder {
 		Height(TSHeight).
 		Span(TSWidth).
 		WithTarget(PromQuery(
-			`histogram_quantile(0.50, sum(rate(spt_extraction_duration_seconds_bucket[5m])) by (le))`,
+			`histogram_quantile(0.50, sum(rate(spt_extraction_duration_seconds_bucket{job="server-price-tracker"}[5m])) by (le))`,
 			"p50", "A",
 		)).
 		WithTarget(PromQuery(
-			`histogram_quantile(0.95, sum(rate(spt_extraction_duration_seconds_bucket[5m])) by (le))`,
+			`histogram_quantile(0.95, sum(rate(spt_extraction_duration_seconds_bucket{job="server-price-tracker"}[5m])) by (le))`,
 			"p95", "B",
 		)).
 		Unit("s").

@@ -15,7 +15,7 @@ func ScoreDistribution() *bargauge.PanelBuilder {
 		Height(TSHeight).
 		Span(FullWidth).
 		WithTarget(PromQuery(
-			`sum(increase(spt_scoring_distribution_bucket[1h])) by (le)`,
+			`sum(increase(spt_scoring_distribution_bucket{job="server-price-tracker"}[1h])) by (le)`,
 			"{{le}}", "A",
 		)).
 		Orientation(common.VizOrientationHorizontal).

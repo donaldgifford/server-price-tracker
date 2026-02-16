@@ -16,7 +16,7 @@ func HealthzStat() *stat.PanelBuilder {
 		Datasource(DSRef()).
 		Height(StatHeight).
 		Span(StatWidth).
-		WithTarget(PromQuery(`spt_healthz_up`, "", "A")).
+		WithTarget(PromQuery(`spt_healthz_up{job="server-price-tracker"}`, "", "A")).
 		Thresholds(ThresholdsRedGreen(1)).
 		ColorScheme(ColorSchemeThresholds()).
 		ColorMode(common.BigValueColorModeBackground).
@@ -32,7 +32,7 @@ func ReadyzStat() *stat.PanelBuilder {
 		Datasource(DSRef()).
 		Height(StatHeight).
 		Span(StatWidth).
-		WithTarget(PromQuery(`spt_readyz_up`, "", "A")).
+		WithTarget(PromQuery(`spt_readyz_up{job="server-price-tracker"}`, "", "A")).
 		Thresholds(ThresholdsRedGreen(1)).
 		ColorScheme(ColorSchemeThresholds()).
 		ColorMode(common.BigValueColorModeBackground).
@@ -43,7 +43,7 @@ func ReadyzStat() *stat.PanelBuilder {
 // QuotaGauge returns a gauge panel showing eBay API daily usage as a
 // percentage of the limit.
 func QuotaGauge() *gauge.PanelBuilder {
-	expr := fmt.Sprintf("spt_ebay_daily_usage / %d * 100", EbayDailyLimit)
+	expr := fmt.Sprintf(`spt_ebay_daily_usage{job="server-price-tracker"} / %d * 100`, EbayDailyLimit)
 	return gauge.NewPanelBuilder().
 		Title("eBay Quota %").
 		Description("Daily eBay API usage as percentage of limit").
