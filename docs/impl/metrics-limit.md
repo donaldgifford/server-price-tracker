@@ -100,25 +100,31 @@ See `docs/plans/metrics-limit.md` for the full plan and test results.
 
 ### Tasks
 
-- [ ] On startup (in the `serve` command or server initialization):
-  - Call `GetRateLimits()` once
-  - Set the 3 Prometheus gauge metrics from the response
-  - Sync the in-memory `RateLimiter` state
-  - Log the result at Info level
-  - If the call fails, log a warning and continue (don't block startup)
-- [ ] After each ingestion cycle (in the ingestion loop):
-  - Call `GetRateLimits()` once after the cycle completes
-  - Set the 3 Prometheus gauge metrics
-  - Sync the in-memory `RateLimiter` state
-  - Log at Debug level (this happens every 15 min, don't spam logs)
-  - If the call fails, log a warning and continue
-- [ ] Add a helper method that encapsulates "call analytics, set metrics,
-  sync rate limiter" to avoid duplication between startup and post-cycle
-- [ ] Add tests:
-  - Verify metrics are set after a successful analytics call
-  - Verify rate limiter state is synced after analytics call
-  - Verify startup continues if analytics call fails
-- [ ] Run `make test` and `make lint`
+- [x] On startup (in `buildEngine()` in `serve.go`):
+  - Call `SyncQuota()` once after engine is created
+  - Sets the 3 Prometheus gauge metrics from the response
+  - Syncs the in-memory `RateLimiter` state
+  - Logs at Debug level on success, Warn on failure
+  - If the call fails, logs a warning and continues (doesn't block startup)
+- [x] After each ingestion cycle (in `RunIngestion()` in `engine.go`):
+  - Calls `SyncQuota()` after alert processing completes
+  - Sets the 3 Prometheus gauge metrics
+  - Syncs the in-memory `RateLimiter` state
+  - Logs at Debug level (runs every 15 min, doesn't spam logs)
+  - If the call fails, logs a warning and continues
+- [x] Added `SyncQuota()` helper method on `Engine` that encapsulates
+  "call analytics, set metrics, sync rate limiter" — used by both
+  startup and post-cycle
+- [x] Added `WithAnalyticsClient()` and `WithRateLimiter()` engine options
+- [x] Added `AnalyticsURL` config field with default
+- [x] Added tests (3 cases):
+  - `TestSyncQuota_SetsMetricsAndSyncsRateLimiter`: verifies metrics
+    and rate limiter state after successful analytics call
+  - `TestSyncQuota_AnalyticsFailureDoesNotPanic`: verifies failure
+    doesn't panic and rate limiter is unchanged
+  - `TestSyncQuota_NilAnalyticsClientIsNoOp`: verifies no-op when
+    analytics client is nil
+- [x] Run `make test` and `make lint`
 
 ### Success Criteria
 
@@ -129,9 +135,10 @@ See `docs/plans/metrics-limit.md` for the full plan and test results.
 
 ### Files
 
-- `cmd/server-price-tracker/serve.go` (or equivalent startup path)
-- `internal/engine/ingest.go` (or equivalent ingestion loop)
-- `internal/ebay/analytics.go` (helper method)
+- `cmd/server-price-tracker/cmd/serve.go`
+- `internal/engine/engine.go`
+- `internal/engine/engine_test.go`
+- `internal/config/config.go`
 
 ---
 

@@ -6,16 +6,20 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	ptestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/donaldgifford/server-price-tracker/internal/ebay"
 	ebayMocks "github.com/donaldgifford/server-price-tracker/internal/ebay/mocks"
+	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	notifyMocks "github.com/donaldgifford/server-price-tracker/internal/notify/mocks"
 	storeMocks "github.com/donaldgifford/server-price-tracker/internal/store/mocks"
 	extractMocks "github.com/donaldgifford/server-price-tracker/pkg/extract/mocks"
@@ -926,4 +930,119 @@ func TestRunIngestion_WithPaginator(t *testing.T) {
 
 	err := eng.RunIngestion(context.Background())
 	require.NoError(t, err)
+}
+
+// analyticsResponse is a valid eBay Analytics API response for testing.
+const analyticsResponse = `{
+	"rateLimits": [{
+		"apiContext": "buy",
+		"apiName": "Browse",
+		"apiVersion": "v1",
+		"resources": [{
+			"name": "buy.browse",
+			"rates": [{
+				"count": 200,
+				"limit": 5000,
+				"remaining": 4800,
+				"reset": "2026-02-17T08:00:00.000Z",
+				"timeWindow": 86400
+			}]
+		}]
+	}]
+}`
+
+func TestSyncQuota_SetsMetricsAndSyncsRateLimiter(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, analyticsResponse)
+	}))
+	defer srv.Close()
+
+	tp := ebayMocks.NewMockTokenProvider(t)
+	tp.EXPECT().Token(mock.Anything).Return("test-token", nil)
+
+	ac := ebay.NewAnalyticsClient(tp,
+		ebay.WithAnalyticsURL(srv.URL),
+	)
+	rl := ebay.NewRateLimiter(5, 10, 5000)
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	eng := NewEngine(ms, me, mx, mn,
+		WithLogger(quietLogger()),
+		WithAnalyticsClient(ac),
+		WithRateLimiter(rl),
+	)
+
+	eng.SyncQuota(context.Background())
+
+	// Verify Prometheus metrics were set.
+	assert.InDelta(t, 5000, ptestutil.ToFloat64(metrics.EbayRateLimit), 0.1)
+	assert.InDelta(t, 4800, ptestutil.ToFloat64(metrics.EbayRateRemaining), 0.1)
+
+	expectedReset := time.Date(2026, 2, 17, 8, 0, 0, 0, time.UTC)
+	assert.InDelta(t, float64(expectedReset.Unix()),
+		ptestutil.ToFloat64(metrics.EbayRateResetTimestamp), 0.1)
+
+	// Verify rate limiter was synced.
+	assert.Equal(t, int64(200), rl.DailyCount())
+	assert.Equal(t, int64(5000), rl.MaxDaily())
+	assert.Equal(t, int64(4800), rl.Remaining())
+	assert.Equal(t, expectedReset, rl.ResetAt())
+}
+
+func TestSyncQuota_AnalyticsFailureDoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, `{"error": "server error"}`)
+	}))
+	defer srv.Close()
+
+	tp := ebayMocks.NewMockTokenProvider(t)
+	tp.EXPECT().Token(mock.Anything).Return("test-token", nil)
+
+	ac := ebay.NewAnalyticsClient(tp,
+		ebay.WithAnalyticsURL(srv.URL),
+	)
+	rl := ebay.NewRateLimiter(5, 10, 5000)
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	eng := NewEngine(ms, me, mx, mn,
+		WithLogger(quietLogger()),
+		WithAnalyticsClient(ac),
+		WithRateLimiter(rl),
+	)
+
+	// Should not panic; rate limiter should be unchanged.
+	eng.SyncQuota(context.Background())
+
+	assert.Equal(t, int64(0), rl.DailyCount())
+	assert.Equal(t, int64(5000), rl.MaxDaily())
+}
+
+func TestSyncQuota_NilAnalyticsClientIsNoOp(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	eng := NewEngine(ms, me, mx, mn,
+		WithLogger(quietLogger()),
+	)
+
+	// Should return immediately without error.
+	eng.SyncQuota(context.Background())
 }

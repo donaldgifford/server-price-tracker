@@ -26,6 +26,8 @@ type Engine struct {
 	log       *slog.Logger
 
 	paginator          *ebay.Paginator
+	analyticsClient    *ebay.AnalyticsClient
+	rateLimiter        *ebay.RateLimiter
 	maxCallsPerCycle   int
 	baselineWindowDays int
 	staggerOffset      time.Duration
@@ -93,6 +95,20 @@ func WithMaxCallsPerCycle(n int) EngineOption {
 	}
 }
 
+// WithAnalyticsClient sets the eBay Analytics API client for quota syncing.
+func WithAnalyticsClient(ac *ebay.AnalyticsClient) EngineOption {
+	return func(e *Engine) {
+		e.analyticsClient = ac
+	}
+}
+
+// WithRateLimiter sets the rate limiter for quota syncing.
+func WithRateLimiter(rl *ebay.RateLimiter) EngineOption {
+	return func(e *Engine) {
+		e.rateLimiter = rl
+	}
+}
+
 // RunIngestion executes the full ingestion pipeline for all enabled watches.
 func (eng *Engine) RunIngestion(ctx context.Context) error {
 	start := time.Now()
@@ -153,6 +169,9 @@ func (eng *Engine) RunIngestion(ctx context.Context) error {
 	if err := ProcessAlerts(ctx, eng.store, eng.notifier); err != nil {
 		eng.log.Error("alert processing failed", "error", err)
 	}
+
+	// Sync quota metrics from eBay Analytics API after ingestion.
+	eng.SyncQuota(ctx)
 
 	return nil
 }
@@ -261,6 +280,36 @@ func (eng *Engine) evaluateAlert(
 	if err := eng.store.CreateAlert(ctx, alert); err != nil {
 		eng.log.Error("creating alert failed", "listing", listing.ID, "error", err)
 	}
+}
+
+// SyncQuota calls the eBay Analytics API to update Prometheus gauge metrics
+// and sync the in-memory rate limiter with eBay's authoritative quota state.
+// Failures are logged but never propagated — this is best-effort.
+func (eng *Engine) SyncQuota(ctx context.Context) {
+	if eng.analyticsClient == nil {
+		return
+	}
+
+	quota, err := eng.analyticsClient.GetBrowseQuota(ctx)
+	if err != nil {
+		eng.log.Warn("failed to sync eBay quota from analytics API", "error", err)
+		return
+	}
+
+	metrics.EbayRateLimit.Set(float64(quota.Limit))
+	metrics.EbayRateRemaining.Set(float64(quota.Remaining))
+	metrics.EbayRateResetTimestamp.Set(float64(quota.ResetAt.Unix()))
+
+	if eng.rateLimiter != nil {
+		eng.rateLimiter.Sync(quota.Count, quota.Limit, quota.ResetAt)
+	}
+
+	eng.log.Debug("eBay quota synced",
+		"count", quota.Count,
+		"limit", quota.Limit,
+		"remaining", quota.Remaining,
+		"reset_at", quota.ResetAt,
+	)
 }
 
 // RunBaselineRefresh recomputes all baselines and re-scores affected listings.
