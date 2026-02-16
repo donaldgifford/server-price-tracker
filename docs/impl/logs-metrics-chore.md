@@ -110,10 +110,10 @@ See `docs/plans/logs-metrics-chore.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Add `logSuppressPaths` set to `internal/api/middleware/requestlog.go`:
+- [x] Add `logSuppressPaths` set to `internal/api/middleware/requestlog.go`:
   - Package-level `var logSuppressPaths = map[string]struct{}{...}`
   - Entries: `/healthz`, `/readyz`, `/metrics`
-- [ ] Update `RequestLog()` middleware function:
+- [x] Update `RequestLog()` middleware function:
   - In the outer constructor closure (not per-request), initialize a
     `map[string]*sync.Once` with one entry per suppress path
   - Add `"sync"` to imports
@@ -123,7 +123,7 @@ See `docs/plans/logs-metrics-chore.md` for the high-level design.
       `once.Do(func() { ... })` — logs only the first success
     - **Failure (non-2xx)**: always log at `log.Warn(...)` level
   - Non-suppress paths: unchanged `log.Info(...)` every request
-- [ ] Add tests to `internal/api/middleware/requestlog_test.go`:
+- [x] Add tests to `internal/api/middleware/requestlog_test.go`:
   - `TestRequestLog_HealthzFirstSuccessLogged`: create middleware
     once, send 3 GET `/healthz` requests returning 200 — assert
     first request produces log output, second and third do not
@@ -137,7 +137,7 @@ See `docs/plans/logs-metrics-chore.md` for the high-level design.
   - `TestRequestLog_NonHealthPathAlwaysLogged`: send 2 GET
     `/api/v1/watches` requests returning 200 — assert both produce
     log output (non-suppress paths always log)
-- [ ] Run `make test && make lint`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 
