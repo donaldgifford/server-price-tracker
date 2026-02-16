@@ -54,10 +54,10 @@ See `docs/plans/logs-metrics-chore.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Add `metricsSkipPaths` set to `internal/api/middleware/metrics.go`:
+- [x] Add `metricsSkipPaths` set to `internal/api/middleware/metrics.go`:
   - Package-level `var metricsSkipPaths = map[string]struct{}{...}`
   - Entries: `/metrics`, `/healthz`, `/readyz`
-- [ ] Update `Metrics()` middleware function:
+- [x] Update `Metrics()` middleware function:
   - Resolve path early (same `c.Path()` fallback to `c.Request().URL.Path`)
   - Check `metricsSkipPaths` membership
   - For `/healthz`: call `next(c)`, then set `metrics.HealthzUp` to
@@ -68,7 +68,7 @@ See `docs/plans/logs-metrics-chore.md` for the high-level design.
   - For all skip paths: do not record `HTTPRequestDuration` or
     `HTTPRequestsTotal`
   - Non-skip paths: unchanged behavior
-- [ ] Update `internal/api/middleware/metrics_test.go`:
+- [x] Update `internal/api/middleware/metrics_test.go`:
   - Add `wantSkipped bool` field to the test table struct
   - Change existing `/healthz` test case: set `wantSkipped: true`
   - Add test case: `"skips /readyz from HTTP metrics"` with
@@ -86,7 +86,7 @@ See `docs/plans/logs-metrics-chore.md` for the high-level design.
     `metrics.HealthzUp` is `1`; send 503, assert gauge is `0`
   - Add `TestMetricsMiddleware_ReadyzGauge`: send 200, assert
     `metrics.ReadyzUp` is `1`; send 503, assert gauge is `0`
-- [ ] Run `make test && make lint`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 
