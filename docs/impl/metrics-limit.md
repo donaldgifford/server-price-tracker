@@ -55,51 +55,31 @@ See `docs/plans/metrics-limit.md` for the full plan and test results.
 
 ### Tasks
 
-- [ ] Add Analytics API URL constant to `internal/ebay/` (new file or
-  in `browse.go`):
+- [x] Add Analytics API URL constant to `internal/ebay/analytics.go`:
   ```
   https://api.ebay.com/developer/analytics/v1_beta/rate_limit/
   ```
-- [ ] Define response types matching the actual production response:
-  ```go
-  type RateLimitResponse struct {
-      RateLimits []RateLimitEntry `json:"rateLimits"`
-  }
-  type RateLimitEntry struct {
-      APIContext  string     `json:"apiContext"`
-      APIName    string     `json:"apiName"`
-      APIVersion string     `json:"apiVersion"`
-      Resources  []Resource `json:"resources"`
-  }
-  type Resource struct {
-      Name  string `json:"name"`
-      Rates []Rate `json:"rates"`
-  }
-  type Rate struct {
-      Count      int64  `json:"count"`
-      Limit      int64  `json:"limit"`
-      Remaining  int64  `json:"remaining"`
-      Reset      string `json:"reset"`
-      TimeWindow int64  `json:"timeWindow"`
-  }
-  ```
-- [ ] Add a `GetRateLimits(ctx context.Context)` method that:
-  - Calls the Analytics API with `api_name=browse&api_context=buy`
-  - Uses the existing `TokenProvider` for auth
-  - Finds the `buy.browse` resource in the response
-  - Returns a struct with `Count`, `Limit`, `Remaining`, `ResetAt`,
-    `TimeWindow`
-  - Returns an error if the API call fails or the resource is not found
-- [ ] Add to the `EbayClient` interface (or create a separate interface
-  if preferred)
-- [ ] Add tests:
-  - `TestGetRateLimits_Success`: mock server returns the production
-    response shape. Verify parsed fields match.
-  - `TestGetRateLimits_ResourceNotFound`: response has no `buy.browse`
-    resource. Verify error returned.
-  - `TestGetRateLimits_APIError`: mock server returns 401/500. Verify
-    error returned.
-- [ ] Run `make test` and `make lint`
+- [x] Define response types matching the actual production response
+  (unexported types `rateLimitResponse`, `rateLimitEntry`, `resource`,
+  `quotaRate` to avoid collision with `golang.org/x/time/rate` package)
+- [x] Add `GetBrowseQuota(ctx context.Context) (*QuotaState, error)` on
+  `AnalyticsClient` that calls the Analytics API filtered to
+  `api_context=buy&api_name=browse`, finds the `buy.browse` resource,
+  and returns parsed `QuotaState` with `Count`, `Limit`, `Remaining`,
+  `ResetAt`, `TimeWindow`
+- [x] Created separate `AnalyticsClient` struct (not added to `EbayClient`
+  interface — different concern from Browse API)
+- [x] Add tests (9 cases in table-driven test):
+  - successful response (verifies all parsed fields)
+  - resource not found (only `buy.browse.item.bulk` present)
+  - empty rate limits array
+  - empty rates array for `buy.browse`
+  - 401 unauthorized
+  - 500 server error
+  - token provider error
+  - invalid JSON response
+  - malformed reset timestamp
+- [x] Run `make test` and `make lint`
 
 ### Success Criteria
 
