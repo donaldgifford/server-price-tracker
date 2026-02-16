@@ -369,7 +369,7 @@ See `docs/plans/monitoring.md` for the high-level design and layout.
 
 ### Tasks
 
-- [ ] Create `scripts/makefiles/dashgen.mk`:
+- [x] Create `scripts/makefiles/dashgen.mk`:
   - `dashboards` target: `cd tools/dashgen && go run .`
     - Help text: `Generate Grafana dashboards and Prometheus rules`
   - `dashboards-validate` target: `cd tools/dashgen && go run . -validate`
@@ -379,9 +379,9 @@ See `docs/plans/monitoring.md` for the high-level design and layout.
   - All targets should be `.PHONY`
   - Follow the existing makefile pattern from other `.mk` files
     (section header with `##@`, help annotations with `##`)
-- [ ] Update root `Makefile`:
+- [x] Update root `Makefile`:
   - Add `include scripts/makefiles/dashgen.mk` after the existing includes
-- [ ] Verify:
+- [x] Verify:
   - `make dashboards` generates all 3 artifacts
   - `make dashboards-validate` exits 0
   - `make dashboards-test` runs tests
