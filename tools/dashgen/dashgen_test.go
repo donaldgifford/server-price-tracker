@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -148,15 +149,11 @@ func TestStaleness(t *testing.T) {
 
 	// Generate recording rules YAML.
 	recording := rules.RecordingRules()
-	recordingYAML, err := yaml.Marshal(recording)
-	require.NoError(t, err)
-	recordingYAML = append([]byte(generatedHeader), recordingYAML...)
+	recordingYAML := marshalYAML(t, recording)
 
 	// Generate alert rules YAML.
 	alerts := rules.AlertRules()
-	alertsYAML, err := yaml.Marshal(alerts)
-	require.NoError(t, err)
-	alertsYAML = append([]byte(generatedHeader), alertsYAML...)
+	alertsYAML := marshalYAML(t, alerts)
 
 	// Compare with committed files.
 	deployDir := filepath.Join("..", "..", "deploy")
@@ -192,4 +189,23 @@ func TestStaleness(t *testing.T) {
 				"%s is stale — run 'make dashboards' to regenerate", tt.name)
 		})
 	}
+}
+
+// marshalYAML encodes v with 2-space indentation and prepends the generated header,
+// matching the output of the writeYAML function in main.go.
+func marshalYAML(t *testing.T, v any) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+
+	require.NoError(t, enc.Encode(v))
+	require.NoError(t, enc.Close())
+
+	out := []byte(generatedHeader)
+	out = append(out, buf.Bytes()...)
+
+	return out
 }

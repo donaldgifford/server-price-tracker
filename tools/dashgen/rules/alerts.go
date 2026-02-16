@@ -98,7 +98,7 @@ func AlertRules() PrometheusRule {
 							},
 							Annotations: map[string]string{
 								"summary":     "eBay API daily limit has been reached",
-								"description": "The eBay Browse API daily quota has been exhausted. Ingestion will be paused until the quota resets.",
+								"description": "The eBay Browse API daily quota has been exhausted. Ingestion is paused until reset.",
 							},
 						},
 						{
