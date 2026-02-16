@@ -98,7 +98,7 @@ var (
 	EbayDailyUsage = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Name:      "ebay_daily_usage",
-		Help:      "Current daily eBay API call count within the rolling 24-hour window.",
+		Help:      "(DEPRECATED) Current daily eBay API call count within the rolling 24-hour window. Use spt_ebay_rate_limit and spt_ebay_rate_remaining instead.",
 	})
 
 	EbayDailyLimitHits = promauto.NewCounter(prometheus.CounterOpts{

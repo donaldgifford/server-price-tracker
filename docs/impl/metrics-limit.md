@@ -217,14 +217,16 @@ See `docs/plans/metrics-limit.md` for the full plan and test results.
 
 ### Tasks
 
-- [ ] In `internal/metrics/metrics.go`, update the `EbayDailyUsage` Help
-  text to include `(DEPRECATED)`
-- [ ] Remove `spt_ebay_daily_usage` from `KnownMetrics` in
+- [x] In `internal/metrics/metrics.go`, updated `EbayDailyUsage` Help
+  text to include `(DEPRECATED)` with migration guidance
+- [x] Removed `spt_ebay_daily_usage` from `KnownMetrics` in
   `tools/dashgen/config.go`
-- [ ] Verify no dashboard panels or alert rules reference
+- [x] Removed unused `EbayDailyLimit` constant from
+  `tools/dashgen/panels/helpers.go`
+- [x] Verified no dashboard panels or alert rules reference
   `spt_ebay_daily_usage`
-- [ ] Regenerate artifacts: `cd tools/dashgen && go run .`
-- [ ] Run full test suite: `make test && make lint && make dashboards-test`
+- [x] Regenerated artifacts: `cd tools/dashgen && go run .`
+- [x] Full test suite passes: `make test && make lint`
 
 ### Success Criteria
 

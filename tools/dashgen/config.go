@@ -27,7 +27,6 @@ var KnownMetrics = map[string]bool{
 
 	// eBay API metrics.
 	"spt_ebay_api_calls_total":        true,
-	"spt_ebay_daily_usage":            true,
 	"spt_ebay_daily_limit_hits_total": true,
 
 	// eBay rate limit metrics (from Analytics API).
