@@ -292,7 +292,7 @@ See `docs/plans/monitoring.md` for the high-level design and layout.
 
 ### Tasks
 
-- [ ] Create `tools/dashgen/validate/validate.go`:
+- [x] Create `tools/dashgen/validate/validate.go`:
   - `Result` struct with `Errors []string` and `Warnings []string`
   - `Ok() bool` — returns true if no errors
   - `Dashboard(dash dashboard.Dashboard) Result` — validates a built dashboard:
@@ -311,13 +311,13 @@ See `docs/plans/monitoring.md` for the high-level design and layout.
     - `checkMetricNames(r, title, panels)` — cross-reference metric names
     - `checkUniqueIDs(r, title, panels)` — check for duplicate IDs
     - `grafanaVarRe` — regex `\$\{?\w+\}?` for template variable matching
-- [ ] Wire validation into `main.go`:
+- [x] Wire validation into `main.go`:
   - After building dashboard + rules, run `validate.Dashboard()` on the
     built dashboard
   - If `-validate` flag is set, print results and exit
   - On errors, exit 1
   - On warnings only, print and continue
-- [ ] Create `tools/dashgen/dashgen_test.go`:
+- [x] Create `tools/dashgen/dashgen_test.go`:
   - `TestDefaultConfigValid` — `DefaultConfig()` passes `Validate()`
   - `TestBuildOverviewDashboard`:
     - Build the dashboard via `dashboards.BuildOverview()`
@@ -347,7 +347,7 @@ See `docs/plans/monitoring.md` for the high-level design and layout.
       artifacts are stale and need regeneration
     - This test catches cases where someone edits a panel builder but
       forgets to re-run `go generate`
-- [ ] Run: `cd tools/dashgen && go test ./...`
+- [x] Run: `cd tools/dashgen && go test ./...`
 
 ### Success Criteria
 
