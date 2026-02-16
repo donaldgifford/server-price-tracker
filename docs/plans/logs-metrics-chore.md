@@ -42,7 +42,7 @@ Kubernetes probes (~10 req/min) and Prometheus scrapes. This creates:
 
 **File: `internal/api/middleware/requestlog.go`**
 
-- Add a `logSuppressPaths` set for `/healthz` and `/readyz`
+- Add a `logSuppressPaths` set for `/healthz`, `/readyz`, and `/metrics`
 - In the `RequestLog` constructor closure, create a `map[string]*sync.Once` for
   each suppress path
 - On success (2xx): use `sync.Once.Do()` to log only the first hit

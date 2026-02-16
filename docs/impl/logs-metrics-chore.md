@@ -112,7 +112,7 @@ See `docs/plans/logs-metrics-chore.md` for the high-level design.
 
 - [ ] Add `logSuppressPaths` set to `internal/api/middleware/requestlog.go`:
   - Package-level `var logSuppressPaths = map[string]struct{}{...}`
-  - Entries: `/healthz`, `/readyz`
+  - Entries: `/healthz`, `/readyz`, `/metrics`
 - [ ] Update `RequestLog()` middleware function:
   - In the outer constructor closure (not per-request), initialize a
     `map[string]*sync.Once` with one entry per suppress path
@@ -156,26 +156,22 @@ See `docs/plans/logs-metrics-chore.md` for the high-level design.
 
 ---
 
-## Open Questions
+## Open Questions (Resolved)
 
-1. **Should `/metrics` also suppress logs?** The plan currently only
-   suppresses `/healthz` and `/readyz` logs. The `/metrics` endpoint is
-   scraped every 30s by Prometheus, which also generates log noise. Should
-   it be added to `logSuppressPaths`? The argument against is that
-   `/metrics` scrape failures are useful to log every time (Prometheus
-   alerting depends on scrape success). The argument for is consistency —
-   it's just as noisy as probe hits.
+1. **Should `/metrics` also suppress logs?**
 
-2. **`sync.Once` cannot reset after failures.** If the server starts,
-   logs the first successful health check, then enters a failure state
-   (e.g., DB goes down causing `/readyz` 503s), and later recovers, the
-   recovery success will NOT be logged because `sync.Once` already fired.
-   An alternative is `atomic.Bool` that resets on failure and re-logs one
-   success after recovery. Is the simpler `sync.Once` acceptable, or
-   should we use `atomic.Bool` for recovery visibility?
+   **Decision:** Yes. Add `/metrics` to `logSuppressPaths`. Prometheus
+   scrape noise is just as bad as probe noise. Scrape failures will
+   still be logged every time at WARN level.
 
-3. **Log level for health failures.** The plan uses `log.Warn()` for
-   failed health checks. This is a behavior change — currently all
-   requests log at `Info`. If there are log-level-based alerting rules
-   that don't expect `WARN` from the middleware, this could trigger
-   unexpected alerts. Should failures stay at `Info` or move to `Warn`?
+2. **`sync.Once` cannot reset after failures.**
+
+   **Decision:** Use `sync.Once` (no `atomic.Bool`). The health gauges
+   (`spt_healthz_up`, `spt_readyz_up`) serve as the recovery signal —
+   Grafana/Prometheus will show the gauge flip from 0 back to 1. No
+   need to duplicate that information in logs.
+
+3. **Log level for health failures.**
+
+   **Decision:** Failures log at `Warn`. Health check failures are
+   genuinely noteworthy and should stand out from normal request traffic.
