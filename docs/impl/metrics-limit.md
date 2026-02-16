@@ -1,0 +1,258 @@
+# Implementation: Restart-Resilient eBay Quota Metrics
+
+## Context
+
+The `spt_ebay_daily_usage` gauge resets to 0 on every pod restart because
+it's an in-memory counter. Dashboard panels and alert rules that reference
+this metric become unreliable across deploys.
+
+The eBay Browse API does **not** return rate limit headers — verified
+2026-02-16. However, the eBay Developer Analytics API (`getRateLimits`)
+works with our existing app token and returns authoritative quota state
+including `count`, `limit`, `remaining`, `reset`, and `timeWindow`.
+
+We only use `item_summary/search` which falls under the `buy.browse`
+resource. The `buy.browse.item.bulk` resource has its own separate limit
+but we don't use it, so we only track `buy.browse`.
+
+**Polling strategy:** call the Analytics API on startup (to sync after
+pod restarts) and after each ingestion cycle (to keep metrics current).
+This adds ~96 calls/day which is negligible.
+
+See `docs/plans/metrics-limit.md` for the full plan and test results.
+
+---
+
+## Phase 0: Define New Prometheus Metrics
+
+### Tasks
+
+- [x] Add 3 new gauge metrics to `internal/metrics/metrics.go`:
+  - `spt_ebay_rate_limit` (Gauge) — total calls allowed in the current
+    window, from Analytics API `rates[].limit`
+  - `spt_ebay_rate_remaining` (Gauge) — calls remaining in the current
+    window, from Analytics API `rates[].remaining`
+  - `spt_ebay_rate_reset_timestamp` (Gauge) — Unix epoch seconds of
+    when the quota window resets, from Analytics API `rates[].reset`
+  - Group them under a new `// eBay rate limit metrics (from Analytics API).`
+    var block after the existing eBay metrics block
+- [x] Run `make test` and `make lint` to verify no regressions
+
+### Success Criteria
+
+- `make test` passes
+- `make lint` passes
+- New metrics are registered and appear in `/metrics` output (as 0 values
+  until an Analytics API call is made)
+
+### Files
+
+- `internal/metrics/metrics.go`
+
+---
+
+## Phase 1: Add Analytics API Client
+
+### Tasks
+
+- [ ] Add Analytics API URL constant to `internal/ebay/` (new file or
+  in `browse.go`):
+  ```
+  https://api.ebay.com/developer/analytics/v1_beta/rate_limit/
+  ```
+- [ ] Define response types matching the actual production response:
+  ```go
+  type RateLimitResponse struct {
+      RateLimits []RateLimitEntry `json:"rateLimits"`
+  }
+  type RateLimitEntry struct {
+      APIContext  string     `json:"apiContext"`
+      APIName    string     `json:"apiName"`
+      APIVersion string     `json:"apiVersion"`
+      Resources  []Resource `json:"resources"`
+  }
+  type Resource struct {
+      Name  string `json:"name"`
+      Rates []Rate `json:"rates"`
+  }
+  type Rate struct {
+      Count      int64  `json:"count"`
+      Limit      int64  `json:"limit"`
+      Remaining  int64  `json:"remaining"`
+      Reset      string `json:"reset"`
+      TimeWindow int64  `json:"timeWindow"`
+  }
+  ```
+- [ ] Add a `GetRateLimits(ctx context.Context)` method that:
+  - Calls the Analytics API with `api_name=browse&api_context=buy`
+  - Uses the existing `TokenProvider` for auth
+  - Finds the `buy.browse` resource in the response
+  - Returns a struct with `Count`, `Limit`, `Remaining`, `ResetAt`,
+    `TimeWindow`
+  - Returns an error if the API call fails or the resource is not found
+- [ ] Add to the `EbayClient` interface (or create a separate interface
+  if preferred)
+- [ ] Add tests:
+  - `TestGetRateLimits_Success`: mock server returns the production
+    response shape. Verify parsed fields match.
+  - `TestGetRateLimits_ResourceNotFound`: response has no `buy.browse`
+    resource. Verify error returned.
+  - `TestGetRateLimits_APIError`: mock server returns 401/500. Verify
+    error returned.
+- [ ] Run `make test` and `make lint`
+
+### Success Criteria
+
+- Analytics API response is correctly parsed
+- `buy.browse` resource is extracted from the response
+- API errors are handled gracefully
+- All tests pass
+
+### Files
+
+- `internal/ebay/analytics.go` (new)
+- `internal/ebay/analytics_test.go` (new)
+- `internal/ebay/client.go` (interface update, if needed)
+
+---
+
+## Phase 2: Poll on Startup and After Ingestion
+
+### Tasks
+
+- [ ] On startup (in the `serve` command or server initialization):
+  - Call `GetRateLimits()` once
+  - Set the 3 Prometheus gauge metrics from the response
+  - Sync the in-memory `RateLimiter` state
+  - Log the result at Info level
+  - If the call fails, log a warning and continue (don't block startup)
+- [ ] After each ingestion cycle (in the ingestion loop):
+  - Call `GetRateLimits()` once after the cycle completes
+  - Set the 3 Prometheus gauge metrics
+  - Sync the in-memory `RateLimiter` state
+  - Log at Debug level (this happens every 15 min, don't spam logs)
+  - If the call fails, log a warning and continue
+- [ ] Add a helper method that encapsulates "call analytics, set metrics,
+  sync rate limiter" to avoid duplication between startup and post-cycle
+- [ ] Add tests:
+  - Verify metrics are set after a successful analytics call
+  - Verify rate limiter state is synced after analytics call
+  - Verify startup continues if analytics call fails
+- [ ] Run `make test` and `make lint`
+
+### Success Criteria
+
+- On startup, metrics reflect eBay's actual quota state
+- After each ingestion cycle, metrics are updated
+- Failures don't block startup or ingestion
+- All tests pass
+
+### Files
+
+- `cmd/server-price-tracker/serve.go` (or equivalent startup path)
+- `internal/engine/ingest.go` (or equivalent ingestion loop)
+- `internal/ebay/analytics.go` (helper method)
+
+---
+
+## Phase 3: Sync Rate Limiter with Analytics State
+
+### Tasks
+
+- [ ] Add a `Sync(count, limit int64, resetAt time.Time)` method to
+  `RateLimiter` that updates the internal state:
+  - Set `r.maxDaily = limit` (in case eBay changes the limit)
+  - Set `r.daily.Store(count)` (eBay's actual usage count)
+  - Set `r.resetAt = resetAt` under the mutex (eBay's actual reset time)
+  - Set `r.windowStart = resetAt.Add(-24 * time.Hour)` to keep the
+    window consistent
+- [ ] Add tests to `internal/ebay/ratelimit_test.go`:
+  - `TestRateLimiter_Sync`: call Sync with known values, verify
+    `DailyCount()`, `MaxDaily()`, `Remaining()`, and `ResetAt()` all
+    reflect the synced state
+  - `TestRateLimiter_Sync_UpdatesLimit`: verify that if eBay reports a
+    different limit (e.g., 10000), `MaxDaily()` updates accordingly
+  - `TestRateLimiter_Sync_ThenWait`: sync with count=100, then call
+    Wait() and verify the count increments from the synced baseline
+- [ ] Run `make test` and `make lint`
+
+### Success Criteria
+
+- After `Sync()`, the rate limiter's state matches eBay's reported values
+- The rate limiter continues to work correctly after sync
+- All existing rate limiter tests continue to pass
+
+### Files
+
+- `internal/ebay/ratelimit.go`
+- `internal/ebay/ratelimit_test.go`
+
+---
+
+## Phase 4: Update Dashboard Panels and Alert Rules
+
+### Tasks
+
+- [ ] Update `tools/dashgen/panels/overview.go`:
+  - `QuotaBar`: change query to use analytics-derived metrics:
+    `(spt_ebay_rate_limit - spt_ebay_rate_remaining) / spt_ebay_rate_limit * 100`
+  - `DailyUsageStat`: change query to:
+    `spt_ebay_rate_limit - spt_ebay_rate_remaining`
+- [ ] Update `tools/dashgen/panels/ebay.go`:
+  - `DailyUsage` timeseries: change from `spt_ebay_daily_usage` to
+    `spt_ebay_rate_limit - spt_ebay_rate_remaining` for the usage line,
+    and add a second query `spt_ebay_rate_limit` for the limit line
+  - Add a new `ResetCountdown()` stat panel showing time until reset:
+    `spt_ebay_rate_reset_timestamp - time()` with unit `s`
+- [ ] Update `tools/dashgen/rules/alerts.go`:
+  - `SptEbayQuotaHigh`: change expr from `spt_ebay_daily_usage > 4000`
+    to `spt_ebay_rate_remaining < 1000` (less than 1000 calls remaining)
+- [ ] Update `tools/dashgen/config.go`:
+  - Add the 3 new metrics to `KnownMetrics`
+- [ ] Regenerate artifacts: `cd tools/dashgen && go run .`
+- [ ] Run `make dashboards-test` and `make dashboards-validate`
+
+### Success Criteria
+
+- Dashboard panels show eBay's authoritative quota data
+- Alert rules fire based on eBay's reported remaining calls
+- All dashgen tests pass
+
+### Files
+
+- `tools/dashgen/panels/overview.go`
+- `tools/dashgen/panels/ebay.go`
+- `tools/dashgen/rules/alerts.go`
+- `tools/dashgen/config.go`
+- `deploy/grafana/data/spt-overview.json` (regenerated)
+- `deploy/prometheus/spt-alerts.yaml` (regenerated)
+
+---
+
+## Phase 5: Deprecate `spt_ebay_daily_usage`
+
+### Tasks
+
+- [ ] In `internal/metrics/metrics.go`, update the `EbayDailyUsage` Help
+  text to include `(DEPRECATED)`
+- [ ] Remove `spt_ebay_daily_usage` from `KnownMetrics` in
+  `tools/dashgen/config.go`
+- [ ] Verify no dashboard panels or alert rules reference
+  `spt_ebay_daily_usage`
+- [ ] Regenerate artifacts: `cd tools/dashgen && go run .`
+- [ ] Run full test suite: `make test && make lint && make dashboards-test`
+
+### Success Criteria
+
+- Metric is marked deprecated but still registered (no breaking change)
+- No dashboard or alert references the deprecated metric
+- All tests pass
+
+### Files
+
+- `internal/metrics/metrics.go`
+- `tools/dashgen/config.go`
+- `deploy/grafana/data/spt-overview.json` (regenerated)
+
+See `docs/plans/metrics-limit.md` for full test results, raw API
+responses, and HTTPie commands.

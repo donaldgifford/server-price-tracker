@@ -108,6 +108,27 @@ var (
 	})
 )
 
+// eBay rate limit metrics (from Analytics API).
+var (
+	EbayRateLimit = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "ebay_rate_limit",
+		Help:      "Total eBay API calls allowed in the current quota window.",
+	})
+
+	EbayRateRemaining = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "ebay_rate_remaining",
+		Help:      "eBay API calls remaining in the current quota window.",
+	})
+
+	EbayRateResetTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "ebay_rate_reset_timestamp",
+		Help:      "Unix epoch seconds when the eBay API quota window resets.",
+	})
+)
+
 // Alert metrics.
 var (
 	AlertsFiredTotal = promauto.NewCounter(prometheus.CounterOpts{
