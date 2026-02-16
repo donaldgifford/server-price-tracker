@@ -139,14 +139,14 @@ See `docs/plans/metrics-limit.md` for the full plan and test results.
 
 ### Tasks
 
-- [ ] Add a `Sync(count, limit int64, resetAt time.Time)` method to
+- [x] Add a `Sync(count, limit int64, resetAt time.Time)` method to
   `RateLimiter` that updates the internal state:
   - Set `r.maxDaily = limit` (in case eBay changes the limit)
   - Set `r.daily.Store(count)` (eBay's actual usage count)
   - Set `r.resetAt = resetAt` under the mutex (eBay's actual reset time)
   - Set `r.windowStart = resetAt.Add(-24 * time.Hour)` to keep the
     window consistent
-- [ ] Add tests to `internal/ebay/ratelimit_test.go`:
+- [x] Add tests to `internal/ebay/ratelimit_test.go`:
   - `TestRateLimiter_Sync`: call Sync with known values, verify
     `DailyCount()`, `MaxDaily()`, `Remaining()`, and `ResetAt()` all
     reflect the synced state
@@ -154,7 +154,7 @@ See `docs/plans/metrics-limit.md` for the full plan and test results.
     different limit (e.g., 10000), `MaxDaily()` updates accordingly
   - `TestRateLimiter_Sync_ThenWait`: sync with count=100, then call
     Wait() and verify the count increments from the synced baseline
-- [ ] Run `make test` and `make lint`
+- [x] Run `make test` and `make lint`
 
 ### Success Criteria
 

@@ -105,6 +105,19 @@ func (r *RateLimiter) ResetAt() time.Time {
 	return r.resetAt
 }
 
+// Sync updates the rate limiter's internal state from authoritative eBay
+// Analytics API data. This aligns the in-memory state with eBay's actual
+// quota window (which resets at midnight Pacific, not on a rolling 24h basis).
+func (r *RateLimiter) Sync(count, limit int64, resetAt time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.maxDaily = limit
+	r.daily.Store(count)
+	r.resetAt = resetAt
+	r.windowStart = resetAt.Add(-24 * time.Hour)
+}
+
 func (r *RateLimiter) checkDailyReset() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
