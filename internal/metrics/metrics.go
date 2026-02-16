@@ -24,6 +24,21 @@ var (
 	}, []string{"method", "path", "status"})
 )
 
+// Health metrics.
+var (
+	HealthzUp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "healthz_up",
+		Help:      "Health check status (1 = ok, 0 = failing).",
+	})
+
+	ReadyzUp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "readyz_up",
+		Help:      "Readiness check status (1 = ready, 0 = not ready).",
+	})
+)
+
 // Ingestion metrics.
 var (
 	IngestionListingsTotal = promauto.NewCounter(prometheus.CounterOpts{
