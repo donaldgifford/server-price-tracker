@@ -33,8 +33,10 @@ go.work.sum
 
 # Build artifacts
 bin/
+build/
 dist/
 /server-price-tracker
+tools/dashgen/dashgen
 *.log
 *.log.*
 .log.meta
