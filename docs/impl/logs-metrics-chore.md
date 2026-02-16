@@ -28,14 +28,14 @@ See `docs/plans/logs-metrics-chore.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Add health status gauges to `internal/metrics/metrics.go`:
+- [x] Add health status gauges to `internal/metrics/metrics.go`:
   - `HealthzUp` — Gauge, `spt_healthz_up`,
     help: `"Health check status (1 = ok, 0 = failing)."`
   - `ReadyzUp` — Gauge, `spt_readyz_up`,
     help: `"Readiness check status (1 = ready, 0 = not ready)."`
   - Place in a new `// Health metrics.` var block after the existing
     HTTP metrics block
-- [ ] Run `make test && make lint`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 
