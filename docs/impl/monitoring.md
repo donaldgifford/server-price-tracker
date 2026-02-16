@@ -150,7 +150,7 @@ See `docs/plans/monitoring.md` for the high-level design and layout.
 
 ### Tasks
 
-- [ ] Create `tools/dashgen/panels/helpers.go`:
+- [x] Create `tools/dashgen/panels/helpers.go`:
   - `DSRef() dashboard.DataSourceRef` — returns
     `{Type: "prometheus", UID: "${datasource}"}`
   - `PromQuery(expr, legend string) *prometheus.Dataquery` — builds a
@@ -166,7 +166,7 @@ See `docs/plans/monitoring.md` for the high-level design and layout.
     for health, warning thresholds)
   - Panel ID counter — auto-incrementing `uint32` to assign unique IDs
     (can use a package-level counter or accept an `*idGen` parameter)
-- [ ] Create `tools/dashgen/panels/overview.go`:
+- [x] Create `tools/dashgen/panels/overview.go`:
   - `HealthzStat() cog.Builder[dashboard.Panel]` — stat panel showing
     `spt_healthz_up`, green=1/red=0 thresholds
   - `ReadyzStat() cog.Builder[dashboard.Panel]` — stat panel showing
@@ -177,7 +177,7 @@ See `docs/plans/monitoring.md` for the high-level design and layout.
   - `UptimeStat() cog.Builder[dashboard.Panel]` — stat showing
     `time() - process_start_time_seconds{job="server-price-tracker"}` or
     similar uptime query
-- [ ] Create `tools/dashgen/panels/http.go`:
+- [x] Create `tools/dashgen/panels/http.go`:
   - `RequestRate() cog.Builder[dashboard.Panel]` — timeseries,
     `spt:http_requests:rate5m`, unit: reqps
   - `LatencyPercentiles() cog.Builder[dashboard.Panel]` — timeseries with
@@ -186,34 +186,34 @@ See `docs/plans/monitoring.md` for the high-level design and layout.
     etc.
   - `ErrorRate() cog.Builder[dashboard.Panel]` — timeseries,
     `spt:http_errors:rate5m / spt:http_requests:rate5m * 100`, unit: percent
-- [ ] Create `tools/dashgen/panels/ebay.go`:
+- [x] Create `tools/dashgen/panels/ebay.go`:
   - `APICallsRate() cog.Builder[dashboard.Panel]` — timeseries,
     `spt:ebay_api_calls:rate5m`
   - `DailyUsage() cog.Builder[dashboard.Panel]` — timeseries,
     `spt_ebay_daily_usage` with a constant threshold line at 5000
   - `LimitHits() cog.Builder[dashboard.Panel]` — stat,
     `increase(spt_ebay_daily_limit_hits_total[24h])`
-- [ ] Create `tools/dashgen/panels/ingestion.go`:
+- [x] Create `tools/dashgen/panels/ingestion.go`:
   - `ListingsRate() cog.Builder[dashboard.Panel]` — timeseries,
     `spt:ingestion_listings:rate5m * 60` (listings/min)
   - `IngestionErrors() cog.Builder[dashboard.Panel]` — timeseries,
     `spt:ingestion_errors:rate5m * 60` (errors/min)
   - `CycleDuration() cog.Builder[dashboard.Panel]` — timeseries,
     `histogram_quantile(0.95, rate(spt_ingestion_duration_seconds_bucket[5m]))`
-- [ ] Create `tools/dashgen/panels/extraction.go`:
+- [x] Create `tools/dashgen/panels/extraction.go`:
   - `ExtractionDuration() cog.Builder[dashboard.Panel]` — timeseries with
     p50 and p95 quantiles from `spt_extraction_duration_seconds`
   - `ExtractionFailures() cog.Builder[dashboard.Panel]` — timeseries,
     `spt:extraction_failures:rate5m`
-- [ ] Create `tools/dashgen/panels/scoring.go`:
+- [x] Create `tools/dashgen/panels/scoring.go`:
   - `ScoreDistribution() cog.Builder[dashboard.Panel]` — bar gauge or
     heatmap showing `spt_scoring_distribution_bucket` histogram
-- [ ] Create `tools/dashgen/panels/alerts.go`:
+- [x] Create `tools/dashgen/panels/alerts.go`:
   - `AlertsRate() cog.Builder[dashboard.Panel]` — timeseries,
     `rate(spt_alerts_fired_total[5m])`
   - `NotificationFailures() cog.Builder[dashboard.Panel]` — stat,
     `increase(spt_notification_failures_total[24h])`
-- [ ] Verify: `cd tools/dashgen && go build ./...`
+- [x] Verify: `cd tools/dashgen && go build ./...`
 
 ### Success Criteria
 
