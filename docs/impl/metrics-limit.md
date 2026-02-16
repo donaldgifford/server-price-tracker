@@ -180,24 +180,21 @@ See `docs/plans/metrics-limit.md` for the full plan and test results.
 
 ### Tasks
 
-- [ ] Update `tools/dashgen/panels/overview.go`:
-  - `QuotaBar`: change query to use analytics-derived metrics:
+- [x] Update `tools/dashgen/panels/overview.go`:
+  - `QuotaGauge`: changed query to:
     `(spt_ebay_rate_limit - spt_ebay_rate_remaining) / spt_ebay_rate_limit * 100`
-  - `DailyUsageStat`: change query to:
-    `spt_ebay_rate_limit - spt_ebay_rate_remaining`
-- [ ] Update `tools/dashgen/panels/ebay.go`:
-  - `DailyUsage` timeseries: change from `spt_ebay_daily_usage` to
-    `spt_ebay_rate_limit - spt_ebay_rate_remaining` for the usage line,
-    and add a second query `spt_ebay_rate_limit` for the limit line
-  - Add a new `ResetCountdown()` stat panel showing time until reset:
+- [x] Update `tools/dashgen/panels/ebay.go`:
+  - `DailyUsage` timeseries: changed to
+    `spt_ebay_rate_limit - spt_ebay_rate_remaining` for usage line,
+    plus `spt_ebay_rate_limit` for limit line
+  - Added `ResetCountdown()` stat panel:
     `spt_ebay_rate_reset_timestamp - time()` with unit `s`
-- [ ] Update `tools/dashgen/rules/alerts.go`:
-  - `SptEbayQuotaHigh`: change expr from `spt_ebay_daily_usage > 4000`
-    to `spt_ebay_rate_remaining < 1000` (less than 1000 calls remaining)
-- [ ] Update `tools/dashgen/config.go`:
-  - Add the 3 new metrics to `KnownMetrics`
-- [ ] Regenerate artifacts: `cd tools/dashgen && go run .`
-- [ ] Run `make dashboards-test` and `make dashboards-validate`
+- [x] Update `tools/dashgen/rules/alerts.go`:
+  - `SptEbayQuotaHigh`: changed expr to `spt_ebay_rate_remaining < 1000`
+- [x] Update `tools/dashgen/config.go`:
+  - Added 3 new metrics to `KnownMetrics`
+- [x] Regenerate artifacts: `cd tools/dashgen && go run .`
+- [x] Run `make test` and `make lint` — all pass
 
 ### Success Criteria
 

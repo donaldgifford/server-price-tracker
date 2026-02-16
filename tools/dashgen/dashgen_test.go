@@ -63,7 +63,7 @@ func TestBuildOverviewDashboard(t *testing.T) {
 			totalPanels += len(p.RowPanel.Panels)
 		}
 	}
-	assert.Equal(t, 18, totalPanels)
+	assert.Equal(t, 19, totalPanels)
 
 	// Validate PromQL and metrics.
 	result := validate.Dashboard(dash, KnownMetrics)
@@ -131,7 +131,12 @@ func TestAlertRules(t *testing.T) {
 		assert.NotEmpty(t, rule.Expr)
 		assert.NotEmpty(t, rule.Labels["severity"], "alert %s missing severity", rule.Alert)
 		assert.NotEmpty(t, rule.Annotations["summary"], "alert %s missing summary", rule.Alert)
-		assert.NotEmpty(t, rule.Annotations["description"], "alert %s missing description", rule.Alert)
+		assert.NotEmpty(
+			t,
+			rule.Annotations["description"],
+			"alert %s missing description",
+			rule.Alert,
+		)
 	}
 }
 

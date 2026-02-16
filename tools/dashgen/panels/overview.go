@@ -1,8 +1,6 @@
 package panels
 
 import (
-	"fmt"
-
 	"github.com/grafana/grafana-foundation-sdk/go/common"
 	"github.com/grafana/grafana-foundation-sdk/go/gauge"
 	"github.com/grafana/grafana-foundation-sdk/go/stat"
@@ -41,12 +39,12 @@ func ReadyzStat() *stat.PanelBuilder {
 }
 
 // QuotaGauge returns a gauge panel showing eBay API daily usage as a
-// percentage of the limit.
+// percentage of the limit, derived from the Analytics API metrics.
 func QuotaGauge() *gauge.PanelBuilder {
-	expr := fmt.Sprintf("spt_ebay_daily_usage / %d * 100", EbayDailyLimit)
+	expr := "(spt_ebay_rate_limit - spt_ebay_rate_remaining) / spt_ebay_rate_limit * 100"
 	return gauge.NewPanelBuilder().
 		Title("eBay Quota %").
-		Description("Daily eBay API usage as percentage of limit").
+		Description("Daily eBay API usage as percentage of limit (from Analytics API)").
 		Datasource(DSRef()).
 		Height(StatHeight).
 		Span(StatWidth).

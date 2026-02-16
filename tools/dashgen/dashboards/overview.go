@@ -36,6 +36,7 @@ func BuildOverview() *dashboard.DashboardBuilder {
 	b.WithRow(dashboard.NewRowBuilder("eBay API").
 		WithPanel(panels.APICallsRate()).
 		WithPanel(panels.DailyUsage()).
+		WithPanel(panels.ResetCountdown()).
 		WithPanel(panels.LimitHits()))
 
 	// Row 4: Ingestion.

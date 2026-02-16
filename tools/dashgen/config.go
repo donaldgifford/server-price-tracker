@@ -14,8 +14,8 @@ var KnownMetrics = map[string]bool{
 	"spt_readyz_up":  true,
 
 	// Ingestion metrics.
-	"spt_ingestion_listings_total": true,
-	"spt_ingestion_errors_total":   true,
+	"spt_ingestion_listings_total":   true,
+	"spt_ingestion_errors_total":     true,
 	"spt_ingestion_duration_seconds": true,
 
 	// Extraction metrics.
@@ -26,25 +26,30 @@ var KnownMetrics = map[string]bool{
 	"spt_scoring_distribution": true,
 
 	// eBay API metrics.
-	"spt_ebay_api_calls_total":       true,
-	"spt_ebay_daily_usage":           true,
+	"spt_ebay_api_calls_total":        true,
+	"spt_ebay_daily_usage":            true,
 	"spt_ebay_daily_limit_hits_total": true,
+
+	// eBay rate limit metrics (from Analytics API).
+	"spt_ebay_rate_limit":           true,
+	"spt_ebay_rate_remaining":       true,
+	"spt_ebay_rate_reset_timestamp": true,
 
 	// Alert metrics.
 	"spt_alerts_fired_total":          true,
 	"spt_notification_failures_total": true,
 
 	// Recording rules.
-	"spt:http_requests:rate5m":        true,
-	"spt:http_errors:rate5m":          true,
-	"spt:ingestion_listings:rate5m":   true,
-	"spt:ingestion_errors:rate5m":     true,
-	"spt:extraction_failures:rate5m":  true,
-	"spt:ebay_api_calls:rate5m":       true,
+	"spt:http_requests:rate5m":       true,
+	"spt:http_errors:rate5m":         true,
+	"spt:ingestion_listings:rate5m":  true,
+	"spt:ingestion_errors:rate5m":    true,
+	"spt:extraction_failures:rate5m": true,
+	"spt:ebay_api_calls:rate5m":      true,
 
 	// Standard Prometheus metrics referenced in dashboards.
-	"up":                          true,
-	"process_start_time_seconds":  true,
+	"up":                         true,
+	"process_start_time_seconds": true,
 }
 
 // Config controls which artifacts the generator produces and where they go.

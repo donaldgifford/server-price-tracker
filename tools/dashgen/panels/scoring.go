@@ -1,8 +1,8 @@
 package panels
 
 import (
-	"github.com/grafana/grafana-foundation-sdk/go/common"
 	"github.com/grafana/grafana-foundation-sdk/go/bargauge"
+	"github.com/grafana/grafana-foundation-sdk/go/common"
 )
 
 // ScoreDistribution returns a bar gauge panel showing the distribution of

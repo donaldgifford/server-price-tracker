@@ -35,15 +35,18 @@ func LatencyPercentiles() *timeseries.PanelBuilder {
 		Span(TSWidth).
 		WithTarget(PromQuery(
 			`histogram_quantile(0.50, sum(rate(spt_http_request_duration_seconds_bucket[5m])) by (le))`,
-			"p50", "A",
+			"p50",
+			"A",
 		)).
 		WithTarget(PromQuery(
 			`histogram_quantile(0.95, sum(rate(spt_http_request_duration_seconds_bucket[5m])) by (le))`,
-			"p95", "B",
+			"p95",
+			"B",
 		)).
 		WithTarget(PromQuery(
 			`histogram_quantile(0.99, sum(rate(spt_http_request_duration_seconds_bucket[5m])) by (le))`,
-			"p99", "C",
+			"p99",
+			"C",
 		)).
 		Unit("s").
 		FillOpacity(10).
