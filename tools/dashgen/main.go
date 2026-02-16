@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/donaldgifford/server-price-tracker/tools/dashgen/dashboards"
 	"github.com/donaldgifford/server-price-tracker/tools/dashgen/rules"
 )
 
@@ -40,12 +42,45 @@ func run(cfg Config, validateOnly bool) error {
 		return nil
 	}
 
+	if cfg.DashboardEnabled {
+		if err := generateDashboard(cfg); err != nil {
+			return fmt.Errorf("generating dashboard: %w", err)
+		}
+	}
+
 	if cfg.RulesEnabled {
 		if err := generateRules(cfg); err != nil {
 			return fmt.Errorf("generating rules: %w", err)
 		}
 	}
 
+	return nil
+}
+
+func generateDashboard(cfg Config) error {
+	grafanaDir := filepath.Join(cfg.OutputDir, "grafana", "data")
+	if err := os.MkdirAll(grafanaDir, 0o755); err != nil {
+		return fmt.Errorf("creating grafana dir: %w", err)
+	}
+
+	builder := dashboards.BuildOverview()
+	dash, err := builder.Build()
+	if err != nil {
+		return fmt.Errorf("building dashboard: %w", err)
+	}
+
+	data, err := json.MarshalIndent(dash, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling dashboard JSON: %w", err)
+	}
+	data = append(data, '\n')
+
+	path := filepath.Join(grafanaDir, "spt-overview.json")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+
+	fmt.Printf("wrote %s\n", path)
 	return nil
 }
 

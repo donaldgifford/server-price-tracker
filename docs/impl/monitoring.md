@@ -239,7 +239,7 @@ See `docs/plans/monitoring.md` for the high-level design and layout.
 
 ### Tasks
 
-- [ ] Create `tools/dashgen/dashboards/overview.go`:
+- [x] Create `tools/dashgen/dashboards/overview.go`:
   - `BuildOverview() *dashboard.DashboardBuilder`
   - Dashboard properties:
     - UID: `spt-overview`
@@ -260,7 +260,7 @@ See `docs/plans/monitoring.md` for the high-level design and layout.
     7. **Alerts** — AlertsRate, NotificationFailures
   - Panel grid positioning: use `GridPos` with appropriate `H`, `W`, `X`,
     `Y` values for a 24-column layout
-- [ ] Wire dashboard build + JSON write into `main.go`:
+- [x] Wire dashboard build + JSON write into `main.go`:
   - Call `dashboards.BuildOverview()`
   - Build the dashboard via `.Build()`
   - Marshal to JSON with `json.MarshalIndent` (2-space indent)
@@ -268,7 +268,7 @@ See `docs/plans/monitoring.md` for the high-level design and layout.
     `_generated` key or rely on the file being in a `data/` directory)
   - Write to `<outputDir>/grafana/data/spt-overview.json`
   - Create `deploy/grafana/data/` directory if it doesn't exist
-- [ ] Run `cd tools/dashgen && go run .` and inspect JSON output
+- [x] Run `cd tools/dashgen && go run .` and inspect JSON output
 - [ ] Manually import `deploy/grafana/data/spt-overview.json` into a
   Grafana instance to verify it loads without errors (optional manual check)
 
