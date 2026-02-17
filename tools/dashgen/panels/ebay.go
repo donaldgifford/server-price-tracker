@@ -33,9 +33,12 @@ func DailyUsage() *timeseries.PanelBuilder {
 		Height(TSHeight).
 		Span(8).
 		WithTarget(PromQuery(
-			`spt_ebay_rate_limit - spt_ebay_rate_remaining`, "usage", "A",
+			`spt_ebay_rate_limit{job="server-price-tracker"} - spt_ebay_rate_remaining{job="server-price-tracker"}`,
+			"usage", "A",
 		)).
-		WithTarget(PromQuery(`spt_ebay_rate_limit`, "limit", "B")).
+		WithTarget(PromQuery(
+			`spt_ebay_rate_limit{job="server-price-tracker"}`, "limit", "B",
+		)).
 		FillOpacity(10).
 		LineWidth(2).
 		Thresholds(ThresholdsGreenOnly()).
@@ -52,7 +55,7 @@ func ResetCountdown() *stat.PanelBuilder {
 		Datasource(DSRef()).
 		Height(TSHeight).
 		Span(8).
-		WithTarget(PromQuery(`spt_ebay_rate_reset_timestamp - time()`, "", "A")).
+		WithTarget(PromQuery(`spt_ebay_rate_reset_timestamp{job="server-price-tracker"} - time()`, "", "A")).
 		Unit("s").
 		Thresholds(ThresholdsGreenOnly()).
 		ColorScheme(ColorSchemeThresholds()).
@@ -69,7 +72,7 @@ func LimitHits() *stat.PanelBuilder {
 		Datasource(DSRef()).
 		Height(TSHeight).
 		Span(8).
-		WithTarget(PromQuery(`increase(spt_ebay_daily_limit_hits_total[24h])`, "", "A")).
+		WithTarget(PromQuery(`increase(spt_ebay_daily_limit_hits_total{job="server-price-tracker"}[24h])`, "", "A")).
 		Thresholds(ThresholdsGreenYellowRed(1, 3)).
 		ColorScheme(ColorSchemeThresholds()).
 		ColorMode(common.BigValueColorModeBackground).

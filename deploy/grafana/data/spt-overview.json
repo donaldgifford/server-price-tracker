@@ -32,7 +32,7 @@
           "type": "stat",
           "targets": [
             {
-              "expr": "spt_healthz_up",
+              "expr": "spt_healthz_up{job=\"server-price-tracker\"}",
               "legendFormat": "",
               "refId": "A"
             }
@@ -90,7 +90,7 @@
           "type": "stat",
           "targets": [
             {
-              "expr": "spt_readyz_up",
+              "expr": "spt_readyz_up{job=\"server-price-tracker\"}",
               "legendFormat": "",
               "refId": "A"
             }
@@ -148,7 +148,7 @@
           "type": "gauge",
           "targets": [
             {
-              "expr": "(spt_ebay_rate_limit - spt_ebay_rate_remaining) / spt_ebay_rate_limit * 100",
+              "expr": "(spt_ebay_rate_limit{job=\"server-price-tracker\"} - spt_ebay_rate_remaining{job=\"server-price-tracker\"}) / spt_ebay_rate_limit{job=\"server-price-tracker\"} * 100",
               "legendFormat": "",
               "refId": "A"
             }
@@ -331,17 +331,17 @@
           "type": "timeseries",
           "targets": [
             {
-              "expr": "histogram_quantile(0.50, sum(rate(spt_http_request_duration_seconds_bucket[5m])) by (le))",
+              "expr": "histogram_quantile(0.50, sum(rate(spt_http_request_duration_seconds_bucket{job=\"server-price-tracker\"}[5m])) by (le))",
               "legendFormat": "p50",
               "refId": "A"
             },
             {
-              "expr": "histogram_quantile(0.95, sum(rate(spt_http_request_duration_seconds_bucket[5m])) by (le))",
+              "expr": "histogram_quantile(0.95, sum(rate(spt_http_request_duration_seconds_bucket{job=\"server-price-tracker\"}[5m])) by (le))",
               "legendFormat": "p95",
               "refId": "B"
             },
             {
-              "expr": "histogram_quantile(0.99, sum(rate(spt_http_request_duration_seconds_bucket[5m])) by (le))",
+              "expr": "histogram_quantile(0.99, sum(rate(spt_http_request_duration_seconds_bucket{job=\"server-price-tracker\"}[5m])) by (le))",
               "legendFormat": "p99",
               "refId": "C"
             }
@@ -519,12 +519,12 @@
           "type": "timeseries",
           "targets": [
             {
-              "expr": "spt_ebay_rate_limit - spt_ebay_rate_remaining",
+              "expr": "spt_ebay_rate_limit{job=\"server-price-tracker\"} - spt_ebay_rate_remaining{job=\"server-price-tracker\"}",
               "legendFormat": "usage",
               "refId": "A"
             },
             {
-              "expr": "spt_ebay_rate_limit",
+              "expr": "spt_ebay_rate_limit{job=\"server-price-tracker\"}",
               "legendFormat": "limit",
               "refId": "B"
             }
@@ -570,7 +570,7 @@
           "type": "stat",
           "targets": [
             {
-              "expr": "spt_ebay_rate_reset_timestamp - time()",
+              "expr": "spt_ebay_rate_reset_timestamp{job=\"server-price-tracker\"} - time()",
               "legendFormat": "",
               "refId": "A"
             }
@@ -625,7 +625,7 @@
           "type": "stat",
           "targets": [
             {
-              "expr": "increase(spt_ebay_daily_limit_hits_total[24h])",
+              "expr": "increase(spt_ebay_daily_limit_hits_total{job=\"server-price-tracker\"}[24h])",
               "legendFormat": "",
               "refId": "A"
             }
@@ -801,7 +801,7 @@
           "type": "timeseries",
           "targets": [
             {
-              "expr": "histogram_quantile(0.95, sum(rate(spt_ingestion_duration_seconds_bucket[5m])) by (le))",
+              "expr": "histogram_quantile(0.95, sum(rate(spt_ingestion_duration_seconds_bucket{job=\"server-price-tracker\"}[5m])) by (le))",
               "legendFormat": "p95",
               "refId": "A"
             }
@@ -862,12 +862,12 @@
           "type": "timeseries",
           "targets": [
             {
-              "expr": "histogram_quantile(0.50, sum(rate(spt_extraction_duration_seconds_bucket[5m])) by (le))",
+              "expr": "histogram_quantile(0.50, sum(rate(spt_extraction_duration_seconds_bucket{job=\"server-price-tracker\"}[5m])) by (le))",
               "legendFormat": "p50",
               "refId": "A"
             },
             {
-              "expr": "histogram_quantile(0.95, sum(rate(spt_extraction_duration_seconds_bucket[5m])) by (le))",
+              "expr": "histogram_quantile(0.95, sum(rate(spt_extraction_duration_seconds_bucket{job=\"server-price-tracker\"}[5m])) by (le))",
               "legendFormat": "p95",
               "refId": "B"
             }
@@ -997,7 +997,7 @@
           "type": "bargauge",
           "targets": [
             {
-              "expr": "sum(increase(spt_scoring_distribution_bucket[1h])) by (le)",
+              "expr": "sum(increase(spt_scoring_distribution_bucket{job=\"server-price-tracker\"}[1h])) by (le)",
               "legendFormat": "{{le}}",
               "refId": "A"
             }
@@ -1073,7 +1073,7 @@
           "type": "timeseries",
           "targets": [
             {
-              "expr": "rate(spt_alerts_fired_total[5m])",
+              "expr": "rate(spt_alerts_fired_total{job=\"server-price-tracker\"}[5m])",
               "legendFormat": "alerts/s",
               "refId": "A"
             }
@@ -1119,7 +1119,7 @@
           "type": "stat",
           "targets": [
             {
-              "expr": "increase(spt_notification_failures_total[24h])",
+              "expr": "increase(spt_notification_failures_total{job=\"server-price-tracker\"}[24h])",
               "legendFormat": "",
               "refId": "A"
             }
