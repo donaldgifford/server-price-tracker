@@ -85,3 +85,22 @@ func (c *Client) Rescore(ctx context.Context) (int, error) {
 	}
 	return resp.Scored, nil
 }
+
+// ReExtract triggers re-extraction of listings with incomplete data.
+func (c *Client) ReExtract(ctx context.Context, componentType string, limit int) (int, error) {
+	body := map[string]any{}
+	if componentType != "" {
+		body["component_type"] = componentType
+	}
+	if limit > 0 {
+		body["limit"] = limit
+	}
+
+	var resp struct {
+		ReExtracted int `json:"re_extracted"`
+	}
+	if err := c.post(ctx, "/api/v1/reextract", body, &resp); err != nil {
+		return 0, err
+	}
+	return resp.ReExtracted, nil
+}

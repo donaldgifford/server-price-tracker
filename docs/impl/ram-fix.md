@@ -308,53 +308,11 @@ See `docs/plans/ram-fix.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Modify `internal/api/client/listings.go` — add:
-  ```go
-  // ReExtract triggers re-extraction of listings with incomplete data.
-  func (c *Client) ReExtract(ctx context.Context, componentType string, limit int) (int, error) {
-      body := map[string]any{}
-      if componentType != "" {
-          body["component_type"] = componentType
-      }
-      if limit > 0 {
-          body["limit"] = limit
-      }
-      var resp struct {
-          ReExtracted int `json:"re_extracted"`
-      }
-      if err := c.post(ctx, "/api/v1/reextract", body, &resp); err != nil {
-          return 0, err
-      }
-      return resp.ReExtracted, nil
-  }
-  ```
-- [ ] Create `cmd/spt/cmd/reextract.go`:
-  ```go
-  func reextractCmd() *cobra.Command {
-      cmd := &cobra.Command{
-          Use:   "reextract",
-          Short: "Re-extract listings with incomplete data",
-          Long:  "Re-runs LLM extraction on listings with quality issues\n" +
-              "(e.g., missing RAM speed from PC module numbers).",
-          Example: `  spt reextract
-    spt reextract --type ram
-    spt reextract --type ram --limit 50`,
-          RunE: func(cmd *cobra.Command, _ []string) error {
-              // Get flags
-              // Call c.ReExtract(ctx, componentType, limit)
-              // Print "Re-extracted N listings."
-          },
-      }
-      cmd.Flags().String("type", "", "component type filter (e.g., ram, drive, cpu)")
-      cmd.Flags().Int("limit", 0, "max listings to process (default 100)")
-      return cmd
-  }
-  ```
-  Follow the `rescoreCmd` pattern at `cmd/spt/cmd/rescore.go`.
-- [ ] Modify `cmd/spt/cmd/root.go` — add `rootCmd.AddCommand(reextractCmd())`
-  in `init()` at line 57.
-- [ ] Run `make build` to verify both binaries compile
-- [ ] Run `make lint`
+- [x] Modify `internal/api/client/listings.go` — add `ReExtract` method
+- [x] Create `cmd/spt/cmd/reextract.go` with `--type` and `--limit` flags
+- [x] Modify `cmd/spt/cmd/root.go` — register reextract command
+- [x] Run `make build` to verify both binaries compile
+- [x] Run `make lint`
 
 ### Success Criteria
 
