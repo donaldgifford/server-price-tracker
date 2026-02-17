@@ -18,7 +18,9 @@ func searchCmd() *cobra.Command {
 		Use:   "search <query>",
 		Short: "Search eBay for server hardware listings",
 		Long:  "Sends a search request to the API server and displays raw eBay results.",
-		Args:  cobra.ExactArgs(1),
+		Example: `  spt search "DDR4 ECC 32GB RDIMM"
+  spt search "Dell PowerEdge R630" --limit 25`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSearch(cmd, args[0], searchLimit)
 		},

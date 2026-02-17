@@ -16,8 +16,10 @@ func extractCmd() *cobra.Command {
 		Use:   "extract <title>",
 		Short: "Extract structured attributes from a listing title",
 		Long:  "Sends a title to the API server for LLM-based classification and attribute extraction.",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runExtract,
+		Example: `  spt extract "Samsung 32GB DDR4 2666MHz ECC REG M393A4K40CB2-CTD"
+  spt extract "Dell PowerEdge R630 2x Xeon E5-2680 v4 128GB 8x 2.5in"`,
+		Args: cobra.ExactArgs(1),
+		RunE: runExtract,
 	}
 }
 

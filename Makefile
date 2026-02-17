@@ -9,6 +9,7 @@
 #   - makefiles/helm.mk      - helm targets
 #   - makefiles/docs.mk      - docs and task management
 #   - makefiles/dashgen.mk   - Grafana dashboard and Prometheus rules generation
+#   - makefiles/docgen.mk    - CLI documentation generation
 #
 # All domain targets are defined in their respective makefiles.
 # This file only contains orchestration targets that coordinate across domains.
@@ -25,6 +26,7 @@ include scripts/makefiles/db.mk
 include scripts/makefiles/helm.mk
 include scripts/makefiles/docs.mk
 include scripts/makefiles/dashgen.mk
+include scripts/makefiles/docgen.mk
 
 ######################
 ##@ Orchestration

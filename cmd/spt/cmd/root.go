@@ -22,6 +22,11 @@ var (
 	}
 )
 
+// Root returns the root cobra command for documentation generation.
+func Root() *cobra.Command {
+	return rootCmd
+}
+
 // Execute runs the root command.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {

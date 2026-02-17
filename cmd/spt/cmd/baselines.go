@@ -11,6 +11,9 @@ func baselinesCmd() *cobra.Command {
 	baselinesRoot := &cobra.Command{
 		Use:   "baselines",
 		Short: "Manage price baselines",
+		Long: "View and refresh price baselines used to compute deal scores.\n" +
+			"Baselines aggregate historical price data by product key to\n" +
+			"determine whether a listing is priced above or below market.",
 	}
 
 	baselinesRoot.AddCommand(
@@ -26,6 +29,8 @@ func baselinesListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all baselines",
+		Example: `  spt baselines list
+  spt baselines list --output json`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			c := newClient()
 			baselines, err := c.ListBaselines(context.Background())
@@ -49,9 +54,10 @@ func baselinesListCmd() *cobra.Command {
 
 func baselinesGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <product-key>",
-		Short: "Show baseline details",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <product-key>",
+		Short:   "Show baseline details",
+		Example: `  spt baselines get "ram:ddr4:ecc_reg:32gb:2666"`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			c := newClient()
 			b, err := c.GetBaseline(context.Background(), args[0])
@@ -70,8 +76,9 @@ func baselinesGetCmd() *cobra.Command {
 
 func baselinesRefreshCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "refresh",
-		Short: "Trigger baseline refresh",
+		Use:     "refresh",
+		Short:   "Trigger baseline refresh",
+		Example: `  spt baselines refresh`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			c := newClient()
 			if err := c.RefreshBaselines(context.Background()); err != nil {
