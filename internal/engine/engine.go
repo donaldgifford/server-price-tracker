@@ -227,9 +227,12 @@ func (eng *Engine) processListing(
 	metrics.IngestionListingsTotal.Inc()
 
 	// Extract attributes.
+	extractStart := time.Now()
 	ct, attrs, extractErr := eng.extractor.ClassifyAndExtract(
 		ctx, listing.Title, nil,
 	)
+	metrics.ExtractionDuration.Observe(time.Since(extractStart).Seconds())
+
 	if extractErr != nil {
 		eng.log.Error("extraction failed", "listing", listing.EbayID, "error", extractErr)
 		metrics.ExtractionFailuresTotal.Inc()

@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/prometheus/client_golang/prometheus"
 	ptestutil "github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -950,6 +952,55 @@ const analyticsResponse = `{
 		}]
 	}]
 }`
+
+func getHistogramSampleCount(h prometheus.Histogram) uint64 {
+	ch := make(chan prometheus.Metric, 1)
+	h.Collect(ch)
+	m := <-ch
+	pb := &dto.Metric{}
+	_ = m.Write(pb)
+	return pb.GetHistogram().GetSampleCount()
+}
+
+func TestRunIngestion_ObservesExtractionDuration(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	watches := []domain.Watch{
+		{ID: "w1", Name: "Watch 1", SearchQuery: "DDR4", ScoreThreshold: 80, Enabled: true},
+	}
+	ms.EXPECT().ListWatches(mock.Anything, true).Return(watches, nil).Once()
+
+	items := []ebay.ItemSummary{
+		{ItemID: "ext-dur-1", Title: "Test RAM", Price: ebay.ItemPrice{Value: "30.00", Currency: "USD"}},
+	}
+	me.EXPECT().Search(mock.Anything, mock.Anything).
+		Return(&ebay.SearchResponse{Items: items}, nil).Once()
+	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Once()
+
+	mx.EXPECT().
+		ClassifyAndExtract(mock.Anything, "Test RAM", mock.Anything).
+		Return(domain.ComponentRAM, map[string]any{"capacity_gb": 32.0}, nil).Once()
+	ms.EXPECT().
+		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
+		Return(nil).Once()
+	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Once()
+	ms.EXPECT().UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
+
+	before := getHistogramSampleCount(metrics.ExtractionDuration)
+
+	err := eng.RunIngestion(context.Background())
+	require.NoError(t, err)
+
+	after := getHistogramSampleCount(metrics.ExtractionDuration)
+	assert.Greater(t, after, before, "ExtractionDuration histogram sample count should increase after extraction")
+}
 
 func TestSyncQuota_SetsMetricsAndSyncsRateLimiter(t *testing.T) {
 	t.Parallel()
