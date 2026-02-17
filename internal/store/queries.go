@@ -95,6 +95,10 @@ const (
 		WHERE component_type IS NOT NULL AND score IS NULL
 		ORDER BY first_seen_at DESC
 		LIMIT $1`
+
+	queryCountListings            = `SELECT COUNT(*) FROM listings`
+	queryCountUnextractedListings = `SELECT COUNT(*) FROM listings WHERE component_type IS NULL`
+	queryCountUnscoredListings    = `SELECT COUNT(*) FROM listings WHERE component_type IS NOT NULL AND score IS NULL`
 )
 
 // Watch queries.
@@ -142,6 +146,8 @@ const (
 
 	queryDeleteWatch = `DELETE FROM watches WHERE id = $1`
 
+	queryCountWatches = `SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE enabled = true) AS enabled FROM watches`
+
 	querySetWatchEnabled = `
 		UPDATE watches SET
 			enabled = $2,
@@ -167,6 +173,19 @@ const (
 		SELECT DISTINCT product_key
 		FROM listings
 		WHERE product_key IS NOT NULL AND product_key != ''`
+
+	queryCountBaselinesByMaturity = `
+		SELECT
+			COUNT(*) FILTER (WHERE sample_count < 10) AS cold,
+			COUNT(*) FILTER (WHERE sample_count >= 10) AS warm
+		FROM price_baselines`
+
+	queryCountProductKeysWithoutBaseline = `
+		SELECT COUNT(DISTINCT l.product_key)
+		FROM listings l
+		LEFT JOIN price_baselines b ON l.product_key = b.product_key
+		WHERE l.product_key != '' AND l.product_key IS NOT NULL
+		  AND b.product_key IS NULL`
 )
 
 // Alert queries.
@@ -201,4 +220,6 @@ const (
 			notified = true,
 			notified_at = now()
 		WHERE id = ANY($1)`
+
+	queryCountPendingAlerts = `SELECT COUNT(*) FROM alerts WHERE notified = false`
 )

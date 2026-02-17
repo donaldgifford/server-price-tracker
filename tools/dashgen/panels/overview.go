@@ -14,7 +14,7 @@ func HealthzStat() *stat.PanelBuilder {
 		Datasource(DSRef()).
 		Height(StatHeight).
 		Span(StatWidth).
-		WithTarget(PromQuery(`spt_healthz_up{job="server-price-tracker"}`, "", "A")).
+		WithTarget(PromQuery(`max(spt_healthz_up{job="server-price-tracker"})`, "", "A")).
 		Thresholds(ThresholdsRedGreen(1)).
 		ColorScheme(ColorSchemeThresholds()).
 		ColorMode(common.BigValueColorModeBackground).
@@ -30,7 +30,7 @@ func ReadyzStat() *stat.PanelBuilder {
 		Datasource(DSRef()).
 		Height(StatHeight).
 		Span(StatWidth).
-		WithTarget(PromQuery(`spt_readyz_up{job="server-price-tracker"}`, "", "A")).
+		WithTarget(PromQuery(`max(spt_readyz_up{job="server-price-tracker"})`, "", "A")).
 		Thresholds(ThresholdsRedGreen(1)).
 		ColorScheme(ColorSchemeThresholds()).
 		ColorMode(common.BigValueColorModeBackground).
@@ -41,7 +41,7 @@ func ReadyzStat() *stat.PanelBuilder {
 // QuotaGauge returns a gauge panel showing eBay API daily usage as a
 // percentage of the limit, derived from the Analytics API metrics.
 func QuotaGauge() *gauge.PanelBuilder {
-	expr := `(spt_ebay_rate_limit{job="server-price-tracker"} - spt_ebay_rate_remaining{job="server-price-tracker"}) / spt_ebay_rate_limit{job="server-price-tracker"} * 100`
+	expr := `(max(spt_ebay_rate_limit{job="server-price-tracker"}) - max(spt_ebay_rate_remaining{job="server-price-tracker"})) / max(spt_ebay_rate_limit{job="server-price-tracker"}) * 100`
 	return gauge.NewPanelBuilder().
 		Title("eBay Quota %").
 		Description("Daily eBay API usage as percentage of limit (from Analytics API)").
@@ -56,6 +56,51 @@ func QuotaGauge() *gauge.PanelBuilder {
 		ColorScheme(ColorSchemeThresholds())
 }
 
+// ActiveWatchesStat returns a stat panel showing the number of enabled watches.
+func ActiveWatchesStat() *stat.PanelBuilder {
+	return stat.NewPanelBuilder().
+		Title("Active Watches").
+		Description("Number of enabled watches").
+		Datasource(DSRef()).
+		Height(StatHeight).
+		Span(StatWidth).
+		WithTarget(PromQuery(`max(spt_watches_enabled{job="server-price-tracker"})`, "", "A")).
+		Thresholds(ThresholdsGreenOnly()).
+		ColorScheme(ColorSchemeThresholds()).
+		ColorMode(common.BigValueColorModeBackground).
+		GraphMode(common.BigValueGraphModeNone)
+}
+
+// TotalListingsStat returns a stat panel showing the total listings count.
+func TotalListingsStat() *stat.PanelBuilder {
+	return stat.NewPanelBuilder().
+		Title("Total Listings").
+		Description("Total listings in the database").
+		Datasource(DSRef()).
+		Height(StatHeight).
+		Span(StatWidth).
+		WithTarget(PromQuery(`max(spt_listings_total{job="server-price-tracker"})`, "", "A")).
+		Thresholds(ThresholdsGreenOnly()).
+		ColorScheme(ColorSchemeThresholds()).
+		ColorMode(common.BigValueColorModeBackground).
+		GraphMode(common.BigValueGraphModeNone)
+}
+
+// PendingAlertsStat returns a stat panel showing the number of undelivered alerts.
+func PendingAlertsStat() *stat.PanelBuilder {
+	return stat.NewPanelBuilder().
+		Title("Pending Alerts").
+		Description("Alerts not yet sent as notifications").
+		Datasource(DSRef()).
+		Height(StatHeight).
+		Span(StatWidth).
+		WithTarget(PromQuery(`max(spt_alerts_pending{job="server-price-tracker"})`, "", "A")).
+		Thresholds(ThresholdsGreenYellowRed(1, 10)).
+		ColorScheme(ColorSchemeThresholds()).
+		ColorMode(common.BigValueColorModeBackground).
+		GraphMode(common.BigValueGraphModeNone)
+}
+
 // UptimeStat returns a stat panel showing process uptime.
 func UptimeStat() *stat.PanelBuilder {
 	return stat.NewPanelBuilder().
@@ -65,7 +110,7 @@ func UptimeStat() *stat.PanelBuilder {
 		Height(StatHeight).
 		Span(StatWidth).
 		WithTarget(PromQuery(
-			`time() - process_start_time_seconds{job="server-price-tracker"}`,
+			`max(time() - process_start_time_seconds{job="server-price-tracker"})`,
 			"", "A",
 		)).
 		Unit("s").

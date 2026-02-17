@@ -102,6 +102,7 @@ func startServer(opts *Options) error {
 	// Start scheduler.
 	if scheduler != nil {
 		scheduler.Start()
+		scheduler.SyncNextRunTimestamps()
 		slogger.Info("scheduler started")
 	}
 
@@ -297,6 +298,9 @@ func buildEngine(
 
 	// Sync eBay quota on startup (best-effort, before scheduler starts).
 	eng.SyncQuota(context.Background())
+
+	// Sync system state gauges on startup (best-effort).
+	eng.SyncStateMetrics(context.Background())
 
 	sched, err := engine.NewScheduler(
 		eng,

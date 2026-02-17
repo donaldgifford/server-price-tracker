@@ -47,6 +47,12 @@ func ScoreListing(
 
 	breakdown := score.Score(data, scorerBaseline, score.DefaultWeights())
 
+	if scorerBaseline != nil && scorerBaseline.SampleCount >= score.MinBaselineSamples {
+		metrics.ScoringWithBaselineTotal.Inc()
+	} else {
+		metrics.ScoringColdStartTotal.Inc()
+	}
+
 	breakdownJSON, err := json.Marshal(breakdown)
 	if err != nil {
 		return fmt.Errorf("marshaling breakdown: %w", err)

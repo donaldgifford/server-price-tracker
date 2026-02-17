@@ -63,6 +63,15 @@ type Store interface {
 	MarkAlertNotified(ctx context.Context, id string) error
 	MarkAlertsNotified(ctx context.Context, ids []string) error
 
+	// Counts
+	CountWatches(ctx context.Context) (total int, enabled int, err error)
+	CountListings(ctx context.Context) (int, error)
+	CountUnextractedListings(ctx context.Context) (int, error)
+	CountUnscoredListings(ctx context.Context) (int, error)
+	CountPendingAlerts(ctx context.Context) (int, error)
+	CountBaselinesByMaturity(ctx context.Context) (cold int, warm int, err error)
+	CountProductKeysWithoutBaseline(ctx context.Context) (int, error)
+
 	// Migrations
 	Migrate(ctx context.Context) error
 

@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
+
+	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 )
 
 const (
@@ -153,7 +156,10 @@ func (d *DiscordNotifier) post(ctx context.Context, payload discordWebhookPayloa
 	}
 	req.Header.Set("Content-Type", "application/json")
 
+	start := time.Now()
 	resp, err := d.client.Do(req)
+	metrics.NotificationDuration.Observe(time.Since(start).Seconds())
+
 	if err != nil {
 		return fmt.Errorf("sending discord webhook: %w", err)
 	}

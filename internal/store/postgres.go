@@ -443,6 +443,70 @@ func (s *PostgresStore) MarkAlertsNotified(ctx context.Context, ids []string) er
 	return nil
 }
 
+// CountWatches returns the total and enabled watch counts.
+func (s *PostgresStore) CountWatches(ctx context.Context) (int, int, error) {
+	var total, enabled int
+	if err := s.pool.QueryRow(ctx, queryCountWatches).Scan(&total, &enabled); err != nil {
+		return 0, 0, fmt.Errorf("counting watches: %w", err)
+	}
+	return total, enabled, nil
+}
+
+// CountListings returns the total number of listings.
+func (s *PostgresStore) CountListings(ctx context.Context) (int, error) {
+	var count int
+	if err := s.pool.QueryRow(ctx, queryCountListings).Scan(&count); err != nil {
+		return 0, fmt.Errorf("counting listings: %w", err)
+	}
+	return count, nil
+}
+
+// CountUnextractedListings returns listings without LLM extraction.
+func (s *PostgresStore) CountUnextractedListings(ctx context.Context) (int, error) {
+	var count int
+	if err := s.pool.QueryRow(ctx, queryCountUnextractedListings).Scan(&count); err != nil {
+		return 0, fmt.Errorf("counting unextracted listings: %w", err)
+	}
+	return count, nil
+}
+
+// CountUnscoredListings returns listings extracted but not yet scored.
+func (s *PostgresStore) CountUnscoredListings(ctx context.Context) (int, error) {
+	var count int
+	if err := s.pool.QueryRow(ctx, queryCountUnscoredListings).Scan(&count); err != nil {
+		return 0, fmt.Errorf("counting unscored listings: %w", err)
+	}
+	return count, nil
+}
+
+// CountPendingAlerts returns the number of un-notified alerts.
+func (s *PostgresStore) CountPendingAlerts(ctx context.Context) (int, error) {
+	var count int
+	if err := s.pool.QueryRow(ctx, queryCountPendingAlerts).Scan(&count); err != nil {
+		return 0, fmt.Errorf("counting pending alerts: %w", err)
+	}
+	return count, nil
+}
+
+// CountBaselinesByMaturity returns counts of cold (<10 samples) and warm (>=10) baselines.
+func (s *PostgresStore) CountBaselinesByMaturity(ctx context.Context) (int, int, error) {
+	var cold, warm int
+	if err := s.pool.QueryRow(ctx, queryCountBaselinesByMaturity).Scan(&cold, &warm); err != nil {
+		return 0, 0, fmt.Errorf("counting baselines by maturity: %w", err)
+	}
+	return cold, warm, nil
+}
+
+// CountProductKeysWithoutBaseline returns the number of distinct product keys
+// in listings that have no corresponding price baseline.
+func (s *PostgresStore) CountProductKeysWithoutBaseline(ctx context.Context) (int, error) {
+	var count int
+	if err := s.pool.QueryRow(ctx, queryCountProductKeysWithoutBaseline).Scan(&count); err != nil {
+		return 0, fmt.Errorf("counting product keys without baseline: %w", err)
+	}
+	return count, nil
+}
+
 // queryListings is a helper for listing queries with a LIMIT parameter.
 func (s *PostgresStore) queryListings(
 	ctx context.Context,

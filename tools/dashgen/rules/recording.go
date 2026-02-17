@@ -27,19 +27,23 @@ func RecordingRules() PrometheusRule {
 						},
 						{
 							Record: "spt:ingestion_listings:rate5m",
-							Expr:   `rate(spt_ingestion_listings_total[5m])`,
+							Expr:   `sum(rate(spt_ingestion_listings_total[5m]))`,
 						},
 						{
 							Record: "spt:ingestion_errors:rate5m",
-							Expr:   `rate(spt_ingestion_errors_total[5m])`,
+							Expr:   `sum(rate(spt_ingestion_errors_total[5m]))`,
 						},
 						{
 							Record: "spt:extraction_failures:rate5m",
-							Expr:   `rate(spt_extraction_failures_total[5m])`,
+							Expr:   `sum(rate(spt_extraction_failures_total[5m]))`,
 						},
 						{
 							Record: "spt:ebay_api_calls:rate5m",
-							Expr:   `rate(spt_ebay_api_calls_total[5m])`,
+							Expr:   `sum(rate(spt_ebay_api_calls_total[5m]))`,
+						},
+						{
+							Record: "spt:notification_duration:p95_5m",
+							Expr:   `histogram_quantile(0.95, sum(rate(spt_notification_duration_seconds_bucket[5m])) by (le))`,
 						},
 					},
 				},

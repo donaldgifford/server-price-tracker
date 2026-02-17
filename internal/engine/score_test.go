@@ -6,10 +6,12 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	ptestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	storeMocks "github.com/donaldgifford/server-price-tracker/internal/store/mocks"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
@@ -369,4 +371,52 @@ func TestRescoreByProductKey_StoreError(t *testing.T) {
 	scored, err := RescoreByProductKey(context.Background(), mockStore, "key-1")
 	require.Error(t, err)
 	assert.Equal(t, 0, scored)
+}
+
+func TestScoreListing_IncrementsWarmBaselineCounter(t *testing.T) {
+	before := ptestutil.ToFloat64(metrics.ScoringWithBaselineTotal)
+
+	mockStore := storeMocks.NewMockStore(t)
+	mockStore.EXPECT().
+		GetBaseline(mock.Anything, "ram:ddr4:ecc_reg:32gb:2666").
+		Return(&domain.PriceBaseline{
+			ProductKey:  "ram:ddr4:ecc_reg:32gb:2666",
+			SampleCount: 50,
+			P10:         20.0,
+			P25:         35.0,
+			P50:         50.0,
+			P75:         65.0,
+			P90:         80.0,
+		}, nil).
+		Once()
+	mockStore.EXPECT().
+		UpdateScore(mock.Anything, "listing-1", mock.AnythingOfType("int"), mock.Anything).
+		Return(nil).
+		Once()
+
+	err := ScoreListing(context.Background(), mockStore, testListing("ram:ddr4:ecc_reg:32gb:2666"))
+	require.NoError(t, err)
+
+	after := ptestutil.ToFloat64(metrics.ScoringWithBaselineTotal)
+	assert.InDelta(t, 1, after-before, 0.1, "ScoringWithBaselineTotal should increment by 1")
+}
+
+func TestScoreListing_IncrementsColdStartCounter(t *testing.T) {
+	before := ptestutil.ToFloat64(metrics.ScoringColdStartTotal)
+
+	mockStore := storeMocks.NewMockStore(t)
+	mockStore.EXPECT().
+		GetBaseline(mock.Anything, "ram:ddr4:ecc_reg:32gb:2666").
+		Return(nil, pgx.ErrNoRows).
+		Once()
+	mockStore.EXPECT().
+		UpdateScore(mock.Anything, "listing-1", mock.AnythingOfType("int"), mock.Anything).
+		Return(nil).
+		Once()
+
+	err := ScoreListing(context.Background(), mockStore, testListing("ram:ddr4:ecc_reg:32gb:2666"))
+	require.NoError(t, err)
+
+	after := ptestutil.ToFloat64(metrics.ScoringColdStartTotal)
+	assert.InDelta(t, 1, after-before, 0.1, "ScoringColdStartTotal should increment by 1")
 }

@@ -8,8 +8,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 )
 
 func testAlert(score int) AlertPayload {
@@ -202,4 +206,35 @@ func TestWithHTTPClient(t *testing.T) {
 	custom := &http.Client{}
 	d := NewDiscordNotifier("https://example.com", WithHTTPClient(custom))
 	assert.Same(t, custom, d.client)
+}
+
+func getNotificationHistogramSampleCount() uint64 {
+	ch := make(chan prometheus.Metric, 1)
+	metrics.NotificationDuration.Collect(ch)
+	m := <-ch
+	pb := &dto.Metric{}
+	_ = m.Write(pb)
+	return pb.GetHistogram().GetSampleCount()
+}
+
+func TestSendAlert_ObservesNotificationDuration(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	before := getNotificationHistogramSampleCount()
+
+	d := NewDiscordNotifier(srv.URL)
+	err := d.SendAlert(context.Background(), &AlertPayload{
+		WatchName:    "test",
+		ListingTitle: "Test",
+		Score:        85,
+	})
+	require.NoError(t, err)
+
+	after := getNotificationHistogramSampleCount()
+	assert.Greater(t, after, before, "NotificationDuration histogram sample count should increase")
 }

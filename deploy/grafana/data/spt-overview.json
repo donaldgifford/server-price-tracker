@@ -32,7 +32,7 @@
           "type": "stat",
           "targets": [
             {
-              "expr": "spt_healthz_up{job=\"server-price-tracker\"}",
+              "expr": "max(spt_healthz_up{job=\"server-price-tracker\"})",
               "legendFormat": "",
               "refId": "A"
             }
@@ -90,7 +90,7 @@
           "type": "stat",
           "targets": [
             {
-              "expr": "spt_readyz_up{job=\"server-price-tracker\"}",
+              "expr": "max(spt_readyz_up{job=\"server-price-tracker\"})",
               "legendFormat": "",
               "refId": "A"
             }
@@ -148,7 +148,7 @@
           "type": "gauge",
           "targets": [
             {
-              "expr": "(spt_ebay_rate_limit{job=\"server-price-tracker\"} - spt_ebay_rate_remaining{job=\"server-price-tracker\"}) / spt_ebay_rate_limit{job=\"server-price-tracker\"} * 100",
+              "expr": "(max(spt_ebay_rate_limit{job=\"server-price-tracker\"}) - max(spt_ebay_rate_remaining{job=\"server-price-tracker\"})) / max(spt_ebay_rate_limit{job=\"server-price-tracker\"}) * 100",
               "legendFormat": "",
               "refId": "A"
             }
@@ -200,7 +200,7 @@
           "type": "stat",
           "targets": [
             {
-              "expr": "time() - process_start_time_seconds{job=\"server-price-tracker\"}",
+              "expr": "max(time() - process_start_time_seconds{job=\"server-price-tracker\"})",
               "legendFormat": "",
               "refId": "A"
             }
@@ -250,6 +250,176 @@
             },
             "overrides": []
           }
+        },
+        {
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "max(spt_watches_enabled{job=\"server-price-tracker\"})",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "title": "Active Watches",
+          "description": "Number of enabled watches",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 0,
+            "y": 5
+          },
+          "repeatDirection": "h",
+          "options": {
+            "graphMode": "none",
+            "colorMode": "background",
+            "justifyMode": "auto",
+            "textMode": "auto",
+            "wideLayout": true,
+            "showPercentChange": false,
+            "reduceOptions": {
+              "calcs": []
+            },
+            "percentChangeColorMode": "standard",
+            "orientation": ""
+          },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "max(spt_listings_total{job=\"server-price-tracker\"})",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "title": "Total Listings",
+          "description": "Total listings in the database",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 6,
+            "y": 5
+          },
+          "repeatDirection": "h",
+          "options": {
+            "graphMode": "none",
+            "colorMode": "background",
+            "justifyMode": "auto",
+            "textMode": "auto",
+            "wideLayout": true,
+            "showPercentChange": false,
+            "reduceOptions": {
+              "calcs": []
+            },
+            "percentChangeColorMode": "standard",
+            "orientation": ""
+          },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "max(spt_alerts_pending{job=\"server-price-tracker\"})",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "title": "Pending Alerts",
+          "description": "Alerts not yet sent as notifications",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 12,
+            "y": 5
+          },
+          "repeatDirection": "h",
+          "options": {
+            "graphMode": "none",
+            "colorMode": "background",
+            "justifyMode": "auto",
+            "textMode": "auto",
+            "wideLayout": true,
+            "showPercentChange": false,
+            "reduceOptions": {
+              "calcs": []
+            },
+            "percentChangeColorMode": "standard",
+            "orientation": ""
+          },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  },
+                  {
+                    "value": 1,
+                    "color": "yellow"
+                  },
+                  {
+                    "value": 10,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          }
         }
       ]
     },
@@ -261,7 +431,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 5
+        "y": 9
       },
       "id": 0,
       "panels": [
@@ -285,7 +455,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 6
+            "y": 10
           },
           "repeatDirection": "h",
           "options": {
@@ -357,7 +527,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 6
+            "y": 10
           },
           "repeatDirection": "h",
           "options": {
@@ -419,7 +589,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 14
+            "y": 18
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -464,7 +634,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 26
       },
       "id": 0,
       "panels": [
@@ -488,7 +658,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 23
+            "y": 27
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -519,12 +689,12 @@
           "type": "timeseries",
           "targets": [
             {
-              "expr": "spt_ebay_rate_limit{job=\"server-price-tracker\"} - spt_ebay_rate_remaining{job=\"server-price-tracker\"}",
+              "expr": "max(spt_ebay_rate_limit{job=\"server-price-tracker\"} - spt_ebay_rate_remaining{job=\"server-price-tracker\"})",
               "legendFormat": "usage",
               "refId": "A"
             },
             {
-              "expr": "spt_ebay_rate_limit{job=\"server-price-tracker\"}",
+              "expr": "max(spt_ebay_rate_limit{job=\"server-price-tracker\"})",
               "legendFormat": "limit",
               "refId": "B"
             }
@@ -540,7 +710,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 23
+            "y": 27
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -570,7 +740,7 @@
           "type": "stat",
           "targets": [
             {
-              "expr": "spt_ebay_rate_reset_timestamp{job=\"server-price-tracker\"} - time()",
+              "expr": "max(spt_ebay_rate_reset_timestamp{job=\"server-price-tracker\"}) - time()",
               "legendFormat": "",
               "refId": "A"
             }
@@ -586,7 +756,7 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 23
+            "y": 27
           },
           "repeatDirection": "h",
           "options": {
@@ -625,7 +795,7 @@
           "type": "stat",
           "targets": [
             {
-              "expr": "increase(spt_ebay_daily_limit_hits_total{job=\"server-price-tracker\"}[24h])",
+              "expr": "sum(increase(spt_ebay_daily_limit_hits_total{job=\"server-price-tracker\"}[24h]))",
               "legendFormat": "",
               "refId": "A"
             }
@@ -641,7 +811,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 31
+            "y": 35
           },
           "repeatDirection": "h",
           "options": {
@@ -693,10 +863,128 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 43
       },
       "id": 0,
       "panels": [
+        {
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "time() - max(spt_ingestion_last_success_timestamp{job=\"server-price-tracker\"} \u003e 0)",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "title": "Last Ingestion",
+          "description": "Time since last successful ingestion cycle",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 0,
+            "y": 44
+          },
+          "repeatDirection": "h",
+          "options": {
+            "graphMode": "none",
+            "colorMode": "background",
+            "justifyMode": "auto",
+            "textMode": "auto",
+            "wideLayout": true,
+            "showPercentChange": false,
+            "reduceOptions": {
+              "calcs": []
+            },
+            "percentChangeColorMode": "standard",
+            "orientation": ""
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  },
+                  {
+                    "value": 1800,
+                    "color": "yellow"
+                  },
+                  {
+                    "value": 3600,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "max(spt_scheduler_next_ingestion_timestamp{job=\"server-price-tracker\"}) - time()",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "title": "Next Ingestion",
+          "description": "Time until next scheduled ingestion cycle",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 6,
+            "y": 44
+          },
+          "repeatDirection": "h",
+          "options": {
+            "graphMode": "none",
+            "colorMode": "background",
+            "justifyMode": "auto",
+            "textMode": "auto",
+            "wideLayout": true,
+            "showPercentChange": false,
+            "reduceOptions": {
+              "calcs": []
+            },
+            "percentChangeColorMode": "standard",
+            "orientation": ""
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          }
+        },
         {
           "type": "timeseries",
           "targets": [
@@ -716,8 +1004,8 @@
           "gridPos": {
             "h": 8,
             "w": 8,
-            "x": 0,
-            "y": 40
+            "x": 12,
+            "y": 44
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -762,8 +1050,8 @@
           "gridPos": {
             "h": 8,
             "w": 8,
-            "x": 8,
-            "y": 40
+            "x": 20,
+            "y": 44
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -816,8 +1104,8 @@
           "gridPos": {
             "h": 8,
             "w": 8,
-            "x": 16,
-            "y": 40
+            "x": 0,
+            "y": 52
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -854,7 +1142,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 48
+        "y": 60
       },
       "id": 0,
       "panels": [
@@ -883,7 +1171,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 49
+            "y": 61
           },
           "repeatDirection": "h",
           "options": {
@@ -945,7 +1233,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 49
+            "y": 61
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -989,10 +1277,180 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 57
+        "y": 69
       },
       "id": 0,
       "panels": [
+        {
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "max(spt_baselines_warm{job=\"server-price-tracker\"}) / (max(spt_baselines_warm{job=\"server-price-tracker\"}) + max(spt_baselines_cold{job=\"server-price-tracker\"}) + max(spt_product_keys_no_baseline{job=\"server-price-tracker\"})) * 100",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "title": "Baseline Coverage",
+          "description": "Percentage of product keys with warm baselines (\u003e= 10 samples)",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 8,
+            "x": 0,
+            "y": 70
+          },
+          "repeatDirection": "h",
+          "options": {
+            "graphMode": "none",
+            "colorMode": "background",
+            "justifyMode": "auto",
+            "textMode": "auto",
+            "wideLayout": true,
+            "showPercentChange": false,
+            "reduceOptions": {
+              "calcs": []
+            },
+            "percentChangeColorMode": "standard",
+            "orientation": ""
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "red"
+                  },
+                  {
+                    "value": 50,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "max(spt_baselines_warm{job=\"server-price-tracker\"})",
+              "legendFormat": "warm",
+              "refId": "A"
+            },
+            {
+              "expr": "max(spt_baselines_cold{job=\"server-price-tracker\"})",
+              "legendFormat": "cold",
+              "refId": "B"
+            },
+            {
+              "expr": "max(spt_product_keys_no_baseline{job=\"server-price-tracker\"})",
+              "legendFormat": "no baseline",
+              "refId": "C"
+            }
+          ],
+          "title": "Baseline Maturity",
+          "description": "Breakdown of baseline maturity across product keys",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 8,
+            "x": 8,
+            "y": 70
+          },
+          "repeatDirection": "h",
+          "options": {
+            "graphMode": "none",
+            "colorMode": "value",
+            "justifyMode": "auto",
+            "textMode": "auto",
+            "wideLayout": true,
+            "showPercentChange": false,
+            "reduceOptions": {
+              "calcs": []
+            },
+            "percentChangeColorMode": "standard",
+            "orientation": ""
+          },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(rate(spt_scoring_cold_start_total{job=\"server-price-tracker\"}[5m])) / (sum(rate(spt_scoring_cold_start_total{job=\"server-price-tracker\"}[5m])) + sum(rate(spt_scoring_with_baseline_total{job=\"server-price-tracker\"}[5m]))) * 100",
+              "legendFormat": "cold start %",
+              "refId": "A"
+            }
+          ],
+          "title": "Cold Start Rate",
+          "description": "Percentage of listings scored without a warm baseline",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 70
+          },
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          }
+        },
         {
           "type": "bargauge",
           "targets": [
@@ -1013,7 +1471,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 58
+            "y": 78
           },
           "repeatDirection": "h",
           "options": {
@@ -1065,15 +1523,78 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 66
+        "y": 86
       },
       "id": 0,
       "panels": [
         {
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "time() - max(spt_notification_last_success_timestamp{job=\"server-price-tracker\"} \u003e 0)",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "title": "Last Notification",
+          "description": "Time since last successful notification delivery",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 0,
+            "y": 87
+          },
+          "repeatDirection": "h",
+          "options": {
+            "graphMode": "none",
+            "colorMode": "background",
+            "justifyMode": "auto",
+            "textMode": "auto",
+            "wideLayout": true,
+            "showPercentChange": false,
+            "reduceOptions": {
+              "calcs": []
+            },
+            "percentChangeColorMode": "standard",
+            "orientation": ""
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  },
+                  {
+                    "value": 3600,
+                    "color": "yellow"
+                  },
+                  {
+                    "value": 86400,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
           "type": "timeseries",
           "targets": [
             {
-              "expr": "rate(spt_alerts_fired_total{job=\"server-price-tracker\"}[5m])",
+              "expr": "sum(rate(spt_alerts_fired_total{job=\"server-price-tracker\"}[5m]))",
               "legendFormat": "alerts/s",
               "refId": "A"
             }
@@ -1088,8 +1609,8 @@
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 0,
-            "y": 67
+            "x": 6,
+            "y": 87
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -1116,10 +1637,65 @@
           }
         },
         {
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "spt:notification_duration:p95_5m",
+              "legendFormat": "p95",
+              "refId": "A"
+            }
+          ],
+          "title": "Notification Latency (p95)",
+          "description": "95th percentile Discord webhook latency",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 18,
+            "y": 87
+          },
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  },
+                  {
+                    "value": 1,
+                    "color": "yellow"
+                  },
+                  {
+                    "value": 5,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
           "type": "stat",
           "targets": [
             {
-              "expr": "increase(spt_notification_failures_total{job=\"server-price-tracker\"}[24h])",
+              "expr": "sum(increase(spt_notification_failures_total{job=\"server-price-tracker\"}[24h]))",
               "legendFormat": "",
               "refId": "A"
             }
@@ -1134,8 +1710,8 @@
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 12,
-            "y": 67
+            "x": 0,
+            "y": 95
           },
           "repeatDirection": "h",
           "options": {

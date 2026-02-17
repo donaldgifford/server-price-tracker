@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/prometheus/client_golang/prometheus"
 	ptestutil "github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -31,12 +33,26 @@ func quietLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
+// expectCountMethods sets up Maybe expectations for all Store count methods
+// so that tests exercising RunIngestion (which calls SyncStateMetrics) don't
+// fail on unexpected calls. Returns zeroes for all counts.
+func expectCountMethods(ms *storeMocks.MockStore) {
+	ms.EXPECT().CountWatches(mock.Anything).Return(0, 0, nil).Maybe()
+	ms.EXPECT().CountListings(mock.Anything).Return(0, nil).Maybe()
+	ms.EXPECT().CountUnextractedListings(mock.Anything).Return(0, nil).Maybe()
+	ms.EXPECT().CountUnscoredListings(mock.Anything).Return(0, nil).Maybe()
+	ms.EXPECT().CountPendingAlerts(mock.Anything).Return(0, nil).Maybe()
+	ms.EXPECT().CountBaselinesByMaturity(mock.Anything).Return(0, 0, nil).Maybe()
+	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(0, nil).Maybe()
+}
+
 func newTestEngine(
 	s *storeMocks.MockStore,
 	e *ebayMocks.MockEbayClient,
 	ex *extractMocks.MockExtractor,
 	n *notifyMocks.MockNotifier,
 ) *Engine {
+	expectCountMethods(s)
 	return NewEngine(s, e, ex, n,
 		WithLogger(quietLogger()),
 		WithStaggerOffset(0),
@@ -833,6 +849,7 @@ func TestRunIngestion_CycleBudgetExhausted(t *testing.T) {
 	me := ebayMocks.NewMockEbayClient(t)
 	mx := extractMocks.NewMockExtractor(t)
 	mn := notifyMocks.NewMockNotifier(t)
+	expectCountMethods(ms)
 	eng := NewEngine(ms, me, mx, mn,
 		WithLogger(quietLogger()),
 		WithStaggerOffset(0),
@@ -879,6 +896,7 @@ func TestRunIngestion_WithPaginator(t *testing.T) {
 	me := ebayMocks.NewMockEbayClient(t)
 	mx := extractMocks.NewMockExtractor(t)
 	mn := notifyMocks.NewMockNotifier(t)
+	expectCountMethods(ms)
 
 	paginator := ebay.NewPaginator(me, ms,
 		ebay.WithPaginatorLogger(quietLogger()),
@@ -950,6 +968,55 @@ const analyticsResponse = `{
 		}]
 	}]
 }`
+
+func getHistogramSampleCount(h prometheus.Histogram) uint64 {
+	ch := make(chan prometheus.Metric, 1)
+	h.Collect(ch)
+	m := <-ch
+	pb := &dto.Metric{}
+	_ = m.Write(pb)
+	return pb.GetHistogram().GetSampleCount()
+}
+
+func TestRunIngestion_ObservesExtractionDuration(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	watches := []domain.Watch{
+		{ID: "w1", Name: "Watch 1", SearchQuery: "DDR4", ScoreThreshold: 80, Enabled: true},
+	}
+	ms.EXPECT().ListWatches(mock.Anything, true).Return(watches, nil).Once()
+
+	items := []ebay.ItemSummary{
+		{ItemID: "ext-dur-1", Title: "Test RAM", Price: ebay.ItemPrice{Value: "30.00", Currency: "USD"}},
+	}
+	me.EXPECT().Search(mock.Anything, mock.Anything).
+		Return(&ebay.SearchResponse{Items: items}, nil).Once()
+	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Once()
+
+	mx.EXPECT().
+		ClassifyAndExtract(mock.Anything, "Test RAM", mock.Anything).
+		Return(domain.ComponentRAM, map[string]any{"capacity_gb": 32.0}, nil).Once()
+	ms.EXPECT().
+		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
+		Return(nil).Once()
+	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Once()
+	ms.EXPECT().UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
+
+	before := getHistogramSampleCount(metrics.ExtractionDuration)
+
+	err := eng.RunIngestion(context.Background())
+	require.NoError(t, err)
+
+	after := getHistogramSampleCount(metrics.ExtractionDuration)
+	assert.Greater(t, after, before, "ExtractionDuration histogram sample count should increase after extraction")
+}
 
 func TestSyncQuota_SetsMetricsAndSyncsRateLimiter(t *testing.T) {
 	t.Parallel()
@@ -1045,4 +1112,62 @@ func TestSyncQuota_NilAnalyticsClientIsNoOp(t *testing.T) {
 
 	// Should return immediately without error.
 	eng.SyncQuota(context.Background())
+}
+
+func TestSyncStateMetrics_SetsAllGauges(t *testing.T) {
+	// Not parallel: uses global Prometheus gauges that can race with other tests.
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	ms.EXPECT().CountWatches(mock.Anything).Return(5, 3, nil).Once()
+	ms.EXPECT().CountListings(mock.Anything).Return(100, nil).Once()
+	ms.EXPECT().CountUnextractedListings(mock.Anything).Return(10, nil).Once()
+	ms.EXPECT().CountUnscoredListings(mock.Anything).Return(5, nil).Once()
+	ms.EXPECT().CountPendingAlerts(mock.Anything).Return(2, nil).Once()
+	ms.EXPECT().CountBaselinesByMaturity(mock.Anything).Return(3, 12, nil).Once()
+	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(7, nil).Once()
+
+	eng := NewEngine(ms, me, mx, mn,
+		WithLogger(quietLogger()),
+	)
+
+	eng.SyncStateMetrics(context.Background())
+
+	assert.InDelta(t, 5, ptestutil.ToFloat64(metrics.WatchesTotal), 0.1)
+	assert.InDelta(t, 3, ptestutil.ToFloat64(metrics.WatchesEnabled), 0.1)
+	assert.InDelta(t, 100, ptestutil.ToFloat64(metrics.ListingsTotal), 0.1)
+	assert.InDelta(t, 10, ptestutil.ToFloat64(metrics.ListingsUnextracted), 0.1)
+	assert.InDelta(t, 5, ptestutil.ToFloat64(metrics.ListingsUnscored), 0.1)
+	assert.InDelta(t, 2, ptestutil.ToFloat64(metrics.AlertsPending), 0.1)
+	assert.InDelta(t, 3, ptestutil.ToFloat64(metrics.BaselinesCold), 0.1)
+	assert.InDelta(t, 12, ptestutil.ToFloat64(metrics.BaselinesWarm), 0.1)
+	assert.InDelta(t, 15, ptestutil.ToFloat64(metrics.BaselinesTotal), 0.1)
+	assert.InDelta(t, 7, ptestutil.ToFloat64(metrics.ProductKeysNoBaseline), 0.1)
+}
+
+func TestSyncStateMetrics_StoreErrorDoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	// All count methods return errors.
+	ms.EXPECT().CountWatches(mock.Anything).Return(0, 0, errors.New("db error")).Once()
+	ms.EXPECT().CountListings(mock.Anything).Return(0, errors.New("db error")).Once()
+	ms.EXPECT().CountUnextractedListings(mock.Anything).Return(0, errors.New("db error")).Once()
+	ms.EXPECT().CountUnscoredListings(mock.Anything).Return(0, errors.New("db error")).Once()
+	ms.EXPECT().CountPendingAlerts(mock.Anything).Return(0, errors.New("db error")).Once()
+	ms.EXPECT().CountBaselinesByMaturity(mock.Anything).Return(0, 0, errors.New("db error")).Once()
+	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(0, errors.New("db error")).Once()
+
+	eng := NewEngine(ms, me, mx, mn,
+		WithLogger(quietLogger()),
+	)
+
+	// Should not panic; errors are logged.
+	eng.SyncStateMetrics(context.Background())
 }

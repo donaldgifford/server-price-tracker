@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	"github.com/donaldgifford/server-price-tracker/internal/notify"
@@ -40,6 +41,7 @@ func ProcessAlerts(
 
 		if err := sendAlerts(ctx, s, n, watch, alerts); err != nil {
 			metrics.NotificationFailuresTotal.Inc()
+			metrics.NotificationLastFailureTimestamp.Set(float64(time.Now().Unix()))
 			continue
 		}
 	}
@@ -94,6 +96,8 @@ func sendSingle(
 	}
 
 	metrics.AlertsFiredTotal.Inc()
+	metrics.NotificationLastSuccessTimestamp.Set(float64(time.Now().Unix()))
+	metrics.AlertsFiredByWatch.WithLabelValues(watch.Name).Inc()
 
 	return s.MarkAlertNotified(ctx, alert.ID)
 }
@@ -126,6 +130,8 @@ func sendBatch(
 	}
 
 	metrics.AlertsFiredTotal.Add(float64(len(alertIDs)))
+	metrics.NotificationLastSuccessTimestamp.Set(float64(time.Now().Unix()))
+	metrics.AlertsFiredByWatch.WithLabelValues(watch.Name).Add(float64(len(alertIDs)))
 
 	return s.MarkAlertsNotified(ctx, alertIDs)
 }

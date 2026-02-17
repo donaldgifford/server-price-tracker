@@ -63,7 +63,7 @@ func TestBuildOverviewDashboard(t *testing.T) {
 			totalPanels += len(p.RowPanel.Panels)
 		}
 	}
-	assert.Equal(t, 19, totalPanels)
+	assert.Equal(t, 29, totalPanels)
 
 	// Validate PromQL and metrics.
 	result := validate.Dashboard(dash, KnownMetrics)
@@ -82,7 +82,7 @@ func TestRecordingRules(t *testing.T) {
 	require.Len(t, cr.Spec.Groups, 1)
 	group := cr.Spec.Groups[0]
 	assert.Equal(t, "spt-recording", group.Name)
-	require.Len(t, group.Rules, 6)
+	require.Len(t, group.Rules, 7)
 
 	expectedRecords := []string{
 		"spt:http_requests:rate5m",
@@ -91,6 +91,7 @@ func TestRecordingRules(t *testing.T) {
 		"spt:ingestion_errors:rate5m",
 		"spt:extraction_failures:rate5m",
 		"spt:ebay_api_calls:rate5m",
+		"spt:notification_duration:p95_5m",
 	}
 	for i, rule := range group.Rules {
 		assert.Equal(t, expectedRecords[i], rule.Record)
@@ -114,7 +115,7 @@ func TestAlertRules(t *testing.T) {
 	require.Len(t, cr.Spec.Groups, 1)
 	group := cr.Spec.Groups[0]
 	assert.Equal(t, "spt-alerts", group.Name)
-	require.Len(t, group.Rules, 8)
+	require.Len(t, group.Rules, 12)
 
 	expectedAlerts := []string{
 		"SptDown",
@@ -125,6 +126,10 @@ func TestAlertRules(t *testing.T) {
 		"SptEbayQuotaHigh",
 		"SptEbayLimitReached",
 		"SptNotificationFailures",
+		"SptNoIngestionRecent",
+		"SptPendingAlertBacklog",
+		"SptNotificationSilence",
+		"SptLowBaselineCoverage",
 	}
 	for i, rule := range group.Rules {
 		assert.Equal(t, expectedAlerts[i], rule.Alert)

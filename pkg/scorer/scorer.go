@@ -5,6 +5,11 @@ import (
 	"math"
 )
 
+// MinBaselineSamples is the minimum number of sold samples required
+// for a baseline to be used in price scoring. Below this threshold,
+// the price factor defaults to a neutral 50.
+const MinBaselineSamples = 10
+
 // Weights defines the relative importance of each scoring factor.
 type Weights struct {
 	Price     float64
@@ -69,7 +74,7 @@ func Score(data *ListingData, baseline *Baseline, w Weights) Breakdown {
 	b := Breakdown{}
 
 	// Price percentile score
-	if baseline != nil && baseline.SampleCount >= 10 {
+	if baseline != nil && baseline.SampleCount >= MinBaselineSamples {
 		b.Price = priceScore(data.UnitPrice, baseline)
 	} else {
 		b.Price = 50 // neutral when no baseline

@@ -95,7 +95,6 @@ func (c *BrowseClient) Search(
 			return nil, fmt.Errorf("rate limit: %w", err)
 		}
 		metrics.EbayAPICallsTotal.Inc()
-		metrics.EbayDailyUsage.Set(float64(c.rateLimiter.DailyCount()))
 	}
 
 	token, err := c.tokens.Token(ctx)
