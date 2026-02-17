@@ -2,6 +2,17 @@ apiVersion: v1
 entries:
   server-price-tracker:
   - apiVersion: v2
+    appVersion: 0.6.1
+    created: "2026-02-17T22:40:08.605097284Z"
+    description: eBay server hardware deal tracker with LLM extraction, scoring, and
+      Discord alerts
+    digest: fb8c685a08c854bbbbc2d123e4c181981898257f2505624395dc62d99fb264bb
+    name: server-price-tracker
+    type: application
+    urls:
+    - https://github.com/donaldgifford/server-price-tracker/releases/download/server-price-tracker-0.1.17/server-price-tracker-0.1.17.tgz
+    version: 0.1.17
+  - apiVersion: v2
     appVersion: 0.6.0
     created: "2026-02-17T14:35:02.563137177Z"
     description: eBay server hardware deal tracker with LLM extraction, scoring, and
@@ -155,4 +166,4 @@ entries:
     urls:
     - https://github.com/donaldgifford/server-price-tracker/releases/download/server-price-tracker-0.1.2/server-price-tracker-0.1.2.tgz
     version: 0.1.2
-generated: "2026-02-17T14:35:02.563219181Z"
+generated: "2026-02-17T22:40:08.60520796Z"
