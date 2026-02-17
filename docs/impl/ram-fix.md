@@ -332,7 +332,7 @@ See `docs/plans/ram-fix.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Modify `internal/metrics/metrics.go` — add new metrics in a new
+- [x] Modify `internal/metrics/metrics.go` — add new metrics in a new
   `// Extraction quality metrics.` section after the existing
   `ExtractionFailuresTotal` in the `// Extraction metrics.` section:
   ```go
@@ -348,7 +348,7 @@ See `docs/plans/ram-fix.md` for the high-level design.
       Help:      "Listings with incomplete extraction data, by component type.",
   }, []string{"component_type"})
   ```
-- [ ] Modify `internal/engine/engine.go` — in `SyncStateMetrics`
+- [x] Modify `internal/engine/engine.go` — in `SyncStateMetrics`
   (after the `CountProductKeysWithoutBaseline` block ending at line 374),
   add:
   ```go
@@ -368,13 +368,13 @@ See `docs/plans/ram-fix.md` for the high-level design.
       }
   }
   ```
-- [ ] Update `expectCountMethods` helper in `internal/engine/engine_test.go`
+- [x] Update `expectCountMethods` helper in `internal/engine/engine_test.go`
   (if not already done in Phase 5) to include:
   ```go
   ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(0, nil).Maybe()
   ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(nil, nil).Maybe()
   ```
-- [ ] Run `make test && make lint`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 

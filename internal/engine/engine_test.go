@@ -1130,6 +1130,8 @@ func TestSyncStateMetrics_SetsAllGauges(t *testing.T) {
 	ms.EXPECT().CountPendingAlerts(mock.Anything).Return(2, nil).Once()
 	ms.EXPECT().CountBaselinesByMaturity(mock.Anything).Return(3, 12, nil).Once()
 	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(7, nil).Once()
+	ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(42, nil).Once()
+	ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(map[string]int{"ram": 38, "drive": 4}, nil).Once()
 
 	eng := NewEngine(ms, me, mx, mn,
 		WithLogger(quietLogger()),
@@ -1147,6 +1149,7 @@ func TestSyncStateMetrics_SetsAllGauges(t *testing.T) {
 	assert.InDelta(t, 12, ptestutil.ToFloat64(metrics.BaselinesWarm), 0.1)
 	assert.InDelta(t, 15, ptestutil.ToFloat64(metrics.BaselinesTotal), 0.1)
 	assert.InDelta(t, 7, ptestutil.ToFloat64(metrics.ProductKeysNoBaseline), 0.1)
+	assert.InDelta(t, 42, ptestutil.ToFloat64(metrics.ListingsIncompleteExtraction), 0.1)
 }
 
 func TestSyncStateMetrics_StoreErrorDoesNotPanic(t *testing.T) {
@@ -1165,6 +1168,8 @@ func TestSyncStateMetrics_StoreErrorDoesNotPanic(t *testing.T) {
 	ms.EXPECT().CountPendingAlerts(mock.Anything).Return(0, errors.New("db error")).Once()
 	ms.EXPECT().CountBaselinesByMaturity(mock.Anything).Return(0, 0, errors.New("db error")).Once()
 	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(0, errors.New("db error")).Once()
+	ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(0, errors.New("db error")).Once()
+	ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(nil, errors.New("db error")).Once()
 
 	eng := NewEngine(ms, me, mx, mn,
 		WithLogger(quietLogger()),

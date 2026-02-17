@@ -372,6 +372,22 @@ func (eng *Engine) SyncStateMetrics(ctx context.Context) {
 	} else {
 		metrics.ProductKeysNoBaseline.Set(float64(noBaseline))
 	}
+
+	incomplete, err := eng.store.CountIncompleteExtractions(ctx)
+	if err != nil {
+		eng.log.Warn("failed to count incomplete extractions", "error", err)
+	} else {
+		metrics.ListingsIncompleteExtraction.Set(float64(incomplete))
+	}
+
+	byType, err := eng.store.CountIncompleteExtractionsByType(ctx)
+	if err != nil {
+		eng.log.Warn("failed to count incomplete extractions by type", "error", err)
+	} else {
+		for ct, count := range byType {
+			metrics.ListingsIncompleteExtractionByType.WithLabelValues(ct).Set(float64(count))
+		}
+	}
 }
 
 // RunReExtraction re-extracts listings with incomplete extraction data.

@@ -77,6 +77,21 @@ var (
 	})
 )
 
+// Extraction quality metrics.
+var (
+	ListingsIncompleteExtraction = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "listings_incomplete_extraction",
+		Help:      "Listings with incomplete extraction data (e.g., missing speed for RAM).",
+	})
+
+	ListingsIncompleteExtractionByType = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "listings_incomplete_extraction_by_type",
+		Help:      "Listings with incomplete extraction data, by component type.",
+	}, []string{"component_type"})
+)
+
 // Scoring metrics.
 var (
 	ScoringDistribution = promauto.NewHistogram(prometheus.HistogramOpts{
