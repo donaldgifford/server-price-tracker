@@ -146,7 +146,7 @@ See `docs/plans/ram-fix.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Add `NormalizeRAMSpeed` function to `pkg/extract/pc4.go`:
+- [x] Add `NormalizeRAMSpeed` function to `pkg/extract/pc4.go`:
   ```go
   // NormalizeRAMSpeed fills in speed_mhz from PC module numbers in the
   // title when the LLM returned null or 0. Modifies attrs in place.
@@ -159,7 +159,7 @@ See `docs/plans/ram-fix.md` for the high-level design.
   - Call `ExtractSpeedFromTitle(title)`. If found, set
     `attrs["speed_mhz"] = mhz` and return `true`.
   - Return `false` if speed could not be determined.
-- [ ] Modify `pkg/extract/extractor.go` — in the `Extract` method
+- [x] Modify `pkg/extract/extractor.go` — in the `Extract` method
   (line 100), after `ValidateExtraction` succeeds (line 130-134) and
   before the return on line 136, add:
   ```go
@@ -170,8 +170,8 @@ See `docs/plans/ram-fix.md` for the high-level design.
   ```
   This runs after validation passes but before the caller computes the
   product key, ensuring the key includes the recovered speed.
-- [ ] Add normalization tests to `pkg/extract/pc4_test.go`:
-  - [ ] `TestNormalizeRAMSpeed` — table-driven test cases:
+- [x] Add normalization tests to `pkg/extract/pc4_test.go`:
+  - [x] `TestNormalizeRAMSpeed` — table-driven test cases:
     - Title with PC4-21300, attrs missing `speed_mhz` → sets 2666, returns true
     - Title with PC4-25600V, attrs missing `speed_mhz` → sets 3200, returns true
     - Title with PC3-12800, attrs has `speed_mhz: nil` → sets 1600, returns true
@@ -180,13 +180,13 @@ See `docs/plans/ram-fix.md` for the high-level design.
     - Attrs has `speed_mhz: 0` → treated as unset, attempts extraction
     - Title has no PC module number, attrs missing `speed_mhz` → returns false
     - Title has no PC module number, attrs has `speed_mhz: 0` → returns false
-- [ ] Add extractor integration test to `pkg/extract/extractor_test.go`:
-  - [ ] `TestExtract_RAMNormalizesSpeed` — mock backend returns a valid RAM
+- [x] Add extractor integration test to `pkg/extract/extractor_test.go`:
+  - [x] `TestExtract_RAMNormalizesSpeed` — mock backend returns a valid RAM
     extraction with `speed_mhz: null`, title contains `PC4-21300`.
     Verify the returned attrs have `speed_mhz: 2666`. This confirms the
     normalization runs in the extraction pipeline.
-- [ ] Run `go test ./pkg/extract/... -v`
-- [ ] Run `make lint`
+- [x] Run `go test ./pkg/extract/... -v`
+- [x] Run `make lint`
 
 ### Success Criteria
 
