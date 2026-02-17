@@ -74,3 +74,35 @@ spec:
           annotations:
             description: One or more alert notifications (Discord webhooks) have failed to send.
             summary: Notification delivery failures detected
+        - alert: SptNoIngestionRecent
+          expr: time() - spt_ingestion_last_success_timestamp > 1800
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            description: No successful ingestion cycle in the last 30 minutes.
+            summary: No successful ingestion cycle recently
+        - alert: SptPendingAlertBacklog
+          expr: spt_alerts_pending > 50
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            description: More than 50 alerts are pending notification delivery.
+            summary: Pending alert backlog is growing
+        - alert: SptNotificationSilence
+          expr: time() - spt_notification_last_success_timestamp > 86400
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            description: No successful notification has been sent in 24 hours.
+            summary: No successful notifications in 24 hours
+        - alert: SptLowBaselineCoverage
+          expr: spt_baselines_warm / (spt_baselines_warm + spt_baselines_cold + spt_product_keys_no_baseline) < 0.5
+          for: 30m
+          labels:
+            severity: info
+          annotations:
+            description: Fewer than 50% of product keys have warm baselines.
+            summary: Low baseline coverage

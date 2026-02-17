@@ -23,7 +23,9 @@ var KnownMetrics = map[string]bool{
 	"spt_extraction_failures_total":   true,
 
 	// Scoring metrics.
-	"spt_scoring_distribution": true,
+	"spt_scoring_distribution":       true,
+	"spt_scoring_with_baseline_total": true,
+	"spt_scoring_cold_start_total":    true,
 
 	// eBay API metrics.
 	"spt_ebay_api_calls_total":        true,
@@ -36,7 +38,33 @@ var KnownMetrics = map[string]bool{
 
 	// Alert metrics.
 	"spt_alerts_fired_total":          true,
+	"spt_alerts_fired_by_watch":       true,
 	"spt_notification_failures_total": true,
+
+	// Notification metrics.
+	"spt_notification_duration_seconds":       true,
+	"spt_notification_last_success_timestamp": true,
+	"spt_notification_last_failure_timestamp": true,
+
+	// System state metrics.
+	"spt_watches_total":        true,
+	"spt_watches_enabled":      true,
+	"spt_listings_total":       true,
+	"spt_listings_unextracted": true,
+	"spt_listings_unscored":    true,
+	"spt_alerts_pending":       true,
+
+	// Scheduler metrics.
+	"spt_scheduler_next_ingestion_timestamp": true,
+	"spt_scheduler_next_baseline_timestamp":  true,
+	"spt_ingestion_last_success_timestamp":   true,
+	"spt_baseline_last_refresh_timestamp":    true,
+
+	// Baseline metrics.
+	"spt_baselines_total":          true,
+	"spt_baselines_cold":           true,
+	"spt_baselines_warm":           true,
+	"spt_product_keys_no_baseline": true,
 
 	// Recording rules.
 	"spt:http_requests:rate5m":       true,
@@ -44,7 +72,8 @@ var KnownMetrics = map[string]bool{
 	"spt:ingestion_listings:rate5m":  true,
 	"spt:ingestion_errors:rate5m":    true,
 	"spt:extraction_failures:rate5m": true,
-	"spt:ebay_api_calls:rate5m":      true,
+	"spt:ebay_api_calls:rate5m":          true,
+	"spt:notification_duration:p95_5m":   true,
 
 	// Standard Prometheus metrics referenced in dashboards.
 	"up":                         true,

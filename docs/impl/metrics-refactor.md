@@ -540,7 +540,7 @@ dashboard observations.
 
 #### 5a. Add new metrics to `KnownMetrics`
 
-- [ ] In `tools/dashgen/config.go`, add all new metric names to
+- [x] In `tools/dashgen/config.go`, add all new metric names to
   `KnownMetrics`:
   ```
   // System state.
@@ -577,21 +577,21 @@ dashboard observations.
 
 #### 5b. Add new dashboard panels
 
-- [ ] **Overview row** — in `tools/dashgen/panels/overview.go`, add:
+- [x] **Overview row** — in `tools/dashgen/panels/overview.go`, add:
   - `ActiveWatchesStat()` — stat panel, query `spt_watches_enabled`,
     Span(StatWidth), ThresholdsGreenOnly.
   - `TotalListingsStat()` — stat panel, query `spt_listings_total`,
     Span(StatWidth), ThresholdsGreenOnly.
   - `PendingAlertsStat()` — stat panel, query `spt_alerts_pending`,
     Span(StatWidth), ThresholdsGreenYellowRed(1, 10).
-- [ ] **Ingestion row** — in `tools/dashgen/panels/ingestion.go`, add:
+- [x] **Ingestion row** — in `tools/dashgen/panels/ingestion.go`, add:
   - `LastIngestion()` — stat panel, query
     `time() - spt_ingestion_last_success_timestamp{job="server-price-tracker"}`,
     unit `s`, Span(StatWidth).
   - `NextIngestion()` — stat panel, query
     `spt_scheduler_next_ingestion_timestamp{job="server-price-tracker"} - time()`,
     unit `s`, Span(StatWidth).
-- [ ] **Scoring row** — in `tools/dashgen/panels/scoring.go`, add:
+- [x] **Scoring row** — in `tools/dashgen/panels/scoring.go`, add:
   - `BaselineCoverage()` — stat panel, query
     `spt_baselines_warm / (spt_baselines_warm + spt_baselines_cold + spt_product_keys_no_baseline) * 100`,
     unit `percent`, ThresholdsGreenYellowRed with green >= 80,
@@ -601,7 +601,7 @@ dashboard observations.
   - `ColdStartRate()` — timeseries panel, query
     `rate(spt_scoring_cold_start_total[5m]) / (rate(spt_scoring_cold_start_total[5m]) + rate(spt_scoring_with_baseline_total[5m])) * 100`,
     unit `percent`, FillOpacity(10).
-- [ ] **Alerts row** — in `tools/dashgen/panels/alerts.go`, add:
+- [x] **Alerts row** — in `tools/dashgen/panels/alerts.go`, add:
   - `LastNotification()` — stat panel, query
     `time() - spt_notification_last_success_timestamp{job="server-price-tracker"}`,
     unit `s`, Span(StatWidth).
@@ -611,7 +611,7 @@ dashboard observations.
 
 #### 5c. Wire new panels into dashboard rows
 
-- [ ] In `tools/dashgen/dashboards/overview.go`, update `BuildOverview()`:
+- [x] In `tools/dashgen/dashboards/overview.go`, update `BuildOverview()`:
   - Overview row: add `ActiveWatchesStat()`, `TotalListingsStat()`,
     `PendingAlertsStat()` (adjust Span widths so the row totals 24).
   - Ingestion row: add `LastIngestion()`, `NextIngestion()`.
@@ -627,7 +627,7 @@ dashboard observations.
   when raw queries match multiple label combinations. Fix by wrapping
   in `sum()`:
 
-- [ ] In `tools/dashgen/rules/recording.go`, update 4 recording rules
+- [x] In `tools/dashgen/rules/recording.go`, update 4 recording rules
   to use `sum(rate(...))` instead of bare `rate(...)`:
   - `spt:ingestion_listings:rate5m` → `sum(rate(spt_ingestion_listings_total[5m]))`
   - `spt:ingestion_errors:rate5m` → `sum(rate(spt_ingestion_errors_total[5m]))`
@@ -635,20 +635,20 @@ dashboard observations.
   - `spt:ebay_api_calls:rate5m` → `sum(rate(spt_ebay_api_calls_total[5m]))`
   - Note: `spt:http_requests:rate5m` and `spt:http_errors:rate5m`
     already use `sum()`.
-- [ ] In `tools/dashgen/panels/alerts.go`, update `AlertsRate()` query
+- [x] In `tools/dashgen/panels/alerts.go`, update `AlertsRate()` query
   to wrap in `sum()`:
   `sum(rate(spt_alerts_fired_total{job="server-price-tracker"}[5m]))`
 
 #### 5e. Add new recording rule
 
-- [ ] In `tools/dashgen/rules/recording.go`, add:
+- [x] In `tools/dashgen/rules/recording.go`, add:
   ```go
   {Record: "spt:notification_duration:p95_5m", Expr: `histogram_quantile(0.95, sum(rate(spt_notification_duration_seconds_bucket[5m])) by (le))`},
   ```
 
 #### 5f. Add new alert rules
 
-- [ ] In `tools/dashgen/rules/alerts.go`, add 4 new rules:
+- [x] In `tools/dashgen/rules/alerts.go`, add 4 new rules:
   - `SptNoIngestionRecent`:
     expr `time() - spt_ingestion_last_success_timestamp > 1800`,
     for `5m`, severity `warning`,
@@ -668,13 +668,13 @@ dashboard observations.
 
 #### 5g. Regenerate artifacts and test
 
-- [ ] Run `cd tools/dashgen && go run .` to regenerate:
+- [x] Run `cd tools/dashgen && go run .` to regenerate:
   - `deploy/grafana/data/spt-overview.json`
   - `deploy/prometheus/spt-recording-rules.yaml`
   - `deploy/prometheus/spt-alerts.yaml`
-- [ ] Update `dashgen_test.go` panel count assertion to match the new
-  total (currently 19 — add the count of new panels).
-- [ ] Run `make test && make lint` — all pass (including the staleness
+- [x] Update `dashgen_test.go` panel count assertion to match the new
+  total (19 → 29, added 10 new panels).
+- [x] Run `make test && make lint` — all pass (including the staleness
   test that compares generated artifacts against committed files).
 
 ### Success Criteria

@@ -56,6 +56,51 @@ func QuotaGauge() *gauge.PanelBuilder {
 		ColorScheme(ColorSchemeThresholds())
 }
 
+// ActiveWatchesStat returns a stat panel showing the number of enabled watches.
+func ActiveWatchesStat() *stat.PanelBuilder {
+	return stat.NewPanelBuilder().
+		Title("Active Watches").
+		Description("Number of enabled watches").
+		Datasource(DSRef()).
+		Height(StatHeight).
+		Span(StatWidth).
+		WithTarget(PromQuery(`spt_watches_enabled{job="server-price-tracker"}`, "", "A")).
+		Thresholds(ThresholdsGreenOnly()).
+		ColorScheme(ColorSchemeThresholds()).
+		ColorMode(common.BigValueColorModeBackground).
+		GraphMode(common.BigValueGraphModeNone)
+}
+
+// TotalListingsStat returns a stat panel showing the total listings count.
+func TotalListingsStat() *stat.PanelBuilder {
+	return stat.NewPanelBuilder().
+		Title("Total Listings").
+		Description("Total listings in the database").
+		Datasource(DSRef()).
+		Height(StatHeight).
+		Span(StatWidth).
+		WithTarget(PromQuery(`spt_listings_total{job="server-price-tracker"}`, "", "A")).
+		Thresholds(ThresholdsGreenOnly()).
+		ColorScheme(ColorSchemeThresholds()).
+		ColorMode(common.BigValueColorModeBackground).
+		GraphMode(common.BigValueGraphModeNone)
+}
+
+// PendingAlertsStat returns a stat panel showing the number of undelivered alerts.
+func PendingAlertsStat() *stat.PanelBuilder {
+	return stat.NewPanelBuilder().
+		Title("Pending Alerts").
+		Description("Alerts not yet sent as notifications").
+		Datasource(DSRef()).
+		Height(StatHeight).
+		Span(StatWidth).
+		WithTarget(PromQuery(`spt_alerts_pending{job="server-price-tracker"}`, "", "A")).
+		Thresholds(ThresholdsGreenYellowRed(1, 10)).
+		ColorScheme(ColorSchemeThresholds()).
+		ColorMode(common.BigValueColorModeBackground).
+		GraphMode(common.BigValueGraphModeNone)
+}
+
 // UptimeStat returns a stat panel showing process uptime.
 func UptimeStat() *stat.PanelBuilder {
 	return stat.NewPanelBuilder().

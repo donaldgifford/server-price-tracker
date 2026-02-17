@@ -113,6 +113,54 @@ func AlertRules() PrometheusRule {
 								"description": "One or more alert notifications (Discord webhooks) have failed to send.",
 							},
 						},
+						{
+							Alert: "SptNoIngestionRecent",
+							Expr:  `time() - spt_ingestion_last_success_timestamp > 1800`,
+							For:   "5m",
+							Labels: map[string]string{
+								"severity": "warning",
+							},
+							Annotations: map[string]string{
+								"summary":     "No successful ingestion cycle recently",
+								"description": "No successful ingestion cycle in the last 30 minutes.",
+							},
+						},
+						{
+							Alert: "SptPendingAlertBacklog",
+							Expr:  `spt_alerts_pending > 50`,
+							For:   "10m",
+							Labels: map[string]string{
+								"severity": "warning",
+							},
+							Annotations: map[string]string{
+								"summary":     "Pending alert backlog is growing",
+								"description": "More than 50 alerts are pending notification delivery.",
+							},
+						},
+						{
+							Alert: "SptNotificationSilence",
+							Expr:  `time() - spt_notification_last_success_timestamp > 86400`,
+							For:   "5m",
+							Labels: map[string]string{
+								"severity": "warning",
+							},
+							Annotations: map[string]string{
+								"summary":     "No successful notifications in 24 hours",
+								"description": "No successful notification has been sent in 24 hours.",
+							},
+						},
+						{
+							Alert: "SptLowBaselineCoverage",
+							Expr:  `spt_baselines_warm / (spt_baselines_warm + spt_baselines_cold + spt_product_keys_no_baseline) < 0.5`,
+							For:   "30m",
+							Labels: map[string]string{
+								"severity": "info",
+							},
+							Annotations: map[string]string{
+								"summary":     "Low baseline coverage",
+								"description": "Fewer than 50% of product keys have warm baselines.",
+							},
+						},
 					},
 				},
 			},

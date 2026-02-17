@@ -24,7 +24,10 @@ func BuildOverview() *dashboard.DashboardBuilder {
 		WithPanel(panels.HealthzStat()).
 		WithPanel(panels.ReadyzStat()).
 		WithPanel(panels.QuotaGauge()).
-		WithPanel(panels.UptimeStat()))
+		WithPanel(panels.UptimeStat()).
+		WithPanel(panels.ActiveWatchesStat()).
+		WithPanel(panels.TotalListingsStat()).
+		WithPanel(panels.PendingAlertsStat()))
 
 	// Row 2: HTTP.
 	b.WithRow(dashboard.NewRowBuilder("HTTP").
@@ -41,6 +44,8 @@ func BuildOverview() *dashboard.DashboardBuilder {
 
 	// Row 4: Ingestion.
 	b.WithRow(dashboard.NewRowBuilder("Ingestion").
+		WithPanel(panels.LastIngestion()).
+		WithPanel(panels.NextIngestion()).
 		WithPanel(panels.ListingsRate()).
 		WithPanel(panels.IngestionErrors()).
 		WithPanel(panels.CycleDuration()))
@@ -52,11 +57,16 @@ func BuildOverview() *dashboard.DashboardBuilder {
 
 	// Row 6: Scoring.
 	b.WithRow(dashboard.NewRowBuilder("Scoring").
+		WithPanel(panels.BaselineCoverage()).
+		WithPanel(panels.BaselineMaturity()).
+		WithPanel(panels.ColdStartRate()).
 		WithPanel(panels.ScoreDistribution()))
 
 	// Row 7: Alerts.
 	b.WithRow(dashboard.NewRowBuilder("Alerts").
+		WithPanel(panels.LastNotification()).
 		WithPanel(panels.AlertsRate()).
+		WithPanel(panels.NotificationLatency()).
 		WithPanel(panels.NotificationFailures()))
 
 	return b

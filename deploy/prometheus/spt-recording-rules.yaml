@@ -15,10 +15,12 @@ spec:
         - record: spt:http_errors:rate5m
           expr: sum(rate(spt_http_requests_total{status=~"5.."}[5m]))
         - record: spt:ingestion_listings:rate5m
-          expr: rate(spt_ingestion_listings_total[5m])
+          expr: sum(rate(spt_ingestion_listings_total[5m]))
         - record: spt:ingestion_errors:rate5m
-          expr: rate(spt_ingestion_errors_total[5m])
+          expr: sum(rate(spt_ingestion_errors_total[5m]))
         - record: spt:extraction_failures:rate5m
-          expr: rate(spt_extraction_failures_total[5m])
+          expr: sum(rate(spt_extraction_failures_total[5m]))
         - record: spt:ebay_api_calls:rate5m
-          expr: rate(spt_ebay_api_calls_total[5m])
+          expr: sum(rate(spt_ebay_api_calls_total[5m]))
+        - record: spt:notification_duration:p95_5m
+          expr: histogram_quantile(0.95, sum(rate(spt_notification_duration_seconds_bucket[5m])) by (le))
