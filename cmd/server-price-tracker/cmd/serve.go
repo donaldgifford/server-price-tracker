@@ -316,6 +316,7 @@ func buildEngine(
 		eng,
 		cfg.Schedule.IngestionInterval,
 		cfg.Schedule.BaselineInterval,
+		cfg.Schedule.ReExtractionInterval,
 		logger,
 	)
 	if err != nil {

@@ -450,13 +450,13 @@ See `docs/plans/ram-fix.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Modify `internal/config/config.go`:
-  - [ ] Add `ReExtractionInterval time.Duration` field to `ScheduleConfig`
+- [x] Modify `internal/config/config.go`:
+  - [x] Add `ReExtractionInterval time.Duration` field to `ScheduleConfig`
     at line 122, with YAML tag `re_extraction_interval`
-  - [ ] No default — zero value means disabled (opt-in only)
-- [ ] Modify `internal/engine/scheduler.go`:
-  - [ ] Add `reExtractionEntryID cron.EntryID` field to `Scheduler` struct
-  - [ ] Add `reExtractionInterval time.Duration` as 4th parameter to
+  - [x] No default — zero value means disabled (opt-in only)
+- [x] Modify `internal/engine/scheduler.go`:
+  - [x] Add `reExtractionEntryID cron.EntryID` field to `Scheduler` struct
+  - [x] Add `reExtractionInterval time.Duration` as 4th parameter to
     `NewScheduler`:
     ```go
     func NewScheduler(
@@ -467,13 +467,13 @@ See `docs/plans/ram-fix.md` for the high-level design.
         log *slog.Logger,
     ) (*Scheduler, error)
     ```
-  - [ ] If `reExtractionInterval > 0`, add a third cron job calling
+  - [x] If `reExtractionInterval > 0`, add a third cron job calling
     `s.runReExtraction()`. The cron schedule should stagger the job to
     avoid colliding with ingestion (e.g., offset by half the ingestion
     interval, or use a separate `@every` entry that naturally avoids
     overlap since cron jobs run sequentially within a single `cron.Cron`
     instance).
-  - [ ] Add `runReExtraction()` method:
+  - [x] Add `runReExtraction()` method:
     ```go
     func (s *Scheduler) runReExtraction() {
         ctx := context.Background()
@@ -487,19 +487,19 @@ See `docs/plans/ram-fix.md` for the high-level design.
         s.SyncNextRunTimestamps()
     }
     ```
-  - [ ] Update `SyncNextRunTimestamps` to include re-extraction entry if
+  - [x] Update `SyncNextRunTimestamps` to include re-extraction entry if
     the entry ID is non-zero (add a new Prometheus gauge for it)
-- [ ] Fix existing callers of `NewScheduler` (4 total):
-  - [ ] `cmd/server-price-tracker/cmd/serve.go:309` — pass
+- [x] Fix existing callers of `NewScheduler` (4 total):
+  - [x] `cmd/server-price-tracker/cmd/serve.go:309` — pass
     `cfg.Schedule.ReExtractionInterval` as the new 4th argument
-  - [ ] `internal/engine/scheduler_test.go` — update all 4 test calls to
+  - [x] `internal/engine/scheduler_test.go` — update all 4 test calls to
     pass `0` as the 4th argument (re-extraction disabled)
-- [ ] Add test in `internal/engine/scheduler_test.go`:
-  - [ ] `TestNewScheduler_WithReExtraction` — pass non-zero
+- [x] Add test in `internal/engine/scheduler_test.go`:
+  - [x] `TestNewScheduler_WithReExtraction` — pass non-zero
     `reExtractionInterval`, assert `len(sched.Entries()) == 3`
-  - [ ] `TestNewScheduler_WithoutReExtraction` — pass `0`, assert
+  - [x] `TestNewScheduler_WithoutReExtraction` — pass `0`, assert
     `len(sched.Entries()) == 2` (existing test, verify it still passes)
-- [ ] Run `make test && make lint`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 

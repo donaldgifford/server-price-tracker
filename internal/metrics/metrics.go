@@ -273,6 +273,12 @@ var (
 		Help:      "Unix epoch of the next scheduled baseline refresh.",
 	})
 
+	SchedulerNextReExtractionTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "scheduler_next_reextraction_timestamp",
+		Help:      "Unix epoch of the next scheduled re-extraction run.",
+	})
+
 	IngestionLastSuccessTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Name:      "ingestion_last_success_timestamp",
