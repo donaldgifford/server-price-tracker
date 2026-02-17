@@ -251,45 +251,16 @@ See `docs/plans/ram-fix.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Add `RunReExtraction` to `internal/engine/engine.go`:
-  ```go
-  // RunReExtraction re-extracts listings with incomplete extraction data.
-  // Returns the count of successfully re-extracted listings.
-  func (eng *Engine) RunReExtraction(ctx context.Context, componentType string, limit int) (int, error)
-  ```
-  Implementation:
-  - Default limit to 100 if `limit <= 0`
-  - Call `eng.store.ListIncompleteExtractions(ctx, componentType, limit)`
-  - For each listing:
-    1. Call `eng.extractor.ClassifyAndExtract(ctx, listing.Title, nil)`
-    2. If extraction fails, log error and continue to next listing
-    3. Compute `extract.ProductKey(string(ct), attrs)`
-    4. Call `eng.store.UpdateListingExtraction(ctx, listing.ID, string(ct), attrs, 0.9, productKey)`
-    5. Update listing in-place (`listing.ProductKey`, `listing.ComponentType`)
-    6. Call `ScoreListing(ctx, eng.store, &listing)`
-    7. Increment success counter
-  - Log summary: `"re-extraction complete", "total", len(listings), "success", count, "failed", len(listings)-count`
-  - Return `(count, nil)`
-- [ ] Add test to `internal/engine/engine_test.go`:
-  - [ ] `TestRunReExtraction_Success` — mock store returns 2 listings with
-    `ProductKey: "ram:ddr4:ecc_reg:32gb:0"`. Mock extractor returns valid
-    attrs with `speed_mhz: 2666`. Verify `UpdateListingExtraction` is
-    called twice with the correct product key containing `2666`. Verify
-    `GetBaseline` is called (from ScoreListing). Return `(2, nil)`.
-  - [ ] `TestRunReExtraction_PartialFailure` — mock store returns 3 listings.
-    Mock extractor returns success for listings 1 and 3, error for
-    listing 2. Verify `UpdateListingExtraction` is called twice (not three
-    times). Return `(2, nil)` — partial success without error.
-  - [ ] `TestRunReExtraction_NoListings` — mock store returns empty slice.
-    Verify no extraction calls. Return `(0, nil)`.
-  - [ ] `TestRunReExtraction_DefaultLimit` — pass `limit=0`, verify
-    `ListIncompleteExtractions` is called with `limit=100`.
-  - [ ] Add `CountIncompleteExtractions` and `CountIncompleteExtractionsByType`
-    to `expectCountMethods` helper (with `.Maybe()` + zero returns) so
-    existing tests that call `SyncStateMetrics` don't break after Phase 6
-    adds those calls.
-- [ ] Run `go test ./internal/engine/... -v -run TestRunReExtraction`
-- [ ] Run `make test && make lint`
+- [x] Add `RunReExtraction` to `internal/engine/engine.go`
+- [x] Add test to `internal/engine/engine_test.go`:
+  - [x] `TestRunReExtraction_Success`
+  - [x] `TestRunReExtraction_PartialFailure`
+  - [x] `TestRunReExtraction_NoListings`
+  - [x] `TestRunReExtraction_DefaultLimit`
+  - [x] Add `CountIncompleteExtractions` and `CountIncompleteExtractionsByType`
+    to `expectCountMethods` helper
+- [x] Run `go test ./internal/engine/... -v -run TestRunReExtraction`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 

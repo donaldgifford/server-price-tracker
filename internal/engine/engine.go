@@ -374,6 +374,66 @@ func (eng *Engine) SyncStateMetrics(ctx context.Context) {
 	}
 }
 
+// RunReExtraction re-extracts listings with incomplete extraction data.
+// Returns the count of successfully re-extracted listings.
+func (eng *Engine) RunReExtraction(ctx context.Context, componentType string, limit int) (int, error) {
+	const defaultLimit = 100
+	if limit <= 0 {
+		limit = defaultLimit
+	}
+
+	listings, err := eng.store.ListIncompleteExtractions(ctx, componentType, limit)
+	if err != nil {
+		return 0, fmt.Errorf("listing incomplete extractions: %w", err)
+	}
+
+	if len(listings) == 0 {
+		eng.log.Info("no incomplete extractions found")
+		return 0, nil
+	}
+
+	var success int
+	var ctxErr error
+	for i := range listings {
+		if ctx.Err() != nil {
+			ctxErr = ctx.Err()
+			break
+		}
+
+		l := &listings[i]
+		ct, attrs, extractErr := eng.extractor.ClassifyAndExtract(ctx, l.Title, nil)
+		if extractErr != nil {
+			eng.log.Error("re-extraction failed", "listing", l.EbayID, "error", extractErr)
+			continue
+		}
+
+		productKey := extract.ProductKey(string(ct), attrs)
+		if err := eng.store.UpdateListingExtraction(
+			ctx, l.ID, string(ct), attrs, 0.9, productKey,
+		); err != nil {
+			eng.log.Error("update re-extraction failed", "listing", l.EbayID, "error", err)
+			continue
+		}
+
+		l.ProductKey = productKey
+		l.ComponentType = ct
+
+		if err := ScoreListing(ctx, eng.store, l); err != nil {
+			eng.log.Error("re-scoring failed", "listing", l.EbayID, "error", err)
+		}
+
+		success++
+	}
+
+	eng.log.Info("re-extraction complete",
+		"total", len(listings),
+		"success", success,
+		"failed", len(listings)-success,
+	)
+
+	return success, ctxErr
+}
+
 // RunBaselineRefresh recomputes all baselines and re-scores affected listings.
 func (eng *Engine) RunBaselineRefresh(ctx context.Context) error {
 	if err := eng.store.RecomputeAllBaselines(ctx, eng.baselineWindowDays); err != nil {
