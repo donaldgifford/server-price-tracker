@@ -41,6 +41,9 @@ type Store interface {
 	UpdateScore(ctx context.Context, id string, score int, breakdown json.RawMessage) error
 	ListUnextractedListings(ctx context.Context, limit int) ([]domain.Listing, error)
 	ListUnscoredListings(ctx context.Context, limit int) ([]domain.Listing, error)
+	ListIncompleteExtractions(ctx context.Context, componentType string, limit int) ([]domain.Listing, error)
+	CountIncompleteExtractions(ctx context.Context) (int, error)
+	CountIncompleteExtractionsByType(ctx context.Context) (map[string]int, error)
 
 	// Watches
 	CreateWatch(ctx context.Context, w *domain.Watch) error

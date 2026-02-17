@@ -89,6 +89,120 @@ func (_c *MockStore_CountBaselinesByMaturity_Call) RunAndReturn(run func(context
 	return _c
 }
 
+// CountIncompleteExtractions provides a mock function with given fields: ctx
+func (_m *MockStore) CountIncompleteExtractions(ctx context.Context) (int, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountIncompleteExtractions")
+	}
+
+	var r0 int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (int, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_CountIncompleteExtractions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountIncompleteExtractions'
+type MockStore_CountIncompleteExtractions_Call struct {
+	*mock.Call
+}
+
+// CountIncompleteExtractions is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockStore_Expecter) CountIncompleteExtractions(ctx interface{}) *MockStore_CountIncompleteExtractions_Call {
+	return &MockStore_CountIncompleteExtractions_Call{Call: _e.mock.On("CountIncompleteExtractions", ctx)}
+}
+
+func (_c *MockStore_CountIncompleteExtractions_Call) Run(run func(ctx context.Context)) *MockStore_CountIncompleteExtractions_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *MockStore_CountIncompleteExtractions_Call) Return(_a0 int, _a1 error) *MockStore_CountIncompleteExtractions_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_CountIncompleteExtractions_Call) RunAndReturn(run func(context.Context) (int, error)) *MockStore_CountIncompleteExtractions_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CountIncompleteExtractionsByType provides a mock function with given fields: ctx
+func (_m *MockStore) CountIncompleteExtractionsByType(ctx context.Context) (map[string]int, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountIncompleteExtractionsByType")
+	}
+
+	var r0 map[string]int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (map[string]int, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) map[string]int); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_CountIncompleteExtractionsByType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountIncompleteExtractionsByType'
+type MockStore_CountIncompleteExtractionsByType_Call struct {
+	*mock.Call
+}
+
+// CountIncompleteExtractionsByType is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockStore_Expecter) CountIncompleteExtractionsByType(ctx interface{}) *MockStore_CountIncompleteExtractionsByType_Call {
+	return &MockStore_CountIncompleteExtractionsByType_Call{Call: _e.mock.On("CountIncompleteExtractionsByType", ctx)}
+}
+
+func (_c *MockStore_CountIncompleteExtractionsByType_Call) Run(run func(ctx context.Context)) *MockStore_CountIncompleteExtractionsByType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *MockStore_CountIncompleteExtractionsByType_Call) Return(_a0 map[string]int, _a1 error) *MockStore_CountIncompleteExtractionsByType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_CountIncompleteExtractionsByType_Call) RunAndReturn(run func(context.Context) (map[string]int, error)) *MockStore_CountIncompleteExtractionsByType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CountListings provides a mock function with given fields: ctx
 func (_m *MockStore) CountListings(ctx context.Context) (int, error) {
 	ret := _m.Called(ctx)
@@ -923,6 +1037,66 @@ func (_c *MockStore_ListBaselines_Call) Return(_a0 []domain.PriceBaseline, _a1 e
 }
 
 func (_c *MockStore_ListBaselines_Call) RunAndReturn(run func(context.Context) ([]domain.PriceBaseline, error)) *MockStore_ListBaselines_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListIncompleteExtractions provides a mock function with given fields: ctx, componentType, limit
+func (_m *MockStore) ListIncompleteExtractions(ctx context.Context, componentType string, limit int) ([]domain.Listing, error) {
+	ret := _m.Called(ctx, componentType, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListIncompleteExtractions")
+	}
+
+	var r0 []domain.Listing
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) ([]domain.Listing, error)); ok {
+		return rf(ctx, componentType, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) []domain.Listing); ok {
+		r0 = rf(ctx, componentType, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.Listing)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
+		r1 = rf(ctx, componentType, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_ListIncompleteExtractions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListIncompleteExtractions'
+type MockStore_ListIncompleteExtractions_Call struct {
+	*mock.Call
+}
+
+// ListIncompleteExtractions is a helper method to define mock.On call
+//   - ctx context.Context
+//   - componentType string
+//   - limit int
+func (_e *MockStore_Expecter) ListIncompleteExtractions(ctx interface{}, componentType interface{}, limit interface{}) *MockStore_ListIncompleteExtractions_Call {
+	return &MockStore_ListIncompleteExtractions_Call{Call: _e.mock.On("ListIncompleteExtractions", ctx, componentType, limit)}
+}
+
+func (_c *MockStore_ListIncompleteExtractions_Call) Run(run func(ctx context.Context, componentType string, limit int)) *MockStore_ListIncompleteExtractions_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *MockStore_ListIncompleteExtractions_Call) Return(_a0 []domain.Listing, _a1 error) *MockStore_ListIncompleteExtractions_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_ListIncompleteExtractions_Call) RunAndReturn(run func(context.Context, string, int) ([]domain.Listing, error)) *MockStore_ListIncompleteExtractions_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -210,47 +210,26 @@ See `docs/plans/ram-fix.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Modify `internal/store/store.go` — add three methods to the `Store`
+- [x] Modify `internal/store/store.go` — add three methods to the `Store`
   interface (in the `// Listings` section after `ListUnscoredListings`):
   ```go
   ListIncompleteExtractions(ctx context.Context, componentType string, limit int) ([]domain.Listing, error)
   CountIncompleteExtractions(ctx context.Context) (int, error)
   CountIncompleteExtractionsByType(ctx context.Context) (map[string]int, error)
   ```
-- [ ] Modify `internal/store/queries.go` — add SQL constants in a new
+- [x] Modify `internal/store/queries.go` — add SQL constants in a new
   `// Extraction quality queries.` section after the Baseline queries:
-  - [ ] `queryListIncompleteExtractions` — select listing columns (same as
-    `queryListUnextractedListings` column list) with:
-    ```sql
-    WHERE component_type IS NOT NULL AND (
-      (component_type = 'ram' AND (product_key LIKE '%:0' OR (attributes->>'speed_mhz') IS NULL))
-      OR (component_type = 'drive' AND (product_key LIKE '%:unknown%'))
-    )
-    ORDER BY first_seen_at DESC
-    LIMIT $1
-    ```
-    RAM: detects missing speed_mhz (product key ending `:0`).
-    Drive: detects missing form_factor or type (product key containing `:unknown`).
-  - [ ] `queryListIncompleteExtractionsForType` — same WHERE clause but
-    add `AND component_type = $1` filter, limit as `$2`
-  - [ ] `queryCountIncompleteExtractions` — `SELECT COUNT(*)` with same
-    WHERE clause
-  - [ ] `queryCountIncompleteExtractionsByType` —
-    `SELECT component_type, COUNT(*) ... GROUP BY component_type`
-- [ ] Modify `internal/store/postgres.go` — implement the three methods:
-  - [ ] `ListIncompleteExtractions` — if `componentType == ""`, use
-    `queryListIncompleteExtractions` with `limit` as `$1`. If
-    `componentType != ""`, use `queryListIncompleteExtractionsForType`
-    with `componentType` as `$1` and `limit` as `$2`. Use existing
-    `queryListings` helper pattern from `postgres.go:511-532`.
-  - [ ] `CountIncompleteExtractions` — follow the `CountUnextractedListings`
-    pattern at `postgres.go:465-471`.
-  - [ ] `CountIncompleteExtractionsByType` — query rows, scan
-    `component_type` and `count` into a `map[string]int`. Close rows,
-    check `rows.Err()`.
-- [ ] Run `make mocks` to regenerate `internal/store/mocks/mock_store.go`
+  - [x] `queryListIncompleteExtractions`
+  - [x] `queryListIncompleteExtractionsForType`
+  - [x] `queryCountIncompleteExtractions`
+  - [x] `queryCountIncompleteExtractionsByType`
+- [x] Modify `internal/store/postgres.go` — implement the three methods:
+  - [x] `ListIncompleteExtractions`
+  - [x] `CountIncompleteExtractions`
+  - [x] `CountIncompleteExtractionsByType`
+- [x] Run `make mocks` to regenerate `internal/store/mocks/mock_store.go`
   with the three new methods
-- [ ] Run `make test && make lint`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 
