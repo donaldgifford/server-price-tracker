@@ -707,21 +707,21 @@ dashboard observations.
 
 ### Tasks
 
-- [ ] **Verify `spt_ebay_daily_usage` is fully removed** — grep the
+- [x] **Verify `spt_ebay_daily_usage` is fully removed** — grepped
   entire codebase for `EbayDailyUsage`, `ebay_daily_usage`, and
-  `daily_usage`. Confirm zero references remain outside of git history
-  or docs.
-- [ ] **Verify `KnownMetrics` is complete** — compare the metrics
-  registered in `internal/metrics/metrics.go` against the entries in
-  `tools/dashgen/config.go`. Every non-deprecated metric should be
-  present.
+  `daily_usage`. Zero references in Go source; only remaining
+  references are in docs/plans (historical context).
+- [x] **Verify `KnownMetrics` is complete** — compared all 37 metrics
+  registered in `internal/metrics/metrics.go` against entries in
+  `tools/dashgen/config.go`. All metrics are present in both. No
+  missing or orphaned entries.
 - [ ] **Verify all new metrics populate** — deploy locally, trigger an
   ingestion cycle, and verify on `/metrics`:
   - All state gauges show non-zero values (assuming data exists).
   - Timestamp gauges are recent Unix epochs.
   - Histogram buckets appear for extraction and notification durations.
   - Cold start counters increment during scoring.
-- [ ] Run `make test && make lint` — final confirmation
+- [x] Run `make test && make lint` — final confirmation
 
 ### Success Criteria
 
