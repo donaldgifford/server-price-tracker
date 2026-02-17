@@ -6,6 +6,9 @@ backends), scores listings against historical baselines, and alerts on deals via
 Discord webhooks. The CLI acts as a client to the API, and the API design
 supports future integrations (Discord bot, web UI, Grafana dashboards).
 
+See the [Usage Guide](USAGE.md) for a walkthrough of the full pipeline — from
+creating watches to receiving deal alerts — with HTTP API and CLI examples.
+
 ## Extraction Test Results
 
 Validated against `mistral:7b-instruct-v0.3-q5_K_M` via Ollama:
