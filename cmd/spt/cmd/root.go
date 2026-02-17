@@ -54,6 +54,7 @@ func init() {
 	rootCmd.AddCommand(baselinesCmd())
 	rootCmd.AddCommand(ingestCmd())
 	rootCmd.AddCommand(rescoreCmd())
+	rootCmd.AddCommand(reextractCmd())
 }
 
 func initConfig() {

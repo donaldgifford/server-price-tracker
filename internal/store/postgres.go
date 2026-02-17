@@ -507,6 +507,65 @@ func (s *PostgresStore) CountProductKeysWithoutBaseline(ctx context.Context) (in
 	return count, nil
 }
 
+// ListIncompleteExtractions returns listings with incomplete extraction data.
+// If componentType is empty, returns all component types. Otherwise filters by type.
+func (s *PostgresStore) ListIncompleteExtractions(
+	ctx context.Context,
+	componentType string,
+	limit int,
+) ([]domain.Listing, error) {
+	if componentType == "" {
+		return s.queryListings(ctx, queryListIncompleteExtractions, limit)
+	}
+
+	rows, err := s.pool.Query(ctx, queryListIncompleteExtractionsForType, componentType, limit)
+	if err != nil {
+		return nil, fmt.Errorf("querying incomplete extractions: %w", err)
+	}
+	defer rows.Close()
+
+	var listings []domain.Listing
+	for rows.Next() {
+		var l domain.Listing
+		if err := scanListingRow(rows, &l); err != nil {
+			return nil, fmt.Errorf("scanning listing: %w", err)
+		}
+		listings = append(listings, l)
+	}
+
+	return listings, rows.Err()
+}
+
+// CountIncompleteExtractions returns the total count of listings with incomplete extraction data.
+func (s *PostgresStore) CountIncompleteExtractions(ctx context.Context) (int, error) {
+	var count int
+	if err := s.pool.QueryRow(ctx, queryCountIncompleteExtractions).Scan(&count); err != nil {
+		return 0, fmt.Errorf("counting incomplete extractions: %w", err)
+	}
+	return count, nil
+}
+
+// CountIncompleteExtractionsByType returns incomplete extraction counts grouped by component type.
+func (s *PostgresStore) CountIncompleteExtractionsByType(ctx context.Context) (map[string]int, error) {
+	rows, err := s.pool.Query(ctx, queryCountIncompleteExtractionsByType)
+	if err != nil {
+		return nil, fmt.Errorf("counting incomplete extractions by type: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]int)
+	for rows.Next() {
+		var ct string
+		var count int
+		if err := rows.Scan(&ct, &count); err != nil {
+			return nil, fmt.Errorf("scanning incomplete extraction count: %w", err)
+		}
+		result[ct] = count
+	}
+
+	return result, rows.Err()
+}
+
 // queryListings is a helper for listing queries with a LIMIT parameter.
 func (s *PostgresStore) queryListings(
 	ctx context.Context,

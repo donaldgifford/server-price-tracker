@@ -77,6 +77,21 @@ var (
 	})
 )
 
+// Extraction quality metrics.
+var (
+	ListingsIncompleteExtraction = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "listings_incomplete_extraction",
+		Help:      "Listings with incomplete extraction data (e.g., missing speed for RAM).",
+	})
+
+	ListingsIncompleteExtractionByType = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "listings_incomplete_extraction_by_type",
+		Help:      "Listings with incomplete extraction data, by component type.",
+	}, []string{"component_type"})
+)
+
 // Scoring metrics.
 var (
 	ScoringDistribution = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -256,6 +271,12 @@ var (
 		Namespace: namespace,
 		Name:      "scheduler_next_baseline_timestamp",
 		Help:      "Unix epoch of the next scheduled baseline refresh.",
+	})
+
+	SchedulerNextReExtractionTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "scheduler_next_reextraction_timestamp",
+		Help:      "Unix epoch of the next scheduled re-extraction run.",
 	})
 
 	IngestionLastSuccessTimestamp = promauto.NewGauge(prometheus.GaugeOpts{

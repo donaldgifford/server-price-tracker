@@ -133,6 +133,11 @@ func (e *LLMExtractor) Extract(
 		return nil, fmt.Errorf("validating extraction: %w", err)
 	}
 
+	// Normalize RAM speed from PC module numbers in title when LLM missed it.
+	if componentType == domain.ComponentRAM {
+		NormalizeRAMSpeed(title, attrs)
+	}
+
 	return attrs, nil
 }
 

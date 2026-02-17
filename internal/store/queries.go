@@ -188,6 +188,56 @@ const (
 		  AND b.product_key IS NULL`
 )
 
+// Extraction quality queries.
+const (
+	queryListIncompleteExtractions = `
+		SELECT id, ebay_item_id, title, item_url, image_url,
+			price, currency, shipping_cost, listing_type,
+			seller_name, seller_feedback_score, seller_feedback_pct, seller_top_rated,
+			condition_raw, COALESCE(condition_norm, 'unknown'), COALESCE(component_type, ''), quantity, COALESCE(attributes, '{}'),
+			COALESCE(extraction_confidence, 0), COALESCE(product_key, ''), score, score_breakdown,
+			listed_at, sold_at, sold_price, first_seen_at, updated_at
+		FROM listings
+		WHERE component_type IS NOT NULL AND (
+			(component_type = 'ram' AND (product_key LIKE '%:0' OR (attributes->>'speed_mhz') IS NULL))
+			OR (component_type = 'drive' AND (product_key LIKE '%:unknown%'))
+		)
+		ORDER BY first_seen_at DESC
+		LIMIT $1`
+
+	queryListIncompleteExtractionsForType = `
+		SELECT id, ebay_item_id, title, item_url, image_url,
+			price, currency, shipping_cost, listing_type,
+			seller_name, seller_feedback_score, seller_feedback_pct, seller_top_rated,
+			condition_raw, COALESCE(condition_norm, 'unknown'), COALESCE(component_type, ''), quantity, COALESCE(attributes, '{}'),
+			COALESCE(extraction_confidence, 0), COALESCE(product_key, ''), score, score_breakdown,
+			listed_at, sold_at, sold_price, first_seen_at, updated_at
+		FROM listings
+		WHERE component_type = $1 AND (
+			(component_type = 'ram' AND (product_key LIKE '%:0' OR (attributes->>'speed_mhz') IS NULL))
+			OR (component_type = 'drive' AND (product_key LIKE '%:unknown%'))
+		)
+		ORDER BY first_seen_at DESC
+		LIMIT $2`
+
+	queryCountIncompleteExtractions = `
+		SELECT COUNT(*)
+		FROM listings
+		WHERE component_type IS NOT NULL AND (
+			(component_type = 'ram' AND (product_key LIKE '%:0' OR (attributes->>'speed_mhz') IS NULL))
+			OR (component_type = 'drive' AND (product_key LIKE '%:unknown%'))
+		)`
+
+	queryCountIncompleteExtractionsByType = `
+		SELECT component_type, COUNT(*)
+		FROM listings
+		WHERE component_type IS NOT NULL AND (
+			(component_type = 'ram' AND (product_key LIKE '%:0' OR (attributes->>'speed_mhz') IS NULL))
+			OR (component_type = 'drive' AND (product_key LIKE '%:unknown%'))
+		)
+		GROUP BY component_type`
+)
+
 // Alert queries.
 const (
 	queryCreateAlert = `

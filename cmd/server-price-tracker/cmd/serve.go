@@ -34,6 +34,7 @@ func startServer(opts *Options) error {
 	}
 
 	slogger := sptlog.New(cfg.Logging.Level, cfg.Logging.Format)
+	slog.SetDefault(slogger)
 
 	// --- Database ---
 	ctx := context.Background()
@@ -165,6 +166,12 @@ func registerRoutes(
 
 		rescoreH := handlers.NewRescoreHandler(s)
 		handlers.RegisterRescoreRoutes(humaAPI, rescoreH)
+
+		baselinesH := handlers.NewBaselinesHandler(s)
+		handlers.RegisterBaselineRoutes(humaAPI, baselinesH)
+
+		extractionStatsH := handlers.NewExtractionStatsHandler(s)
+		handlers.RegisterExtractionStatsRoutes(humaAPI, extractionStatsH)
 	}
 
 	// Search (Huma).
@@ -184,6 +191,9 @@ func registerRoutes(
 		ingestH := handlers.NewIngestHandler(eng)
 		baselineH := handlers.NewBaselineRefreshHandler(eng)
 		handlers.RegisterTriggerRoutes(humaAPI, ingestH, baselineH)
+
+		reextractH := handlers.NewReExtractHandler(eng)
+		handlers.RegisterReExtractRoutes(humaAPI, reextractH)
 	}
 }
 
@@ -306,6 +316,7 @@ func buildEngine(
 		eng,
 		cfg.Schedule.IngestionInterval,
 		cfg.Schedule.BaselineInterval,
+		cfg.Schedule.ReExtractionInterval,
 		logger,
 	)
 	if err != nil {

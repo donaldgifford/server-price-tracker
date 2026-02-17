@@ -27,6 +27,11 @@ Rules:
 - "condition": if the listing does not specify, use "unknown".
 - "confidence": always return a float between 0.0 and 1.0. Never null.
 - "quantity": default to 1 unless the title explicitly indicates a lot or bundle.
+- "speed_mhz": Convert PC module numbers to MHz speed. Common mappings:
+  PC3-10600=1333, PC3-12800=1600, PC3-14900=1866,
+  PC4-17000=2133, PC4-19200=2400, PC4-21300=2666, PC4-23400=2933, PC4-25600=3200,
+  PC5-38400=4800, PC5-44800=5600, PC5-51200=6400.
+  Ignore any letter suffix (V, R, T, U, E) after the number. Always convert when present.
 - Only use null for optional string/integer/boolean fields that truly cannot be determined.
 
 Title: {{.Title}}
@@ -39,7 +44,7 @@ Schema:
   "capacity_gb": integer | null,
   "quantity": integer,
   "generation": "DDR3" | "DDR4" | "DDR5",
-  "speed_mhz": integer (e.g. 2133, 2400, 2666, 3200) | null,
+  "speed_mhz": integer (e.g. 2133, 2400, 2666, 3200; derived from PC module number if present) | null,
   "ecc": boolean | null,
   "registered": boolean | null,
   "form_factor": string | null,

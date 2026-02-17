@@ -497,3 +497,40 @@ func TestLLMExtractor_ClassifyAndExtract(t *testing.T) {
 		})
 	}
 }
+
+func TestExtract_RAMNormalizesSpeed(t *testing.T) {
+	t.Parallel()
+
+	// LLM returns null for speed_mhz, but the title contains PC4-21300.
+	// NormalizeRAMSpeed should fill in 2666.
+	mockBackend := extractMocks.NewMockLLMBackend(t)
+	mockBackend.EXPECT().
+		Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+			return r.Format == "json"
+		})).
+		Return(extract.GenerateResponse{
+			Content: `{
+				"manufacturer": "Samsung",
+				"capacity_gb": 32,
+				"generation": "DDR4",
+				"speed_mhz": null,
+				"ecc": true,
+				"registered": true,
+				"condition": "used_working",
+				"quantity": 1,
+				"confidence": 0.9
+			}`,
+		}, nil).
+		Once()
+
+	extractor := extract.NewLLMExtractor(mockBackend)
+	attrs, err := extractor.Extract(
+		context.Background(),
+		domain.ComponentRAM,
+		"Samsung 32GB DDR4 PC4-21300 ECC REG",
+		nil,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, attrs)
+	assert.Equal(t, 2666, attrs["speed_mhz"], "speed_mhz should be normalized from PC4-21300")
+}

@@ -15,19 +15,25 @@ import (
 	extractMocks "github.com/donaldgifford/server-price-tracker/pkg/extract/mocks"
 )
 
-func TestNewScheduler_RegistersCronEntries(t *testing.T) {
-	t.Parallel()
-
+func newSchedulerTestEngine(t *testing.T) *Engine {
+	t.Helper()
 	ms := storeMocks.NewMockStore(t)
 	me := ebayMocks.NewMockEbayClient(t)
 	mx := extractMocks.NewMockExtractor(t)
 	mn := notifyMocks.NewMockNotifier(t)
-	eng := newTestEngine(ms, me, mx, mn)
+	return newTestEngine(ms, me, mx, mn)
+}
+
+func TestNewScheduler_RegistersCronEntries(t *testing.T) {
+	t.Parallel()
+
+	eng := newSchedulerTestEngine(t)
 
 	sched, err := NewScheduler(
 		eng,
 		15*time.Minute,
 		6*time.Hour,
+		0,
 		quietLogger(),
 	)
 	require.NoError(t, err)
@@ -39,16 +45,13 @@ func TestNewScheduler_RegistersCronEntries(t *testing.T) {
 func TestScheduler_StartStop(t *testing.T) {
 	t.Parallel()
 
-	ms := storeMocks.NewMockStore(t)
-	me := ebayMocks.NewMockEbayClient(t)
-	mx := extractMocks.NewMockExtractor(t)
-	mn := notifyMocks.NewMockNotifier(t)
-	eng := newTestEngine(ms, me, mx, mn)
+	eng := newSchedulerTestEngine(t)
 
 	sched, err := NewScheduler(
 		eng,
 		1*time.Hour,
 		24*time.Hour,
+		0,
 		quietLogger(),
 	)
 	require.NoError(t, err)
@@ -61,16 +64,13 @@ func TestScheduler_StartStop(t *testing.T) {
 func TestScheduler_SyncNextRunTimestamps(t *testing.T) {
 	t.Parallel()
 
-	ms := storeMocks.NewMockStore(t)
-	me := ebayMocks.NewMockEbayClient(t)
-	mx := extractMocks.NewMockExtractor(t)
-	mn := notifyMocks.NewMockNotifier(t)
-	eng := newTestEngine(ms, me, mx, mn)
+	eng := newSchedulerTestEngine(t)
 
 	sched, err := NewScheduler(
 		eng,
 		15*time.Minute,
 		6*time.Hour,
+		0,
 		quietLogger(),
 	)
 	require.NoError(t, err)
@@ -90,16 +90,13 @@ func TestScheduler_SyncNextRunTimestamps(t *testing.T) {
 func TestScheduler_StoresEntryIDs(t *testing.T) {
 	t.Parallel()
 
-	ms := storeMocks.NewMockStore(t)
-	me := ebayMocks.NewMockEbayClient(t)
-	mx := extractMocks.NewMockExtractor(t)
-	mn := notifyMocks.NewMockNotifier(t)
-	eng := newTestEngine(ms, me, mx, mn)
+	eng := newSchedulerTestEngine(t)
 
 	sched, err := NewScheduler(
 		eng,
 		15*time.Minute,
 		6*time.Hour,
+		0,
 		quietLogger(),
 	)
 	require.NoError(t, err)
@@ -108,4 +105,42 @@ func TestScheduler_StoresEntryIDs(t *testing.T) {
 	assert.NotZero(t, sched.ingestionEntryID)
 	assert.NotZero(t, sched.baselineEntryID)
 	assert.NotEqual(t, sched.ingestionEntryID, sched.baselineEntryID)
+}
+
+func TestNewScheduler_WithReExtraction(t *testing.T) {
+	t.Parallel()
+
+	eng := newSchedulerTestEngine(t)
+
+	sched, err := NewScheduler(
+		eng,
+		15*time.Minute,
+		6*time.Hour,
+		1*time.Hour,
+		quietLogger(),
+	)
+	require.NoError(t, err)
+
+	entries := sched.Entries()
+	assert.Len(t, entries, 3)
+	assert.NotZero(t, sched.reExtractionEntryID)
+}
+
+func TestNewScheduler_WithoutReExtraction(t *testing.T) {
+	t.Parallel()
+
+	eng := newSchedulerTestEngine(t)
+
+	sched, err := NewScheduler(
+		eng,
+		15*time.Minute,
+		6*time.Hour,
+		0,
+		quietLogger(),
+	)
+	require.NoError(t, err)
+
+	entries := sched.Entries()
+	assert.Len(t, entries, 2)
+	assert.Zero(t, sched.reExtractionEntryID)
 }

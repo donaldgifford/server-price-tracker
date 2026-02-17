@@ -116,9 +116,10 @@ type ScoringWeights struct {
 
 // ScheduleConfig defines cron intervals.
 type ScheduleConfig struct {
-	IngestionInterval time.Duration `yaml:"ingestion_interval"`
-	BaselineInterval  time.Duration `yaml:"baseline_interval"`
-	StaggerOffset     time.Duration `yaml:"stagger_offset"`
+	IngestionInterval    time.Duration `yaml:"ingestion_interval"`
+	BaselineInterval     time.Duration `yaml:"baseline_interval"`
+	StaggerOffset        time.Duration `yaml:"stagger_offset"`
+	ReExtractionInterval time.Duration `yaml:"re_extraction_interval"`
 }
 
 // NotificationsConfig defines notification targets.

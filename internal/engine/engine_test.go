@@ -44,6 +44,8 @@ func expectCountMethods(ms *storeMocks.MockStore) {
 	ms.EXPECT().CountPendingAlerts(mock.Anything).Return(0, nil).Maybe()
 	ms.EXPECT().CountBaselinesByMaturity(mock.Anything).Return(0, 0, nil).Maybe()
 	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(0, nil).Maybe()
+	ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(0, nil).Maybe()
+	ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(nil, nil).Maybe()
 }
 
 func newTestEngine(
@@ -1128,6 +1130,8 @@ func TestSyncStateMetrics_SetsAllGauges(t *testing.T) {
 	ms.EXPECT().CountPendingAlerts(mock.Anything).Return(2, nil).Once()
 	ms.EXPECT().CountBaselinesByMaturity(mock.Anything).Return(3, 12, nil).Once()
 	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(7, nil).Once()
+	ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(42, nil).Once()
+	ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(map[string]int{"ram": 38, "drive": 4}, nil).Once()
 
 	eng := NewEngine(ms, me, mx, mn,
 		WithLogger(quietLogger()),
@@ -1145,6 +1149,7 @@ func TestSyncStateMetrics_SetsAllGauges(t *testing.T) {
 	assert.InDelta(t, 12, ptestutil.ToFloat64(metrics.BaselinesWarm), 0.1)
 	assert.InDelta(t, 15, ptestutil.ToFloat64(metrics.BaselinesTotal), 0.1)
 	assert.InDelta(t, 7, ptestutil.ToFloat64(metrics.ProductKeysNoBaseline), 0.1)
+	assert.InDelta(t, 42, ptestutil.ToFloat64(metrics.ListingsIncompleteExtraction), 0.1)
 }
 
 func TestSyncStateMetrics_StoreErrorDoesNotPanic(t *testing.T) {
@@ -1163,6 +1168,8 @@ func TestSyncStateMetrics_StoreErrorDoesNotPanic(t *testing.T) {
 	ms.EXPECT().CountPendingAlerts(mock.Anything).Return(0, errors.New("db error")).Once()
 	ms.EXPECT().CountBaselinesByMaturity(mock.Anything).Return(0, 0, errors.New("db error")).Once()
 	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(0, errors.New("db error")).Once()
+	ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(0, errors.New("db error")).Once()
+	ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(nil, errors.New("db error")).Once()
 
 	eng := NewEngine(ms, me, mx, mn,
 		WithLogger(quietLogger()),
@@ -1170,4 +1177,149 @@ func TestSyncStateMetrics_StoreErrorDoesNotPanic(t *testing.T) {
 
 	// Should not panic; errors are logged.
 	eng.SyncStateMetrics(context.Background())
+}
+
+func TestRunReExtraction_Success(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	listings := []domain.Listing{
+		{ID: "id1", EbayID: "e1", Title: "Samsung 32GB DDR4 PC4-21300", ProductKey: "ram:ddr4:ecc_reg:32gb:0"},
+		{ID: "id2", EbayID: "e2", Title: "Hynix 16GB DDR4 PC4-19200", ProductKey: "ram:ddr4:ecc_reg:16gb:0"},
+	}
+
+	ms.EXPECT().
+		ListIncompleteExtractions(mock.Anything, "ram", 50).
+		Return(listings, nil).
+		Once()
+
+	// ClassifyAndExtract for each listing.
+	mx.EXPECT().
+		ClassifyAndExtract(mock.Anything, listings[0].Title, mock.Anything).
+		Return(domain.ComponentRAM, map[string]any{
+			"generation": "DDR4", "capacity_gb": float64(32), "speed_mhz": 2666,
+			"ecc": true, "registered": true, "condition": "used_working",
+		}, nil).
+		Once()
+	mx.EXPECT().
+		ClassifyAndExtract(mock.Anything, listings[1].Title, mock.Anything).
+		Return(domain.ComponentRAM, map[string]any{
+			"generation": "DDR4", "capacity_gb": float64(16), "speed_mhz": 2400,
+			"ecc": true, "registered": true, "condition": "used_working",
+		}, nil).
+		Once()
+
+	// UpdateListingExtraction for each.
+	ms.EXPECT().
+		UpdateListingExtraction(mock.Anything, "id1", "ram", mock.Anything, 0.9, mock.Anything).
+		Return(nil).
+		Once()
+	ms.EXPECT().
+		UpdateListingExtraction(mock.Anything, "id2", "ram", mock.Anything, 0.9, mock.Anything).
+		Return(nil).
+		Once()
+
+	// ScoreListing: GetBaseline + UpdateScore for each.
+	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Times(2)
+	ms.EXPECT().UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(2)
+
+	count, err := eng.RunReExtraction(context.Background(), "ram", 50)
+	require.NoError(t, err)
+	assert.Equal(t, 2, count)
+}
+
+func TestRunReExtraction_PartialFailure(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	listings := []domain.Listing{
+		{ID: "id1", EbayID: "e1", Title: "Samsung 32GB DDR4 PC4-21300"},
+		{ID: "id2", EbayID: "e2", Title: "Bad listing"},
+		{ID: "id3", EbayID: "e3", Title: "Hynix 16GB DDR4 PC4-19200"},
+	}
+
+	ms.EXPECT().
+		ListIncompleteExtractions(mock.Anything, "", 100).
+		Return(listings, nil).
+		Once()
+
+	// First succeeds, second fails, third succeeds.
+	mx.EXPECT().
+		ClassifyAndExtract(mock.Anything, listings[0].Title, mock.Anything).
+		Return(domain.ComponentRAM, map[string]any{
+			"generation": "DDR4", "capacity_gb": float64(32), "speed_mhz": 2666,
+			"ecc": true, "registered": true, "condition": "used_working",
+		}, nil).
+		Once()
+	mx.EXPECT().
+		ClassifyAndExtract(mock.Anything, listings[1].Title, mock.Anything).
+		Return("", nil, errors.New("extraction failed")).
+		Once()
+	mx.EXPECT().
+		ClassifyAndExtract(mock.Anything, listings[2].Title, mock.Anything).
+		Return(domain.ComponentRAM, map[string]any{
+			"generation": "DDR4", "capacity_gb": float64(16), "speed_mhz": 2400,
+			"ecc": true, "registered": true, "condition": "used_working",
+		}, nil).
+		Once()
+
+	ms.EXPECT().
+		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
+		Return(nil).
+		Times(2)
+
+	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Times(2)
+	ms.EXPECT().UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(2)
+
+	count, err := eng.RunReExtraction(context.Background(), "", 0) // default limit
+	require.NoError(t, err)
+	assert.Equal(t, 2, count)
+}
+
+func TestRunReExtraction_NoListings(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	ms.EXPECT().
+		ListIncompleteExtractions(mock.Anything, "", 100).
+		Return(nil, nil).
+		Once()
+
+	count, err := eng.RunReExtraction(context.Background(), "", 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count)
+}
+
+func TestRunReExtraction_DefaultLimit(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	ms.EXPECT().
+		ListIncompleteExtractions(mock.Anything, "", 100).
+		Return(nil, nil).
+		Once()
+
+	count, err := eng.RunReExtraction(context.Background(), "", 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count)
 }
