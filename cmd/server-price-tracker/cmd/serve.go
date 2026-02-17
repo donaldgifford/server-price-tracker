@@ -34,6 +34,7 @@ func startServer(opts *Options) error {
 	}
 
 	slogger := sptlog.New(cfg.Logging.Level, cfg.Logging.Format)
+	slog.SetDefault(slogger)
 
 	// --- Database ---
 	ctx := context.Background()
@@ -165,6 +166,9 @@ func registerRoutes(
 
 		rescoreH := handlers.NewRescoreHandler(s)
 		handlers.RegisterRescoreRoutes(humaAPI, rescoreH)
+
+		baselinesH := handlers.NewBaselinesHandler(s)
+		handlers.RegisterBaselineRoutes(humaAPI, baselinesH)
 	}
 
 	// Search (Huma).
