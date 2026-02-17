@@ -6,8 +6,8 @@ structured attributes from listing titles via LLM, scores each listing against
 historical price baselines, and sends deal alerts to Discord when scores exceed
 your threshold.
 
-This guide walks through the entire pipeline — from creating your first watch
-to receiving deal alerts — with both HTTP API and `spt` CLI examples.
+This guide walks through the entire pipeline — from creating your first watch to
+receiving deal alerts — with both HTTP API and `spt` CLI examples.
 
 ## Table of Contents
 
@@ -34,8 +34,8 @@ to receiving deal alerts — with both HTTP API and `spt` CLI examples.
 ## How It Works
 
 The pipeline runs as a continuous loop. You create watches, the scheduler polls
-eBay on a 15-minute interval, and each listing flows through extraction, scoring,
-and alerting.
+eBay on a 15-minute interval, and each listing flows through extraction,
+scoring, and alerting.
 
 ```mermaid
 flowchart TD
@@ -59,15 +59,15 @@ flowchart TD
 
 Each stage in detail:
 
-| Stage | What happens |
-|-------|-------------|
-| **Watch** | Defines an eBay search query, component type, filters, and score threshold |
-| **Ingestion** | Polls eBay for each enabled watch, respecting rate limits (5 req/s, 5000/day) |
-| **Classification** | LLM classifies the listing title into a component type (ram, drive, server, cpu, nic) |
-| **Extraction** | LLM extracts structured attributes (capacity, speed, ECC, etc.) from the title |
-| **Product Key** | Normalizes attributes into a grouping key like `ram:ddr4:ecc_reg:32gb:2666` |
-| **Scoring** | Computes a 0-100 composite score using price, seller, condition, quantity, quality, and time factors |
-| **Alerting** | Fires a Discord webhook when the score meets or exceeds the watch threshold |
+| Stage              | What happens                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| **Watch**          | Defines an eBay search query, component type, filters, and score threshold                           |
+| **Ingestion**      | Polls eBay for each enabled watch, respecting rate limits (5 req/s, 5000/day)                        |
+| **Classification** | LLM classifies the listing title into a component type (ram, drive, server, cpu, nic)                |
+| **Extraction**     | LLM extracts structured attributes (capacity, speed, ECC, etc.) from the title                       |
+| **Product Key**    | Normalizes attributes into a grouping key like `ram:ddr4:ecc_reg:32gb:2666`                          |
+| **Scoring**        | Computes a 0-100 composite score using price, seller, condition, quantity, quality, and time factors |
+| **Alerting**       | Fires a Discord webhook when the score meets or exceeds the watch threshold                          |
 
 ## Quick Start
 
@@ -100,8 +100,8 @@ controls when you get alerted.
 
 ### Create a Watch
 
-Create a watch for DDR4 ECC server RAM priced between $20 and $80, alerting
-when the deal score reaches 75 or above:
+Create a watch for DDR4 ECC server RAM priced between $20 and $80, alerting when
+the deal score reaches 75 or above:
 
 ```bash
 # CLI
@@ -183,17 +183,17 @@ curl -s http://localhost:8080/api/v1/watches \
 Filters narrow which listings trigger alerts. They are evaluated after scoring —
 a listing must both meet the score threshold and pass all filters.
 
-| Filter | JSON field | CLI flag | Description |
-|--------|-----------|----------|-------------|
-| Price min | `price_min` | `--filter "price_min=20"` | Minimum unit price (price + shipping / quantity) |
-| Price max | `price_max` | `--filter "price_max=80"` | Maximum unit price |
-| Min feedback | `seller_min_feedback` | `--filter "seller_min_feedback=500"` | Seller feedback score minimum |
-| Min feedback % | `seller_min_feedback_pct` | `--filter "seller_min_feedback_pct=98.5"` | Seller positive feedback percentage |
-| Top rated only | `seller_top_rated_only` | `--filter "seller_top_rated_only=true"` | Only eBay Top Rated sellers |
-| Conditions | `conditions` | `--filter "conditions=new,like_new"` | Allowed conditions (comma-separated) |
-| Attribute exact | `attribute_filters.{key}.eq` | `--filter "attr:generation=eq:DDR4"` | Exact attribute match |
-| Attribute min | `attribute_filters.{key}.min` | `--filter "attr:capacity_gb=min:32"` | Numeric attribute minimum |
-| Attribute max | `attribute_filters.{key}.max` | `--filter "attr:speed_mhz=max:3200"` | Numeric attribute maximum |
+| Filter          | JSON field                    | CLI flag                                  | Description                                      |
+| --------------- | ----------------------------- | ----------------------------------------- | ------------------------------------------------ |
+| Price min       | `price_min`                   | `--filter "price_min=20"`                 | Minimum unit price (price + shipping / quantity) |
+| Price max       | `price_max`                   | `--filter "price_max=80"`                 | Maximum unit price                               |
+| Min feedback    | `seller_min_feedback`         | `--filter "seller_min_feedback=500"`      | Seller feedback score minimum                    |
+| Min feedback %  | `seller_min_feedback_pct`     | `--filter "seller_min_feedback_pct=98.5"` | Seller positive feedback percentage              |
+| Top rated only  | `seller_top_rated_only`       | `--filter "seller_top_rated_only=true"`   | Only eBay Top Rated sellers                      |
+| Conditions      | `conditions`                  | `--filter "conditions=new,like_new"`      | Allowed conditions (comma-separated)             |
+| Attribute exact | `attribute_filters.{key}.eq`  | `--filter "attr:generation=eq:DDR4"`      | Exact attribute match                            |
+| Attribute min   | `attribute_filters.{key}.min` | `--filter "attr:capacity_gb=min:32"`      | Numeric attribute minimum                        |
+| Attribute max   | `attribute_filters.{key}.max` | `--filter "attr:speed_mhz=max:3200"`      | Numeric attribute maximum                        |
 
 ### List and Inspect Watches
 
@@ -394,8 +394,8 @@ Response:
 **Pass 1 — Classification.** The LLM reads the title and returns one of six
 component types: `ram`, `drive`, `server`, `cpu`, `nic`, or `other`.
 
-**Pass 2 — Attribute extraction.** Using the classified type, the LLM receives
-a component-specific prompt and returns structured JSON with the relevant
+**Pass 2 — Attribute extraction.** Using the classified type, the LLM receives a
+component-specific prompt and returns structured JSON with the relevant
 attributes (e.g., capacity, speed, ECC for RAM; interface, form factor, RPM for
 drives).
 
@@ -404,21 +404,21 @@ drives).
 After extraction, attributes are normalized into a **product key** that groups
 similar items for baseline pricing. The format varies by component type:
 
-| Type | Format | Example |
-|------|--------|---------|
-| RAM | `ram:{generation}:{type}:{capacity}:{speed}` | `ram:ddr4:ecc_reg:32gb:2666` |
-| Drive | `drive:{interface}:{form_factor}:{capacity}:{kind}` | `drive:sas:2.5:600gb:10k` |
-| Server | `server:{manufacturer}:{model}:{drive_ff}` | `server:dell:poweredge_r630:2.5` |
-| CPU | `cpu:{manufacturer}:{family}:{model}` | `cpu:intel:xeon:e5-2680_v4` |
-| NIC | `nic:{speed}:{ports}:{port_type}` | `nic:25gbe:2p:sfp28` |
+| Type   | Format                                              | Example                          |
+| ------ | --------------------------------------------------- | -------------------------------- |
+| RAM    | `ram:{generation}:{type}:{capacity}:{speed}`        | `ram:ddr4:ecc_reg:32gb:2666`     |
+| Drive  | `drive:{interface}:{form_factor}:{capacity}:{kind}` | `drive:sas:2.5:600gb:10k`        |
+| Server | `server:{manufacturer}:{model}:{drive_ff}`          | `server:dell:poweredge_r630:2.5` |
+| CPU    | `cpu:{manufacturer}:{family}:{model}`               | `cpu:intel:xeon:e5-2680_v4`      |
+| NIC    | `nic:{speed}:{ports}:{port_type}`                   | `nic:25gbe:2p:sfp28`             |
 
 ### Supported LLM Backends
 
-| Backend | Config key | Notes |
-|---------|-----------|-------|
-| Ollama | `ollama` | Local inference, supports grammar enforcement. Default. |
-| Anthropic Claude | `anthropic` | Cloud API, requires `ANTHROPIC_API_KEY` |
-| OpenAI-compatible | `openai_compat` | Any endpoint implementing the OpenAI chat API |
+| Backend           | Config key      | Notes                                                   |
+| ----------------- | --------------- | ------------------------------------------------------- |
+| Ollama            | `ollama`        | Local inference, supports grammar enforcement. Default. |
+| Anthropic Claude  | `anthropic`     | Cloud API, requires `ANTHROPIC_API_KEY`                 |
+| OpenAI-compatible | `openai_compat` | Any endpoint implementing the OpenAI chat API           |
 
 ## Baselines
 
@@ -461,11 +461,11 @@ Example baseline response:
   "id": "a1b2c3d4-...",
   "product_key": "ram:ddr4:ecc_reg:32gb:2666",
   "sample_count": 47,
-  "p10": 18.50,
-  "p25": 22.00,
+  "p10": 18.5,
+  "p25": 22.0,
   "p50": 28.99,
-  "p75": 35.00,
-  "p90": 45.00,
+  "p75": 35.0,
+  "p90": 45.0,
   "mean": 29.47,
   "updated_at": "2026-02-17T12:00:00Z"
 }
@@ -499,13 +499,13 @@ boundaries. If the baseline has fewer than 10 samples, the price score defaults
 to 50.
 
 | Unit price vs baseline | Price score |
-|----------------------|-------------|
-| <= P10 | 100 |
-| P10 - P25 | 85 - 100 |
-| P25 - P50 | 50 - 85 |
-| P50 - P75 | 25 - 50 |
-| P75 - P90 | 0 - 25 |
-| > P90 | 0 |
+| ---------------------- | ----------- |
+| <= P10                 | 100         |
+| P10 - P25              | 85 - 100    |
+| P25 - P50              | 50 - 85     |
+| P50 - P75              | 25 - 50     |
+| P75 - P90              | 0 - 25      |
+| > P90                  | 0           |
 
 **Seller (20%)** — Based on feedback score, positive feedback percentage, and
 Top Rated status. A seller with 5000+ feedback, 99.5%+ positive, and Top Rated
@@ -614,15 +614,15 @@ Response:
 
 #### Query Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `component_type` | enum | — | `ram`, `drive`, `server`, `cpu`, `nic`, `other` |
-| `product_key` | string | — | Exact product key match |
-| `min_score` | int | 0 | Minimum composite score (0-100) |
-| `max_score` | int | 0 | Maximum composite score (0-100, 0 = no limit) |
-| `limit` | int | 50 | Results per page (1-1000) |
-| `offset` | int | 0 | Pagination offset |
-| `order_by` | enum | — | `score`, `price`, `first_seen_at` |
+| Parameter        | Type   | Default | Description                                     |
+| ---------------- | ------ | ------- | ----------------------------------------------- |
+| `component_type` | enum   | —       | `ram`, `drive`, `server`, `cpu`, `nic`, `other` |
+| `product_key`    | string | —       | Exact product key match                         |
+| `min_score`      | int    | 0       | Minimum composite score (0-100)                 |
+| `max_score`      | int    | 0       | Maximum composite score (0-100, 0 = no limit)   |
+| `limit`          | int    | 50      | Results per page (1-1000)                       |
+| `offset`         | int    | 0       | Pagination offset                               |
+| `order_by`       | enum   | —       | `score`, `price`, `first_seen_at`               |
 
 ### Inspect a Listing
 
@@ -734,38 +734,38 @@ The API server generates an OpenAPI 3.1 spec at runtime. Access it at:
 
 ### Endpoint Summary
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/healthz` | Liveness probe |
-| `GET` | `/readyz` | Readiness probe (checks database) |
-| `GET` | `/metrics` | Prometheus metrics |
-| `GET` | `/api/v1/watches` | List watches |
-| `GET` | `/api/v1/watches/{id}` | Get watch |
-| `POST` | `/api/v1/watches` | Create watch |
-| `PUT` | `/api/v1/watches/{id}` | Update watch |
-| `PUT` | `/api/v1/watches/{id}/enabled` | Enable/disable watch |
-| `DELETE` | `/api/v1/watches/{id}` | Delete watch |
-| `GET` | `/api/v1/listings` | List listings with filters |
-| `GET` | `/api/v1/listings/{id}` | Get listing |
-| `POST` | `/api/v1/search` | Search eBay |
-| `POST` | `/api/v1/extract` | Extract attributes from title |
-| `POST` | `/api/v1/ingest` | Trigger ingestion |
-| `POST` | `/api/v1/baselines/refresh` | Refresh baselines |
-| `GET` | `/api/v1/baselines` | List baselines |
-| `GET` | `/api/v1/baselines/{product_key}` | Get baseline |
-| `POST` | `/api/v1/rescore` | Rescore all listings |
-| `GET` | `/api/v1/quota` | eBay API quota status |
+| Method   | Path                              | Description                       |
+| -------- | --------------------------------- | --------------------------------- |
+| `GET`    | `/healthz`                        | Liveness probe                    |
+| `GET`    | `/readyz`                         | Readiness probe (checks database) |
+| `GET`    | `/metrics`                        | Prometheus metrics                |
+| `GET`    | `/api/v1/watches`                 | List watches                      |
+| `GET`    | `/api/v1/watches/{id}`            | Get watch                         |
+| `POST`   | `/api/v1/watches`                 | Create watch                      |
+| `PUT`    | `/api/v1/watches/{id}`            | Update watch                      |
+| `PUT`    | `/api/v1/watches/{id}/enabled`    | Enable/disable watch              |
+| `DELETE` | `/api/v1/watches/{id}`            | Delete watch                      |
+| `GET`    | `/api/v1/listings`                | List listings with filters        |
+| `GET`    | `/api/v1/listings/{id}`           | Get listing                       |
+| `POST`   | `/api/v1/search`                  | Search eBay                       |
+| `POST`   | `/api/v1/extract`                 | Extract attributes from title     |
+| `POST`   | `/api/v1/ingest`                  | Trigger ingestion                 |
+| `POST`   | `/api/v1/baselines/refresh`       | Refresh baselines                 |
+| `GET`    | `/api/v1/baselines`               | List baselines                    |
+| `GET`    | `/api/v1/baselines/{product_key}` | Get baseline                      |
+| `POST`   | `/api/v1/rescore`                 | Rescore all listings              |
+| `GET`    | `/api/v1/quota`                   | eBay API quota status             |
 
 ## CLI Reference
 
 The `spt` CLI is a remote client to the API server. All commands accept global
 flags:
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--server` | `http://localhost:8080` | API server URL |
-| `--output` | `table` | Output format (`table` or `json`) |
-| `--config` | `$HOME/.spt.yaml` | Config file path |
+| Flag       | Default                 | Description                       |
+| ---------- | ----------------------- | --------------------------------- |
+| `--server` | `http://localhost:8080` | API server URL                    |
+| `--output` | `table`                 | Output format (`table` or `json`) |
+| `--config` | `$HOME/.spt.yaml`       | Config file path                  |
 
 Full command reference with examples is available in the generated
 [CLI docs](docs/cli/spt.md).
