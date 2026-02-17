@@ -197,3 +197,20 @@ func TestRenderServerExtractPrompt(t *testing.T) {
 	assert.Contains(t, result, "drive_bays")
 	assert.Contains(t, result, "boots_tested")
 }
+
+func TestRenderExtractPrompt_RAMContainsPC4Rules(t *testing.T) {
+	t.Parallel()
+
+	result, err := extract.RenderExtractPrompt(
+		domain.ComponentRAM,
+		"Samsung 32GB DDR4 PC4-21300 ECC",
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Verify the prompt contains PC4-to-MHz mapping rules.
+	assert.Contains(t, result, "PC4-21300=2666")
+	assert.Contains(t, result, "PC3-12800=1600")
+	assert.Contains(t, result, "PC5-38400=4800")
+	assert.Contains(t, result, "derived from PC module number if present")
+}

@@ -107,8 +107,8 @@ See `docs/plans/ram-fix.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Modify `pkg/extract/prompts.go` — update the `ramTmpl` const:
-  - [ ] Add a new rule after the existing `"quantity"` rule (line 29) and
+- [x] Modify `pkg/extract/prompts.go` — update the `ramTmpl` const:
+  - [x] Add a new rule after the existing `"quantity"` rule (line 29) and
     before the `"Only use null"` rule (line 30):
     ```
     - "speed_mhz": Convert PC module numbers to MHz speed. Common mappings:
@@ -117,16 +117,16 @@ See `docs/plans/ram-fix.md` for the high-level design.
       PC5-38400=4800, PC5-44800=5600, PC5-51200=6400.
       Ignore any letter suffix (V, R, T, U, E) after the number. Always convert when present.
     ```
-  - [ ] Update the `speed_mhz` schema line (line 42) to emphasize it should
+  - [x] Update the `speed_mhz` schema line (line 42) to emphasize it should
     not be null when a PC module number is present:
     ```
     "speed_mhz": integer (e.g. 2133, 2400, 2666, 3200; derived from PC module number if present) | null,
     ```
-- [ ] Add test to `pkg/extract/prompts_test.go`:
-  - [ ] `TestRenderExtractPrompt_RAMContainsPC4Rules` — render a RAM
+- [x] Add test to `pkg/extract/prompts_test.go`:
+  - [x] `TestRenderExtractPrompt_RAMContainsPC4Rules` — render a RAM
     extraction prompt and assert the output contains `"PC4-21300=2666"`
     and `"PC3-12800=1600"` to verify the mapping rules are present
-- [ ] Run `go test ./pkg/extract/... -v -run TestRenderExtract`
+- [x] Run `go test ./pkg/extract/... -v -run TestRenderExtract`
 
 ### Success Criteria
 
