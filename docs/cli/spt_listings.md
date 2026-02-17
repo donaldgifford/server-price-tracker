@@ -4,8 +4,8 @@ Query listings
 
 ### Synopsis
 
-Query and inspect listings that have been ingested and scored
-by the Server Price Tracker pipeline.
+Query and inspect listings that have been ingested and scored by the Server
+Price Tracker pipeline.
 
 ### Options
 
@@ -23,7 +23,7 @@ by the Server Price Tracker pipeline.
 
 ### SEE ALSO
 
-* [spt](spt.md)	 - CLI client for Server Price Tracker
-* [spt listings get](spt_listings_get.md)	 - Show listing details
-* [spt listings list](spt_listings_list.md)	 - List listings with optional filters
-
+- [spt](spt.md) - CLI client for Server Price Tracker
+- [spt listings get](spt_listings_get.md) - Show listing details
+- [spt listings list](spt_listings_list.md) - List listings with optional
+  filters

@@ -34,5 +34,4 @@ spt search <query> [flags]
 
 ### SEE ALSO
 
-* [spt](spt.md)	 - CLI client for Server Price Tracker
-
+* [spt](spt.md)  - CLI client for Server Price Tracker

@@ -4,8 +4,8 @@ List listings with optional filters
 
 ### Synopsis
 
-List ingested listings with optional filters for component type,
-product key, score range, and sorting.
+List ingested listings with optional filters for component type, product key,
+score range, and sorting.
 
 ```
 spt listings list [flags]
@@ -50,5 +50,4 @@ spt listings list [flags]
 
 ### SEE ALSO
 
-* [spt listings](spt_listings.md)	 - Query listings
-
+- [spt listings](spt_listings.md) - Query listings

@@ -4,9 +4,9 @@ Create a new watch
 
 ### Synopsis
 
-Create a new watch that defines an eBay search query, component type,
-score threshold, and optional filters. The watch will be enabled by
-default and start matching listings on the next ingestion cycle.
+Create a new watch that defines an eBay search query, component type, score
+threshold, and optional filters. The watch will be enabled by default and start
+matching listings on the next ingestion cycle.
 
 ```
 spt watches create [flags]
@@ -45,5 +45,4 @@ spt watches create [flags]
 
 ### SEE ALSO
 
-* [spt watches](spt_watches.md)	 - Manage watches
-
+- [spt watches](spt_watches.md) - Manage watches

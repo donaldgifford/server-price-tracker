@@ -23,11 +23,10 @@ filters, and score thresholds for deal alerts.
 
 ### SEE ALSO
 
-* [spt](spt.md)	 - CLI client for Server Price Tracker
-* [spt watches create](spt_watches_create.md)	 - Create a new watch
-* [spt watches delete](spt_watches_delete.md)	 - Delete a watch
-* [spt watches disable](spt_watches_disable.md)	 - Disable a watch
-* [spt watches enable](spt_watches_enable.md)	 - Enable a watch
-* [spt watches get](spt_watches_get.md)	 - Show watch details
-* [spt watches list](spt_watches_list.md)	 - List all watches
-
+* [spt](spt.md)  - CLI client for Server Price Tracker
+* [spt watches create](spt_watches_create.md)  - Create a new watch
+* [spt watches delete](spt_watches_delete.md)  - Delete a watch
+* [spt watches disable](spt_watches_disable.md)  - Disable a watch
+* [spt watches enable](spt_watches_enable.md)  - Enable a watch
+* [spt watches get](spt_watches_get.md)  - Show watch details
+* [spt watches list](spt_watches_list.md)  - List all watches
