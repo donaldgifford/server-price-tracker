@@ -281,58 +281,13 @@ See `docs/plans/ram-fix.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Create `internal/api/handlers/reextract.go`:
-  - [ ] Define `ReExtractor` interface:
-    ```go
-    type ReExtractor interface {
-        RunReExtraction(ctx context.Context, componentType string, limit int) (int, error)
-    }
-    ```
-  - [ ] Define `ReExtractHandler` struct with `reExtractor ReExtractor` field
-  - [ ] Define `NewReExtractHandler(re ReExtractor) *ReExtractHandler` constructor
-  - [ ] Define `ReExtractInput` with Huma body struct:
-    ```go
-    type ReExtractInput struct {
-        Body struct {
-            ComponentType string `json:"component_type,omitempty" doc:"Filter by component type (e.g., 'ram')" example:"ram"`
-            Limit         int    `json:"limit,omitempty" doc:"Max listings to re-extract (default 100)" example:"100"`
-        }
-    }
-    ```
-  - [ ] Define `ReExtractOutput` with body struct:
-    ```go
-    type ReExtractOutput struct {
-        Body struct {
-            ReExtracted int `json:"re_extracted" example:"42" doc:"Number of listings successfully re-extracted"`
-        }
-    }
-    ```
-  - [ ] Implement `ReExtract(ctx, input) (*ReExtractOutput, error)` —
-    calls `h.reExtractor.RunReExtraction(ctx, input.Body.ComponentType, input.Body.Limit)`,
-    wraps errors with `huma.Error500InternalServerError`
-  - [ ] Implement `RegisterReExtractRoutes(api huma.API, h *ReExtractHandler)`:
-    - Operation ID: `"reextract-listings"`
-    - Method: `POST`
-    - Path: `/api/v1/reextract`
-    - Summary: `"Re-extract listings with incomplete data"`
-    - Description: `"Re-runs LLM extraction on listings with quality issues (e.g., missing RAM speed)."`
-    - Tags: `[]string{"extract"}`
-    - Errors: `[]int{http.StatusInternalServerError}`
-- [ ] Create `internal/api/handlers/reextract_test.go`:
-  - [ ] `TestReExtract_Success` — mock `ReExtractor` returning `(42, nil)`.
-    POST to `/api/v1/reextract` with `{"component_type": "ram", "limit": 50}`.
-    Assert 200 and body contains `"re_extracted":42`.
-  - [ ] `TestReExtract_Error` — mock `ReExtractor` returning error. Assert 500.
-  - [ ] `TestReExtract_EmptyBody` — POST with `{}`. Assert 200 (defaults
-    should work — empty component_type means all, limit=0 means default).
-- [ ] Modify `cmd/server-price-tracker/cmd/serve.go` — in `registerRoutes`,
-  inside the `if eng != nil` block (after line 190), add:
-  ```go
-  reextractH := handlers.NewReExtractHandler(eng)
-  handlers.RegisterReExtractRoutes(humaAPI, reextractH)
-  ```
-- [ ] Run `go test ./internal/api/handlers/... -v -run TestReExtract`
-- [ ] Run `make test && make lint`
+- [x] Create `internal/api/handlers/reextract.go` with ReExtractor interface,
+  ReExtractHandler, ReExtractInput/Output, and RegisterReExtractRoutes
+- [x] Create `internal/api/handlers/reextract_test.go` with Success, Error,
+  and EmptyBody tests
+- [x] Modify `cmd/server-price-tracker/cmd/serve.go` — register reextract routes
+- [x] Run `go test ./internal/api/handlers/... -v -run TestReExtract`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 

@@ -188,6 +188,9 @@ func registerRoutes(
 		ingestH := handlers.NewIngestHandler(eng)
 		baselineH := handlers.NewBaselineRefreshHandler(eng)
 		handlers.RegisterTriggerRoutes(humaAPI, ingestH, baselineH)
+
+		reextractH := handlers.NewReExtractHandler(eng)
+		handlers.RegisterReExtractRoutes(humaAPI, reextractH)
 	}
 }
 
