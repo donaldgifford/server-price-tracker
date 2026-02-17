@@ -173,6 +173,9 @@ func (eng *Engine) RunIngestion(ctx context.Context) error {
 	// Sync quota metrics from eBay Analytics API after ingestion.
 	eng.SyncQuota(ctx)
 
+	// Sync system state gauges after ingestion.
+	eng.SyncStateMetrics(ctx)
+
 	return nil
 }
 
@@ -313,6 +316,62 @@ func (eng *Engine) SyncQuota(ctx context.Context) {
 		"remaining", quota.Remaining,
 		"reset_at", quota.ResetAt,
 	)
+}
+
+// SyncStateMetrics queries the store for current counts and updates Prometheus
+// gauges. Failures are logged but never propagated — this is best-effort.
+func (eng *Engine) SyncStateMetrics(ctx context.Context) {
+	total, enabled, err := eng.store.CountWatches(ctx)
+	if err != nil {
+		eng.log.Warn("failed to count watches", "error", err)
+	} else {
+		metrics.WatchesTotal.Set(float64(total))
+		metrics.WatchesEnabled.Set(float64(enabled))
+	}
+
+	listings, err := eng.store.CountListings(ctx)
+	if err != nil {
+		eng.log.Warn("failed to count listings", "error", err)
+	} else {
+		metrics.ListingsTotal.Set(float64(listings))
+	}
+
+	unextracted, err := eng.store.CountUnextractedListings(ctx)
+	if err != nil {
+		eng.log.Warn("failed to count unextracted listings", "error", err)
+	} else {
+		metrics.ListingsUnextracted.Set(float64(unextracted))
+	}
+
+	unscored, err := eng.store.CountUnscoredListings(ctx)
+	if err != nil {
+		eng.log.Warn("failed to count unscored listings", "error", err)
+	} else {
+		metrics.ListingsUnscored.Set(float64(unscored))
+	}
+
+	pending, err := eng.store.CountPendingAlerts(ctx)
+	if err != nil {
+		eng.log.Warn("failed to count pending alerts", "error", err)
+	} else {
+		metrics.AlertsPending.Set(float64(pending))
+	}
+
+	cold, warm, err := eng.store.CountBaselinesByMaturity(ctx)
+	if err != nil {
+		eng.log.Warn("failed to count baselines by maturity", "error", err)
+	} else {
+		metrics.BaselinesCold.Set(float64(cold))
+		metrics.BaselinesWarm.Set(float64(warm))
+		metrics.BaselinesTotal.Set(float64(cold + warm))
+	}
+
+	noBaseline, err := eng.store.CountProductKeysWithoutBaseline(ctx)
+	if err != nil {
+		eng.log.Warn("failed to count product keys without baseline", "error", err)
+	} else {
+		metrics.ProductKeysNoBaseline.Set(float64(noBaseline))
+	}
 }
 
 // RunBaselineRefresh recomputes all baselines and re-scores affected listings.

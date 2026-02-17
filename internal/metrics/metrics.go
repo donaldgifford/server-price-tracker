@@ -85,6 +85,45 @@ var (
 		Help:      "Distribution of computed listing scores.",
 		Buckets:   prometheus.LinearBuckets(0, 10, 11), // 0, 10, 20, ..., 100
 	})
+
+	ScoringWithBaselineTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "scoring_with_baseline_total",
+		Help:      "Total listings scored with a warm baseline (>= MinBaselineSamples).",
+	})
+
+	ScoringColdStartTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "scoring_cold_start_total",
+		Help:      "Total listings scored without a warm baseline (cold start neutral price).",
+	})
+)
+
+// Baseline metrics.
+var (
+	BaselinesTotal = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "baselines_total",
+		Help:      "Total number of price baselines.",
+	})
+
+	BaselinesCold = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "baselines_cold",
+		Help:      "Baselines with fewer than MinBaselineSamples (cold start).",
+	})
+
+	BaselinesWarm = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "baselines_warm",
+		Help:      "Baselines with >= MinBaselineSamples (sufficient for price scoring).",
+	})
+
+	ProductKeysNoBaseline = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "product_keys_no_baseline",
+		Help:      "Distinct product keys in listings without any price baseline.",
+	})
 )
 
 // eBay API metrics.
@@ -131,9 +170,103 @@ var (
 		Help:      "Total number of alerts fired.",
 	})
 
+	AlertsFiredByWatch = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "alerts_fired_by_watch",
+		Help:      "Alerts fired broken down by watch name. Cardinality bounded by number of watches (typically <20).",
+	}, []string{"watch"})
+
 	NotificationFailuresTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: namespace,
 		Name:      "notification_failures_total",
 		Help:      "Total number of notification send failures.",
+	})
+)
+
+// Notification metrics.
+var (
+	NotificationDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Name:      "notification_duration_seconds",
+		Help:      "Discord webhook HTTP POST latency in seconds.",
+		Buckets:   []float64{0.1, 0.25, 0.5, 1, 2, 5, 10},
+	})
+
+	NotificationLastSuccessTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "notification_last_success_timestamp",
+		Help:      "Unix epoch of the last successful notification delivery.",
+	})
+
+	NotificationLastFailureTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "notification_last_failure_timestamp",
+		Help:      "Unix epoch of the last notification delivery failure.",
+	})
+)
+
+// System state metrics.
+var (
+	WatchesTotal = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "watches_total",
+		Help:      "Total number of watches.",
+	})
+
+	WatchesEnabled = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "watches_enabled",
+		Help:      "Number of enabled watches.",
+	})
+
+	ListingsTotal = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "listings_total",
+		Help:      "Total listings in the database.",
+	})
+
+	ListingsUnextracted = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "listings_unextracted",
+		Help:      "Listings without LLM extraction.",
+	})
+
+	ListingsUnscored = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "listings_unscored",
+		Help:      "Listings without a computed score.",
+	})
+
+	AlertsPending = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "alerts_pending",
+		Help:      "Alerts not yet sent as notifications.",
+	})
+)
+
+// Scheduler metrics.
+var (
+	SchedulerNextIngestionTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "scheduler_next_ingestion_timestamp",
+		Help:      "Unix epoch of the next scheduled ingestion run.",
+	})
+
+	SchedulerNextBaselineTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "scheduler_next_baseline_timestamp",
+		Help:      "Unix epoch of the next scheduled baseline refresh.",
+	})
+
+	IngestionLastSuccessTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "ingestion_last_success_timestamp",
+		Help:      "Unix epoch of the last successful ingestion cycle.",
+	})
+
+	BaselineLastRefreshTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "baseline_last_refresh_timestamp",
+		Help:      "Unix epoch of the last successful baseline refresh.",
 	})
 )

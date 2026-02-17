@@ -5,10 +5,12 @@ import (
 	"errors"
 	"testing"
 
+	ptestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	notifyMocks "github.com/donaldgifford/server-price-tracker/internal/notify/mocks"
 	storeMocks "github.com/donaldgifford/server-price-tracker/internal/store/mocks"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
@@ -267,4 +269,81 @@ func TestGroupByWatch(t *testing.T) {
 	assert.Len(t, grouped, 2)
 	assert.Len(t, grouped["w1"], 2)
 	assert.Len(t, grouped["w2"], 1)
+}
+
+func TestProcessAlerts_SetsSuccessTimestamp(t *testing.T) {
+	// Not parallel: reads global Prometheus gauge.
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	alerts := []domain.Alert{
+		{ID: "a1", WatchID: "w1", ListingID: "l1", Score: 85},
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+	ms.EXPECT().GetListingByID(mock.Anything, "l1").Return(&domain.Listing{
+		ID: "l1", Title: "Test", Price: 45.99, Quantity: 1,
+	}, nil).Once()
+	mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(nil).Once()
+	ms.EXPECT().MarkAlertNotified(mock.Anything, "a1").Return(nil).Once()
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err)
+
+	ts := ptestutil.ToFloat64(metrics.NotificationLastSuccessTimestamp)
+	assert.Greater(t, ts, float64(0), "NotificationLastSuccessTimestamp should be set")
+}
+
+func TestProcessAlerts_SetsFailureTimestamp(t *testing.T) {
+	// Not parallel: reads global Prometheus gauge.
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	alerts := []domain.Alert{
+		{ID: "a1", WatchID: "w1", ListingID: "l1", Score: 85},
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+	ms.EXPECT().GetListingByID(mock.Anything, "l1").Return(&domain.Listing{
+		ID: "l1", Title: "Test", Price: 45.99, Quantity: 1,
+	}, nil).Once()
+	mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(errors.New("discord 429")).Once()
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err)
+
+	ts := ptestutil.ToFloat64(metrics.NotificationLastFailureTimestamp)
+	assert.Greater(t, ts, float64(0), "NotificationLastFailureTimestamp should be set")
+}
+
+func TestProcessAlerts_IncrementsAlertsFiredByWatch(t *testing.T) {
+	// Not parallel: reads global Prometheus counter.
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	alerts := []domain.Alert{
+		{ID: "a1", WatchID: "w1", ListingID: "l1", Score: 85},
+		{ID: "a2", WatchID: "w1", ListingID: "l2", Score: 90},
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+
+	for _, a := range alerts {
+		ms.EXPECT().GetListingByID(mock.Anything, a.ListingID).Return(&domain.Listing{
+			ID: a.ListingID, Title: "Test", Price: 45.99, Quantity: 1,
+		}, nil).Once()
+		mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(nil).Once()
+		ms.EXPECT().MarkAlertNotified(mock.Anything, a.ID).Return(nil).Once()
+	}
+
+	before := ptestutil.ToFloat64(metrics.AlertsFiredByWatch.WithLabelValues("DDR4 ECC REG"))
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err)
+
+	after := ptestutil.ToFloat64(metrics.AlertsFiredByWatch.WithLabelValues("DDR4 ECC REG"))
+	assert.InDelta(t, 2, after-before, 0.1, "AlertsFiredByWatch should increment by 2")
 }
