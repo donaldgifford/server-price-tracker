@@ -15,7 +15,7 @@ func LastIngestion() *stat.PanelBuilder {
 		Height(StatHeight).
 		Span(StatWidth).
 		WithTarget(PromQuery(
-			`time() - spt_ingestion_last_success_timestamp{job="server-price-tracker"}`,
+			`time() - max(spt_ingestion_last_success_timestamp{job="server-price-tracker"} > 0)`,
 			"", "A",
 		)).
 		Unit("s").
@@ -34,7 +34,7 @@ func NextIngestion() *stat.PanelBuilder {
 		Height(StatHeight).
 		Span(StatWidth).
 		WithTarget(PromQuery(
-			`spt_scheduler_next_ingestion_timestamp{job="server-price-tracker"} - time()`,
+			`max(spt_scheduler_next_ingestion_timestamp{job="server-price-tracker"}) - time()`,
 			"", "A",
 		)).
 		Unit("s").
