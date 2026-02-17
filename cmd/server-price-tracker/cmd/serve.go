@@ -48,7 +48,7 @@ func startServer(opts *Options) error {
 	}
 
 	// --- eBay client ---
-	ebayClient, rateLimiter := buildEbayClient(cfg, slogger)
+	ebayClient, rateLimiter, analyticsClient := buildEbayClient(cfg, slogger)
 
 	// --- LLM extractor ---
 	extractor := buildExtractor(cfg, slogger)
@@ -57,7 +57,10 @@ func startServer(opts *Options) error {
 	notifier := buildNotifier(cfg, slogger)
 
 	// --- Engine + Scheduler ---
-	eng, scheduler := buildEngine(cfg, pgStore, ebayClient, extractor, notifier, slogger)
+	eng, scheduler := buildEngine(
+		cfg, pgStore, ebayClient, extractor, notifier,
+		analyticsClient, rateLimiter, slogger,
+	)
 
 	// --- Echo server ---
 	e := echo.New()
@@ -186,10 +189,10 @@ func registerRoutes(
 func buildEbayClient(
 	cfg *config.Config,
 	logger *slog.Logger,
-) (ebay.EbayClient, *ebay.RateLimiter) {
+) (ebay.EbayClient, *ebay.RateLimiter, *ebay.AnalyticsClient) {
 	if cfg.Ebay.AppID == "" || cfg.Ebay.CertID == "" {
 		logger.Warn("ebay client disabled: AppID or CertID not configured")
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	rl := ebay.NewRateLimiter(
@@ -219,7 +222,16 @@ func buildEbayClient(
 		"token_url", cfg.Ebay.TokenURL,
 		"browse_url", cfg.Ebay.BrowseURL,
 	)
-	return client, rl
+
+	ac := ebay.NewAnalyticsClient(
+		tokenProvider,
+		ebay.WithAnalyticsURL(cfg.Ebay.AnalyticsURL),
+	)
+	logger.Info("analytics client configured",
+		"analytics_url", cfg.Ebay.AnalyticsURL,
+	)
+
+	return client, rl, ac
 }
 
 func buildExtractor(cfg *config.Config, logger *slog.Logger) extract.Extractor {
@@ -247,6 +259,8 @@ func buildEngine(
 	ebayClient ebay.EbayClient,
 	extractor extract.Extractor,
 	notifier notify.Notifier,
+	ac *ebay.AnalyticsClient,
+	rl *ebay.RateLimiter,
 	logger *slog.Logger,
 ) (*engine.Engine, *engine.Scheduler) {
 	if s == nil || ebayClient == nil || extractor == nil {
@@ -258,6 +272,13 @@ func buildEngine(
 		engine.WithLogger(logger),
 		engine.WithBaselineWindowDays(cfg.Scoring.BaselineWindowDays),
 		engine.WithStaggerOffset(cfg.Schedule.StaggerOffset),
+	}
+
+	if ac != nil {
+		opts = append(opts, engine.WithAnalyticsClient(ac))
+	}
+	if rl != nil {
+		opts = append(opts, engine.WithRateLimiter(rl))
 	}
 
 	// Wire paginator when both ebay client and store are available.
@@ -273,6 +294,9 @@ func buildEngine(
 
 	eng := engine.NewEngine(s, ebayClient, extractor, notifier, opts...)
 	logger.Info("engine created")
+
+	// Sync eBay quota on startup (best-effort, before scheduler starts).
+	eng.SyncQuota(context.Background())
 
 	sched, err := engine.NewScheduler(
 		eng,

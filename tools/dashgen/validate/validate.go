@@ -140,7 +140,10 @@ type metricVisitor struct {
 	names *[]string
 }
 
-func (v *metricVisitor) Visit(node promparser.Node, _ []promparser.Node) (promparser.Visitor, error) {
+func (v *metricVisitor) Visit(
+	node promparser.Node,
+	_ []promparser.Node,
+) (promparser.Visitor, error) {
 	if n, ok := node.(*promparser.VectorSelector); ok {
 		if n.Name != "" {
 			*v.names = append(*v.names, n.Name)

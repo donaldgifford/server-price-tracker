@@ -51,13 +51,13 @@ spec:
             description: Extraction failures are occurring at more than 0.1/s for the last 5 minutes.
             summary: LLM extraction failure rate is elevated
         - alert: SptEbayQuotaHigh
-          expr: spt_ebay_daily_usage > 4000
+          expr: spt_ebay_rate_remaining < 1000
           for: 5m
           labels:
             severity: warning
           annotations:
-            description: Daily eBay API usage has exceeded 4000 calls (limit is 5000).
-            summary: eBay API daily usage is above 80% of the quota
+            description: Fewer than 1000 eBay API calls remain in the current quota window (from Analytics API).
+            summary: eBay API quota is running low
         - alert: SptEbayLimitReached
           expr: increase(spt_ebay_daily_limit_hits_total[5m]) > 0
           for: 0m

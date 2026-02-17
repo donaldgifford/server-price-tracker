@@ -79,14 +79,14 @@ func AlertRules() PrometheusRule {
 						},
 						{
 							Alert: "SptEbayQuotaHigh",
-							Expr:  `spt_ebay_daily_usage > 4000`,
+							Expr:  `spt_ebay_rate_remaining < 1000`,
 							For:   "5m",
 							Labels: map[string]string{
 								"severity": "warning",
 							},
 							Annotations: map[string]string{
-								"summary":     "eBay API daily usage is above 80% of the quota",
-								"description": "Daily eBay API usage has exceeded 4000 calls (limit is 5000).",
+								"summary":     "eBay API quota is running low",
+								"description": "Fewer than 1000 eBay API calls remain in the current quota window (from Analytics API).",
 							},
 						},
 						{

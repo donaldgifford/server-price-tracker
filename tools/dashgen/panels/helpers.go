@@ -9,9 +9,6 @@ import (
 	"github.com/grafana/grafana-foundation-sdk/go/prometheus"
 )
 
-// EbayDailyLimit is the hard limit for eBay Browse API daily calls.
-const EbayDailyLimit = 5000
-
 // Standard panel dimensions for a 24-column grid.
 const (
 	StatWidth  = 6

@@ -203,6 +203,52 @@ func TestRateLimiter_ErrDailyLimitReached(t *testing.T) {
 	assert.Contains(t, err.Error(), "1/1")
 }
 
+func TestRateLimiter_Sync(t *testing.T) {
+	t.Parallel()
+
+	rl := ebay.NewRateLimiter(100, 10, 5000)
+
+	// Sync with known eBay Analytics values.
+	resetAt := time.Date(2026, 2, 17, 8, 0, 0, 0, time.UTC)
+	rl.Sync(110, 5000, resetAt)
+
+	assert.Equal(t, int64(110), rl.DailyCount())
+	assert.Equal(t, int64(5000), rl.MaxDaily())
+	assert.Equal(t, int64(4890), rl.Remaining())
+	assert.Equal(t, resetAt, rl.ResetAt())
+}
+
+func TestRateLimiter_Sync_UpdatesLimit(t *testing.T) {
+	t.Parallel()
+
+	rl := ebay.NewRateLimiter(100, 10, 5000)
+	assert.Equal(t, int64(5000), rl.MaxDaily())
+
+	// eBay reports a different limit.
+	resetAt := time.Date(2026, 2, 17, 8, 0, 0, 0, time.UTC)
+	rl.Sync(50, 10000, resetAt)
+
+	assert.Equal(t, int64(10000), rl.MaxDaily())
+	assert.Equal(t, int64(50), rl.DailyCount())
+	assert.Equal(t, int64(9950), rl.Remaining())
+}
+
+func TestRateLimiter_Sync_ThenWait(t *testing.T) {
+	t.Parallel()
+
+	rl := ebay.NewRateLimiter(100, 10, 5000)
+
+	// Sync with count=100 (eBay says 100 calls used).
+	resetAt := time.Date(2026, 2, 17, 8, 0, 0, 0, time.UTC)
+	rl.Sync(100, 5000, resetAt)
+	assert.Equal(t, int64(100), rl.DailyCount())
+
+	// Wait() should increment from the synced baseline.
+	require.NoError(t, rl.Wait(context.Background()))
+	assert.Equal(t, int64(101), rl.DailyCount())
+	assert.Equal(t, int64(4899), rl.Remaining())
+}
+
 func TestRateLimiter_RollingWindowReset(t *testing.T) {
 	t.Parallel()
 

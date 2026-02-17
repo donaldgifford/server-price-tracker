@@ -56,6 +56,7 @@ type EbayConfig struct {
 	CertID           string          `yaml:"cert_id"`
 	TokenURL         string          `yaml:"token_url"`
 	BrowseURL        string          `yaml:"browse_url"`
+	AnalyticsURL     string          `yaml:"analytics_url"`
 	Marketplace      string          `yaml:"marketplace"`
 	MaxCallsPerCycle int             `yaml:"max_calls_per_cycle"`
 	RateLimit        RateLimitConfig `yaml:"rate_limit"`
@@ -186,6 +187,9 @@ func applyEbayDefaults(e *EbayConfig) {
 	}
 	if e.BrowseURL == "" {
 		e.BrowseURL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
+	}
+	if e.AnalyticsURL == "" {
+		e.AnalyticsURL = "https://api.ebay.com/developer/analytics/v1_beta/rate_limit/"
 	}
 	applyRateLimitDefaults(&e.RateLimit)
 }

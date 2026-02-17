@@ -1,8 +1,6 @@
 package panels
 
 import (
-	"fmt"
-
 	"github.com/grafana/grafana-foundation-sdk/go/common"
 	"github.com/grafana/grafana-foundation-sdk/go/stat"
 	"github.com/grafana/grafana-foundation-sdk/go/timeseries"
@@ -25,21 +23,41 @@ func APICallsRate() *timeseries.PanelBuilder {
 		DrawStyle(common.GraphDrawStyleLine)
 }
 
-// DailyUsage returns a timeseries panel showing the rolling 24h eBay API
-// usage with a threshold line at the daily limit.
+// DailyUsage returns a timeseries panel showing eBay API usage vs limit,
+// derived from the Analytics API metrics.
 func DailyUsage() *timeseries.PanelBuilder {
 	return timeseries.NewPanelBuilder().
 		Title("Daily Usage vs Limit").
-		Description(fmt.Sprintf("Rolling 24h eBay API call count (limit: %d)", EbayDailyLimit)).
+		Description("eBay API call count and limit (from Analytics API)").
 		Datasource(DSRef()).
 		Height(TSHeight).
 		Span(8).
-		WithTarget(PromQuery(`spt_ebay_daily_usage`, "usage", "A")).
+		WithTarget(PromQuery(
+			`spt_ebay_rate_limit - spt_ebay_rate_remaining`, "usage", "A",
+		)).
+		WithTarget(PromQuery(`spt_ebay_rate_limit`, "limit", "B")).
 		FillOpacity(10).
 		LineWidth(2).
-		Thresholds(ThresholdsGreenYellowRed(float64(EbayDailyLimit)*0.8, float64(EbayDailyLimit))).
-		ColorScheme(ColorSchemeThresholds()).
+		Thresholds(ThresholdsGreenOnly()).
+		ColorScheme(ColorSchemePaletteClassic()).
 		DrawStyle(common.GraphDrawStyleLine)
+}
+
+// ResetCountdown returns a stat panel showing the time until the eBay API
+// quota window resets.
+func ResetCountdown() *stat.PanelBuilder {
+	return stat.NewPanelBuilder().
+		Title("Quota Reset In").
+		Description("Time until eBay API quota window resets").
+		Datasource(DSRef()).
+		Height(TSHeight).
+		Span(8).
+		WithTarget(PromQuery(`spt_ebay_rate_reset_timestamp - time()`, "", "A")).
+		Unit("s").
+		Thresholds(ThresholdsGreenOnly()).
+		ColorScheme(ColorSchemeThresholds()).
+		ColorMode(common.BigValueColorModeBackground).
+		GraphMode(common.BigValueGraphModeNone)
 }
 
 // LimitHits returns a stat panel showing the number of daily limit hits

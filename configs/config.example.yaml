@@ -25,6 +25,8 @@ ebay:
   token_url: "${EBAY_TOKEN_URL}"
   # Override for sandbox: https://api.sandbox.ebay.com/buy/browse/v1/item_summary/search
   browse_url: "${EBAY_BROWSE_URL}"
+  # Analytics API URL (defaults to production, no sandbox equivalent)
+  # analytics_url: "https://api.ebay.com/developer/analytics/v1_beta/rate_limit/"
   # Marketplace (EBAY_US, EBAY_UK, etc.)
   marketplace: EBAY_US
   # Max API calls per ingestion cycle

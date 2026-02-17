@@ -48,7 +48,8 @@ func CycleDuration() *timeseries.PanelBuilder {
 		Span(8).
 		WithTarget(PromQuery(
 			`histogram_quantile(0.95, sum(rate(spt_ingestion_duration_seconds_bucket[5m])) by (le))`,
-			"p95", "A",
+			"p95",
+			"A",
 		)).
 		Unit("s").
 		FillOpacity(10).

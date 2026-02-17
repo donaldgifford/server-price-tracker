@@ -148,13 +148,13 @@
           "type": "gauge",
           "targets": [
             {
-              "expr": "spt_ebay_daily_usage / 5000 * 100",
+              "expr": "(spt_ebay_rate_limit - spt_ebay_rate_remaining) / spt_ebay_rate_limit * 100",
               "legendFormat": "",
               "refId": "A"
             }
           ],
           "title": "eBay Quota %",
-          "description": "Daily eBay API usage as percentage of limit",
+          "description": "Daily eBay API usage as percentage of limit (from Analytics API)",
           "transparent": false,
           "datasource": {
             "type": "prometheus",
@@ -519,13 +519,18 @@
           "type": "timeseries",
           "targets": [
             {
-              "expr": "spt_ebay_daily_usage",
+              "expr": "spt_ebay_rate_limit - spt_ebay_rate_remaining",
               "legendFormat": "usage",
               "refId": "A"
+            },
+            {
+              "expr": "spt_ebay_rate_limit",
+              "legendFormat": "limit",
+              "refId": "B"
             }
           ],
           "title": "Daily Usage vs Limit",
-          "description": "Rolling 24h eBay API call count (limit: 5000)",
+          "description": "eBay API call count and limit (from Analytics API)",
           "transparent": false,
           "datasource": {
             "type": "prometheus",
@@ -546,24 +551,71 @@
                   {
                     "value": null,
                     "color": "green"
-                  },
-                  {
-                    "value": 4000,
-                    "color": "yellow"
-                  },
-                  {
-                    "value": 5000,
-                    "color": "red"
                   }
                 ]
               },
               "color": {
-                "mode": "thresholds"
+                "mode": "palette-classic"
               },
               "custom": {
                 "drawStyle": "line",
                 "lineWidth": 2,
                 "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "spt_ebay_rate_reset_timestamp - time()",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "title": "Quota Reset In",
+          "description": "Time until eBay API quota window resets",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 23
+          },
+          "repeatDirection": "h",
+          "options": {
+            "graphMode": "none",
+            "colorMode": "background",
+            "justifyMode": "auto",
+            "textMode": "auto",
+            "wideLayout": true,
+            "showPercentChange": false,
+            "reduceOptions": {
+              "calcs": []
+            },
+            "percentChangeColorMode": "standard",
+            "orientation": ""
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
               }
             },
             "overrides": []
@@ -588,8 +640,8 @@
           "gridPos": {
             "h": 8,
             "w": 8,
-            "x": 16,
-            "y": 23
+            "x": 0,
+            "y": 31
           },
           "repeatDirection": "h",
           "options": {
@@ -641,7 +693,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 31
+        "y": 39
       },
       "id": 0,
       "panels": [
@@ -665,7 +717,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 32
+            "y": 40
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -711,7 +763,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 32
+            "y": 40
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -765,7 +817,7 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 32
+            "y": 40
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -802,7 +854,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 48
       },
       "id": 0,
       "panels": [
@@ -831,7 +883,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 41
+            "y": 49
           },
           "repeatDirection": "h",
           "options": {
@@ -893,7 +945,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 41
+            "y": 49
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -937,7 +989,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 57
       },
       "id": 0,
       "panels": [
@@ -961,7 +1013,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 50
+            "y": 58
           },
           "repeatDirection": "h",
           "options": {
@@ -1013,7 +1065,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 66
       },
       "id": 0,
       "panels": [
@@ -1037,7 +1089,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 59
+            "y": 67
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -1083,7 +1135,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 59
+            "y": 67
           },
           "repeatDirection": "h",
           "options": {
