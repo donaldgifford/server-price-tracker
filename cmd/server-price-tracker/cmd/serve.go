@@ -169,6 +169,9 @@ func registerRoutes(
 
 		baselinesH := handlers.NewBaselinesHandler(s)
 		handlers.RegisterBaselineRoutes(humaAPI, baselinesH)
+
+		extractionStatsH := handlers.NewExtractionStatsHandler(s)
+		handlers.RegisterExtractionStatsRoutes(humaAPI, extractionStatsH)
 	}
 
 	// Search (Huma).

@@ -396,10 +396,10 @@ See `docs/plans/ram-fix.md` for the high-level design.
 
 ### Tasks
 
-- [ ] Create `internal/api/handlers/extraction_stats.go`:
-  - [ ] Define `ExtractionStatsHandler` struct with `store store.Store` field
-  - [ ] Define `NewExtractionStatsHandler(s store.Store)` constructor
-  - [ ] Define `ExtractionStatsOutput` with body struct:
+- [x] Create `internal/api/handlers/extraction_stats.go`:
+  - [x] Define `ExtractionStatsHandler` struct with `ExtractionStatsProvider` interface field
+  - [x] Define `NewExtractionStatsHandler(s ExtractionStatsProvider)` constructor
+  - [x] Define `ExtractionStatsOutput` with body struct:
     ```go
     type ExtractionStatsOutput struct {
         Body struct {
@@ -408,28 +408,28 @@ See `docs/plans/ram-fix.md` for the high-level design.
         }
     }
     ```
-  - [ ] Implement `Stats(ctx, _ *struct{}) (*ExtractionStatsOutput, error)` —
+  - [x] Implement `Stats(ctx, _ *struct{}) (*ExtractionStatsOutput, error)` —
     calls both `CountIncompleteExtractions` and `CountIncompleteExtractionsByType`
-  - [ ] Implement `RegisterExtractionStatsRoutes(api, h)`:
+  - [x] Implement `RegisterExtractionStatsRoutes(api, h)`:
     - Operation ID: `"extraction-stats"`
     - Method: `GET`
     - Path: `/api/v1/extraction/stats`
     - Summary: `"Get extraction quality statistics"`
     - Tags: `[]string{"extract"}`
-- [ ] Create `internal/api/handlers/extraction_stats_test.go`:
-  - [ ] `TestExtractionStats_Success` — mock store returns `42` total and
+- [x] Create `internal/api/handlers/extraction_stats_test.go`:
+  - [x] `TestExtractionStats_Success` — mock store returns `42` total and
     `{"ram": 38, "drive": 4}` by type. Assert 200 and body matches.
-  - [ ] `TestExtractionStats_Empty` — mock store returns 0 and empty map.
+  - [x] `TestExtractionStats_Empty` — mock store returns 0 and empty map.
     Assert 200 and body has `total_incomplete: 0`.
-- [ ] Modify `cmd/server-price-tracker/cmd/serve.go` — in `registerRoutes`,
+- [x] Modify `cmd/server-price-tracker/cmd/serve.go` — in `registerRoutes`,
   inside the `if s != nil` block (after baselines handler registration at
   line 171), add:
   ```go
   extractionStatsH := handlers.NewExtractionStatsHandler(s)
   handlers.RegisterExtractionStatsRoutes(humaAPI, extractionStatsH)
   ```
-- [ ] Run `go test ./internal/api/handlers/... -v -run TestExtractionStats`
-- [ ] Run `make test && make lint`
+- [x] Run `go test ./internal/api/handlers/... -v -run TestExtractionStats`
+- [x] Run `make test && make lint`
 
 ### Success Criteria
 
