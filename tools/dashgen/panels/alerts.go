@@ -14,7 +14,7 @@ func AlertsRate() *timeseries.PanelBuilder {
 		Datasource(DSRef()).
 		Height(TSHeight).
 		Span(TSWidth).
-		WithTarget(PromQuery(`rate(spt_alerts_fired_total[5m])`, "alerts/s", "A")).
+		WithTarget(PromQuery(`rate(spt_alerts_fired_total{job="server-price-tracker"}[5m])`, "alerts/s", "A")).
 		FillOpacity(10).
 		LineWidth(2).
 		Thresholds(ThresholdsGreenOnly()).
@@ -31,7 +31,7 @@ func NotificationFailures() *stat.PanelBuilder {
 		Datasource(DSRef()).
 		Height(TSHeight).
 		Span(TSWidth).
-		WithTarget(PromQuery(`increase(spt_notification_failures_total[24h])`, "", "A")).
+		WithTarget(PromQuery(`increase(spt_notification_failures_total{job="server-price-tracker"}[24h])`, "", "A")).
 		Thresholds(ThresholdsGreenYellowRed(1, 5)).
 		ColorScheme(ColorSchemeThresholds()).
 		ColorMode(common.BigValueColorModeBackground).
