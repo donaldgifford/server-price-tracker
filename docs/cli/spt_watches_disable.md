@@ -1,0 +1,31 @@
+## spt watches disable
+
+Disable a watch
+
+```
+spt watches disable <id> [flags]
+```
+
+### Examples
+
+```
+  spt watches disable abc123
+```
+
+### Options
+
+```
+  -h, --help   help for disable
+```
+
+### Options inherited from parent commands
+
+```
+      --config string   config file (default $HOME/.spt.yaml)
+      --output string   output format (table, json) (default "table")
+      --server string   API server URL (default "http://localhost:8080")
+```
+
+### SEE ALSO
+
+* [spt watches](spt_watches.md)  - Manage watches

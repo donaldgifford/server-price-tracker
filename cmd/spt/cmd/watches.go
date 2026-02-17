@@ -14,6 +14,8 @@ func watchCmd() *cobra.Command {
 	watchRoot := &cobra.Command{
 		Use:   "watches",
 		Short: "Manage watches",
+		Long: "Manage saved search watches that define eBay queries, component types,\n" +
+			"filters, and score thresholds for deal alerts.",
 	}
 
 	watchRoot.AddCommand(
@@ -32,6 +34,8 @@ func watchListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all watches",
+		Example: `  spt watches list
+  spt watches list --output json`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			c := newClient()
 			watches, err := c.ListWatches(context.Background())
@@ -54,7 +58,9 @@ func watchGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Show watch details",
-		Args:  cobra.ExactArgs(1),
+		Example: `  spt watches get abc123
+  spt watches get abc123 --output json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			c := newClient()
 			w, err := c.GetWatch(context.Background(), args[0])
@@ -81,6 +87,16 @@ func watchCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new watch",
+		Long: "Create a new watch that defines an eBay search query, component type,\n" +
+			"score threshold, and optional filters. The watch will be enabled by\n" +
+			"default and start matching listings on the next ingestion cycle.",
+		Example: `  # Create a basic RAM watch
+  spt watches create --name "DDR4 ECC 32GB" --query "DDR4 ECC 32GB RDIMM" --type ram
+
+  # Create a watch with a custom threshold and filters
+  spt watches create --name "Dell R630" --query "Dell PowerEdge R630" \
+    --type server --threshold 80 \
+    --filter "min_price=100" --filter "max_price=500"`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if watchName == "" || watchQuery == "" {
 				return fmt.Errorf("--name and --query are required")
@@ -121,9 +137,10 @@ func watchCreateCmd() *cobra.Command {
 
 func watchEnableCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "enable <id>",
-		Short: "Enable a watch",
-		Args:  cobra.ExactArgs(1),
+		Use:     "enable <id>",
+		Short:   "Enable a watch",
+		Example: `  spt watches enable abc123`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runWatchSetEnabled(args[0], true)
 		},
@@ -132,9 +149,10 @@ func watchEnableCmd() *cobra.Command {
 
 func watchDisableCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "disable <id>",
-		Short: "Disable a watch",
-		Args:  cobra.ExactArgs(1),
+		Use:     "disable <id>",
+		Short:   "Disable a watch",
+		Example: `  spt watches disable abc123`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runWatchSetEnabled(args[0], false)
 		},
@@ -143,9 +161,10 @@ func watchDisableCmd() *cobra.Command {
 
 func watchDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a watch",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <id>",
+		Short:   "Delete a watch",
+		Example: `  spt watches delete abc123`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			c := newClient()
 			if err := c.DeleteWatch(context.Background(), args[0]); err != nil {

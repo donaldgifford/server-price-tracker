@@ -239,7 +239,8 @@ func TestRateLimiter_Sync_ThenWait(t *testing.T) {
 	rl := ebay.NewRateLimiter(100, 10, 5000)
 
 	// Sync with count=100 (eBay says 100 calls used).
-	resetAt := time.Date(2026, 2, 17, 8, 0, 0, 0, time.UTC)
+	// Use a far-future resetAt so checkDailyReset never triggers during the test.
+	resetAt := time.Now().Add(24 * time.Hour)
 	rl.Sync(100, 5000, resetAt)
 	assert.Equal(t, int64(100), rl.DailyCount())
 
