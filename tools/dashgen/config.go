@@ -23,7 +23,7 @@ var KnownMetrics = map[string]bool{
 	"spt_extraction_failures_total":   true,
 
 	// Scoring metrics.
-	"spt_scoring_distribution":       true,
+	"spt_scoring_distribution":        true,
 	"spt_scoring_with_baseline_total": true,
 	"spt_scoring_cold_start_total":    true,
 
@@ -67,13 +67,13 @@ var KnownMetrics = map[string]bool{
 	"spt_product_keys_no_baseline": true,
 
 	// Recording rules.
-	"spt:http_requests:rate5m":       true,
-	"spt:http_errors:rate5m":         true,
-	"spt:ingestion_listings:rate5m":  true,
-	"spt:ingestion_errors:rate5m":    true,
-	"spt:extraction_failures:rate5m": true,
-	"spt:ebay_api_calls:rate5m":          true,
-	"spt:notification_duration:p95_5m":   true,
+	"spt:http_requests:rate5m":         true,
+	"spt:http_errors:rate5m":           true,
+	"spt:ingestion_listings:rate5m":    true,
+	"spt:ingestion_errors:rate5m":      true,
+	"spt:extraction_failures:rate5m":   true,
+	"spt:ebay_api_calls:rate5m":        true,
+	"spt:notification_duration:p95_5m": true,
 
 	// Standard Prometheus metrics referenced in dashboards.
 	"up":                         true,
