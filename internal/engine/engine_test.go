@@ -1131,6 +1131,73 @@ func TestRunIngestion_EnqueuesNotExtracts(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestProcessExtractionJob_UpdateExtractionFails(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	job := &domain.ExtractionJob{ID: "job-ue", ListingID: "listing-ue"}
+	listing := &domain.Listing{ID: "listing-ue", EbayID: "e-ue", Title: "RAM Listing"}
+
+	ms.EXPECT().
+		DequeueExtractions(mock.Anything, mock.AnythingOfType("string"), 1).
+		Return(nil, nil).Maybe()
+	ms.EXPECT().GetListingByID(mock.Anything, "listing-ue").Return(listing, nil).Once()
+	mx.EXPECT().
+		ClassifyAndExtract(mock.Anything, listing.Title, mock.Anything).
+		Return(domain.ComponentRAM, map[string]any{"speed_mhz": 2666}, nil).Once()
+	ms.EXPECT().
+		UpdateListingExtraction(mock.Anything, "listing-ue", "ram", mock.Anything, 0.9, mock.AnythingOfType("string")).
+		Return(errors.New("db write error")).Once()
+	ms.EXPECT().
+		CompleteExtractionJob(mock.Anything, "job-ue", "db write error").
+		Return(nil).Once()
+
+	eng := newTestEngine(ms, me, mx, mn)
+	eng.processExtractionJob(context.Background(), "worker-0", job)
+}
+
+func TestProcessExtractionJob_GetListingFails(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	job := &domain.ExtractionJob{ID: "job-gl", ListingID: "listing-gl"}
+
+	ms.EXPECT().
+		GetListingByID(mock.Anything, "listing-gl").
+		Return(nil, errors.New("not found")).Once()
+	ms.EXPECT().
+		CompleteExtractionJob(mock.Anything, "job-gl", "not found").
+		Return(nil).Once()
+
+	eng := newTestEngine(ms, me, mx, mn)
+	eng.processExtractionJob(context.Background(), "worker-0", job)
+}
+
+func TestCompleteJob_DBError(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	ms.EXPECT().
+		CompleteExtractionJob(mock.Anything, "job-x", "some error").
+		Return(errors.New("db error")).Once()
+
+	eng := newTestEngine(ms, me, mx, mn)
+	// Should log the error and not panic.
+	eng.completeJob(context.Background(), "worker-0", "job-x", "some error")
+}
+
 func TestStartExtractionWorkers_ProcessesJob(t *testing.T) {
 	t.Parallel()
 

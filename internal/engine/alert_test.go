@@ -436,6 +436,59 @@ func TestEvaluateAlert_ReAlertsEnabled_SkipsCooldownListing(t *testing.T) {
 	eng.evaluateAlert(context.Background(), watch, listing)
 }
 
+func TestProcessAlerts_HasSuccessfulNotificationError(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	alerts := []domain.Alert{
+		{ID: "a1", WatchID: "w1", ListingID: "l1", Score: 85},
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+	// HasSuccessfulNotification returns an error — sendSingle propagates it.
+	ms.EXPECT().
+		HasSuccessfulNotification(mock.Anything, "a1").
+		Return(false, errors.New("db error")).Once()
+	// sendSingle returns the error; ProcessAlerts increments failure metric and continues.
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err) // ProcessAlerts absorbs per-watch errors
+}
+
+func TestSendBatch_AllAlreadyNotified(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	// 5 alerts for same watch (meets batch threshold), but all already notified.
+	alerts := make([]domain.Alert, 5)
+	for i := range alerts {
+		alerts[i] = domain.Alert{
+			ID:        "a" + string(rune('1'+i)),
+			WatchID:   "w1",
+			ListingID: "l" + string(rune('1'+i)),
+			Score:     80,
+		}
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+
+	for i := range alerts {
+		ms.EXPECT().
+			HasSuccessfulNotification(mock.Anything, alerts[i].ID).
+			Return(true, nil).Once()
+	}
+	// SendBatchAlert must NOT be called — all payloads were filtered out.
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err)
+}
+
 func TestEvaluateAlert_ReAlertsEnabled_AllowsAfterCooldown(t *testing.T) {
 	t.Parallel()
 
