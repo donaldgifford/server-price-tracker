@@ -24,7 +24,7 @@ CREATE TABLE scheduler_locks (
 );
 
 -- Track last ingestion timestamp per watch.
-ALTER TABLE watches ADD COLUMN last_polled_at TIMESTAMPTZ;
+ALTER TABLE watches ADD COLUMN IF NOT EXISTS last_polled_at TIMESTAMPTZ;
 
 -- Idempotent notification tracking.
 CREATE TABLE notification_attempts (
