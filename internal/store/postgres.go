@@ -484,70 +484,6 @@ func (s *PostgresStore) HasSuccessfulNotification(ctx context.Context, alertID s
 	return exists, nil
 }
 
-// CountWatches returns the total and enabled watch counts.
-func (s *PostgresStore) CountWatches(ctx context.Context) (int, int, error) {
-	var total, enabled int
-	if err := s.pool.QueryRow(ctx, queryCountWatches).Scan(&total, &enabled); err != nil {
-		return 0, 0, fmt.Errorf("counting watches: %w", err)
-	}
-	return total, enabled, nil
-}
-
-// CountListings returns the total number of listings.
-func (s *PostgresStore) CountListings(ctx context.Context) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, queryCountListings).Scan(&count); err != nil {
-		return 0, fmt.Errorf("counting listings: %w", err)
-	}
-	return count, nil
-}
-
-// CountUnextractedListings returns listings without LLM extraction.
-func (s *PostgresStore) CountUnextractedListings(ctx context.Context) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, queryCountUnextractedListings).Scan(&count); err != nil {
-		return 0, fmt.Errorf("counting unextracted listings: %w", err)
-	}
-	return count, nil
-}
-
-// CountUnscoredListings returns listings extracted but not yet scored.
-func (s *PostgresStore) CountUnscoredListings(ctx context.Context) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, queryCountUnscoredListings).Scan(&count); err != nil {
-		return 0, fmt.Errorf("counting unscored listings: %w", err)
-	}
-	return count, nil
-}
-
-// CountPendingAlerts returns the number of un-notified alerts.
-func (s *PostgresStore) CountPendingAlerts(ctx context.Context) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, queryCountPendingAlerts).Scan(&count); err != nil {
-		return 0, fmt.Errorf("counting pending alerts: %w", err)
-	}
-	return count, nil
-}
-
-// CountBaselinesByMaturity returns counts of cold (<10 samples) and warm (>=10) baselines.
-func (s *PostgresStore) CountBaselinesByMaturity(ctx context.Context) (int, int, error) {
-	var cold, warm int
-	if err := s.pool.QueryRow(ctx, queryCountBaselinesByMaturity).Scan(&cold, &warm); err != nil {
-		return 0, 0, fmt.Errorf("counting baselines by maturity: %w", err)
-	}
-	return cold, warm, nil
-}
-
-// CountProductKeysWithoutBaseline returns the number of distinct product keys
-// in listings that have no corresponding price baseline.
-func (s *PostgresStore) CountProductKeysWithoutBaseline(ctx context.Context) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, queryCountProductKeysWithoutBaseline).Scan(&count); err != nil {
-		return 0, fmt.Errorf("counting product keys without baseline: %w", err)
-	}
-	return count, nil
-}
-
 // GetSystemState queries the system_state view for a single-row snapshot.
 func (s *PostgresStore) GetSystemState(ctx context.Context) (*domain.SystemState, error) {
 	var st domain.SystemState
@@ -563,6 +499,48 @@ func (s *PostgresStore) GetSystemState(ctx context.Context) (*domain.SystemState
 		return nil, fmt.Errorf("getting system state: %w", err)
 	}
 	return &st, nil
+}
+
+// PersistRateLimiterState upserts a single-row snapshot of eBay API quota state.
+func (s *PostgresStore) PersistRateLimiterState(ctx context.Context, tokensUsed, dailyLimit int, resetAt time.Time) error {
+	_, err := s.pool.Exec(ctx, queryPersistRateLimiterState, tokensUsed, dailyLimit, resetAt)
+	if err != nil {
+		return fmt.Errorf("persisting rate limiter state: %w", err)
+	}
+	return nil
+}
+
+// LoadRateLimiterState returns the last persisted eBay API quota snapshot.
+// Returns pgx.ErrNoRows when no state has been persisted yet.
+func (s *PostgresStore) LoadRateLimiterState(ctx context.Context) (*domain.RateLimiterState, error) {
+	var st domain.RateLimiterState
+	err := s.pool.QueryRow(ctx, queryLoadRateLimiterState).Scan(
+		&st.TokensUsed, &st.DailyLimit, &st.ResetAt, &st.SyncedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("loading rate limiter state: %w", err)
+	}
+	return &st, nil
+}
+
+// ListListingsCursor returns up to limit listings with id > afterID, ordered by id ASC.
+// Pass an empty string for afterID to start from the beginning.
+func (s *PostgresStore) ListListingsCursor(ctx context.Context, afterID string, limit int) ([]domain.Listing, error) {
+	rows, err := s.pool.Query(ctx, queryListListingsCursor, afterID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("listing listings by cursor: %w", err)
+	}
+	defer rows.Close()
+
+	var listings []domain.Listing
+	for rows.Next() {
+		var l domain.Listing
+		if err := scanListingRow(rows, &l); err != nil {
+			return nil, fmt.Errorf("scanning listing: %w", err)
+		}
+		listings = append(listings, l)
+	}
+	return listings, rows.Err()
 }
 
 // ListIncompleteExtractions returns listings with incomplete extraction data.
@@ -592,36 +570,6 @@ func (s *PostgresStore) ListIncompleteExtractions(
 	}
 
 	return listings, rows.Err()
-}
-
-// CountIncompleteExtractions returns the total count of listings with incomplete extraction data.
-func (s *PostgresStore) CountIncompleteExtractions(ctx context.Context) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, queryCountIncompleteExtractions).Scan(&count); err != nil {
-		return 0, fmt.Errorf("counting incomplete extractions: %w", err)
-	}
-	return count, nil
-}
-
-// CountIncompleteExtractionsByType returns incomplete extraction counts grouped by component type.
-func (s *PostgresStore) CountIncompleteExtractionsByType(ctx context.Context) (map[string]int, error) {
-	rows, err := s.pool.Query(ctx, queryCountIncompleteExtractionsByType)
-	if err != nil {
-		return nil, fmt.Errorf("counting incomplete extractions by type: %w", err)
-	}
-	defer rows.Close()
-
-	result := make(map[string]int)
-	for rows.Next() {
-		var ct string
-		var count int
-		if err := rows.Scan(&ct, &count); err != nil {
-			return nil, fmt.Errorf("scanning incomplete extraction count: %w", err)
-		}
-		result[ct] = count
-	}
-
-	return result, rows.Err()
 }
 
 // InsertJobRun records the start of a scheduled job and returns its UUID.

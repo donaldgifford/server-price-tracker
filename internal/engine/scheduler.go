@@ -19,9 +19,6 @@ type Scheduler struct {
 	store                store.Store
 	hostname             string
 	log                  *slog.Logger
-	ingestionEntryID     cron.EntryID
-	baselineEntryID      cron.EntryID
-	reExtractionEntryID  cron.EntryID
 	reExtractionInterval time.Duration
 }
 
@@ -50,33 +47,18 @@ func NewScheduler(
 		reExtractionInterval: reExtractionInterval,
 	}
 
-	ingestionID, err := c.AddFunc(
-		"@every "+ingestionInterval.String(),
-		sched.runIngestion,
-	)
-	if err != nil {
+	if _, err = c.AddFunc("@every "+ingestionInterval.String(), sched.runIngestion); err != nil {
 		return nil, err
 	}
-	sched.ingestionEntryID = ingestionID
 
-	baselineID, err := c.AddFunc(
-		"@every "+baselineInterval.String(),
-		sched.runBaselineRefresh,
-	)
-	if err != nil {
+	if _, err = c.AddFunc("@every "+baselineInterval.String(), sched.runBaselineRefresh); err != nil {
 		return nil, err
 	}
-	sched.baselineEntryID = baselineID
 
 	if reExtractionInterval > 0 {
-		reExtractID, reErr := c.AddFunc(
-			"@every "+reExtractionInterval.String(),
-			sched.runReExtraction,
-		)
-		if reErr != nil {
-			return nil, reErr
+		if _, err = c.AddFunc("@every "+reExtractionInterval.String(), sched.runReExtraction); err != nil {
+			return nil, err
 		}
-		sched.reExtractionEntryID = reExtractID
 	}
 
 	return sched, nil
@@ -168,7 +150,6 @@ func (s *Scheduler) runIngestion() {
 	} else {
 		metrics.IngestionLastSuccessTimestamp.Set(float64(time.Now().Unix()))
 	}
-	s.SyncNextRunTimestamps()
 }
 
 func (s *Scheduler) runBaselineRefresh() {
@@ -179,7 +160,6 @@ func (s *Scheduler) runBaselineRefresh() {
 	} else {
 		metrics.BaselineLastRefreshTimestamp.Set(float64(time.Now().Unix()))
 	}
-	s.SyncNextRunTimestamps()
 }
 
 func (s *Scheduler) runReExtraction() {
@@ -195,24 +175,5 @@ func (s *Scheduler) runReExtraction() {
 	}
 	if err := s.runJob(ctx, "re_extraction", 30*time.Minute, fn); err != nil {
 		s.log.Error("scheduled re-extraction failed", "error", err)
-	}
-	s.SyncNextRunTimestamps()
-}
-
-// SyncNextRunTimestamps updates Prometheus gauges with the next scheduled run times.
-func (s *Scheduler) SyncNextRunTimestamps() {
-	ingestion := s.cron.Entry(s.ingestionEntryID)
-	if !ingestion.Next.IsZero() {
-		metrics.SchedulerNextIngestionTimestamp.Set(float64(ingestion.Next.Unix()))
-	}
-	baseline := s.cron.Entry(s.baselineEntryID)
-	if !baseline.Next.IsZero() {
-		metrics.SchedulerNextBaselineTimestamp.Set(float64(baseline.Next.Unix()))
-	}
-	if s.reExtractionEntryID != 0 {
-		reExtract := s.cron.Entry(s.reExtractionEntryID)
-		if !reExtract.Next.IsZero() {
-			metrics.SchedulerNextReExtractionTimestamp.Set(float64(reExtract.Next.Unix()))
-		}
 	}
 }

@@ -431,6 +431,10 @@ func (eng *Engine) SyncQuota(ctx context.Context) {
 		eng.rateLimiter.Sync(quota.Count, quota.Limit, quota.ResetAt)
 	}
 
+	if err := eng.store.PersistRateLimiterState(ctx, int(quota.Count), int(quota.Limit), quota.ResetAt); err != nil {
+		eng.log.Warn("failed to persist rate limiter state", "error", err)
+	}
+
 	eng.log.Debug("eBay quota synced",
 		"count", quota.Count,
 		"limit", quota.Limit,

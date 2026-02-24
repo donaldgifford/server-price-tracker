@@ -85,12 +85,6 @@ var (
 		Help:      "Listings with incomplete extraction data (e.g., missing speed for RAM).",
 	})
 
-	ListingsIncompleteExtractionByType = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: namespace,
-		Name:      "listings_incomplete_extraction_by_type",
-		Help:      "Listings with incomplete extraction data, by component type.",
-	}, []string{"component_type"})
-
 	ExtractionQueueDepth = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Name:      "extraction_queue_depth",
@@ -267,24 +261,6 @@ var (
 
 // Scheduler metrics.
 var (
-	SchedulerNextIngestionTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
-		Namespace: namespace,
-		Name:      "scheduler_next_ingestion_timestamp",
-		Help:      "Unix epoch of the next scheduled ingestion run.",
-	})
-
-	SchedulerNextBaselineTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
-		Namespace: namespace,
-		Name:      "scheduler_next_baseline_timestamp",
-		Help:      "Unix epoch of the next scheduled baseline refresh.",
-	})
-
-	SchedulerNextReExtractionTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
-		Namespace: namespace,
-		Name:      "scheduler_next_reextraction_timestamp",
-		Help:      "Unix epoch of the next scheduled re-extraction run.",
-	})
-
 	IngestionLastSuccessTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Name:      "ingestion_last_success_timestamp",

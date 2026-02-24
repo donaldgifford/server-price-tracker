@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/donaldgifford/server-price-tracker/internal/api/handlers"
-	"github.com/donaldgifford/server-price-tracker/internal/store"
 	storeMocks "github.com/donaldgifford/server-price-tracker/internal/store/mocks"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
@@ -30,7 +29,7 @@ func TestRescoreHandler_Rescore(t *testing.T) {
 			name: "successful rescore",
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
-					ListListings(mock.Anything, mock.Anything).
+					ListListingsCursor(mock.Anything, "", 200).
 					Return([]domain.Listing{
 						{
 							ID:         "l1",
@@ -38,7 +37,11 @@ func TestRescoreHandler_Rescore(t *testing.T) {
 							Price:      45.99,
 							Quantity:   1,
 						},
-					}, 1, nil).
+					}, nil).
+					Once()
+				m.EXPECT().
+					ListListingsCursor(mock.Anything, "l1", 200).
+					Return(nil, nil).
 					Once()
 				m.EXPECT().
 					GetBaseline(mock.Anything, "ram:ddr4:32gb").
@@ -56,8 +59,8 @@ func TestRescoreHandler_Rescore(t *testing.T) {
 			name: "no listings to rescore",
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
-					ListListings(mock.Anything, mock.Anything).
-					Return(nil, 0, nil).
+					ListListingsCursor(mock.Anything, "", 200).
+					Return(nil, nil).
 					Once()
 			},
 			wantStatus: http.StatusOK,
@@ -67,8 +70,8 @@ func TestRescoreHandler_Rescore(t *testing.T) {
 			name: "store error returns 500",
 			setupMock: func(m *storeMocks.MockStore) {
 				m.EXPECT().
-					ListListings(mock.Anything, mock.Anything).
-					Return(nil, 0, errors.New("db down")).
+					ListListingsCursor(mock.Anything, "", 200).
+					Return(nil, errors.New("db down")).
 					Once()
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -106,10 +109,12 @@ func TestRescoreHandler_Rescore_PartialFailure(t *testing.T) {
 	}
 
 	mockStore.EXPECT().
-		ListListings(mock.Anything, mock.MatchedBy(func(q *store.ListingQuery) bool {
-			return q.Limit == 500
-		})).
-		Return(listings, 2, nil).
+		ListListingsCursor(mock.Anything, "", 200).
+		Return(listings, nil).
+		Once()
+	mockStore.EXPECT().
+		ListListingsCursor(mock.Anything, "l2", 200).
+		Return(nil, nil).
 		Once()
 
 	mockStore.EXPECT().

@@ -733,7 +733,7 @@ endpoints.
 
 ### Migration
 
-- [ ] Create `migrations/006_rate_limiter_state.sql`:
+- [x] Create `migrations/006_rate_limiter_state.sql`:
 
   ```sql
   CREATE TABLE rate_limiter_state (
@@ -747,15 +747,15 @@ endpoints.
   CREATE UNIQUE INDEX rate_limiter_state_singleton ON rate_limiter_state ((true));
   ```
 
-- [ ] Copy migration to `internal/store/migrations/006_rate_limiter_state.sql`
+- [x] Copy migration to `internal/store/migrations/006_rate_limiter_state.sql`
 
 ---
 
 ### Rate Limiter Persistence (`internal/ebay/rate_limiter.go`)
 
-- [ ] Add `PersistRateLimiterState(ctx context.Context, tokensUsed int, dailyLimit int, resetAt time.Time) error` to `Store` interface
-- [ ] Add `LoadRateLimiterState(ctx context.Context) (*domain.RateLimiterState, error)` to `Store` interface
-- [ ] Add `RateLimiterState` domain type:
+- [x] Add `PersistRateLimiterState(ctx context.Context, tokensUsed int, dailyLimit int, resetAt time.Time) error` to `Store` interface
+- [x] Add `LoadRateLimiterState(ctx context.Context) (*domain.RateLimiterState, error)` to `Store` interface
+- [x] Add `RateLimiterState` domain type:
   ```go
   type RateLimiterState struct {
       TokensUsed int       `json:"tokens_used"`
@@ -764,8 +764,8 @@ endpoints.
       SyncedAt   time.Time `json:"synced_at"`
   }
   ```
-- [ ] After `SyncQuota` succeeds in `engine.go`, call `store.PersistRateLimiterState`
-- [ ] In `startServer()`, call `store.LoadRateLimiterState` and use it to pre-warm the `RateLimiter` before the first ingestion cycle
+- [x] After `SyncQuota` succeeds in `engine.go`, call `store.PersistRateLimiterState`
+- [x] In `startServer()`, call `store.LoadRateLimiterState` and use it to pre-warm the `RateLimiter` before the first ingestion cycle
 
 ---
 
@@ -776,15 +776,15 @@ always indexed. `first_seen_at` has an index but it is `DESC`-only and ties are
 possible during bulk upserts. Ordering doesn't matter for `RescoreAll`; `id` is
 the correct cursor.
 
-- [ ] Add `ListListingsCursor(ctx context.Context, afterID string, limit int) ([]domain.Listing, error)` to `Store` interface:
+- [x] Add `ListListingsCursor(ctx context.Context, afterID string, limit int) ([]domain.Listing, error)` to `Store` interface:
   ```sql
   SELECT ... FROM listings WHERE id > $1 ORDER BY id ASC LIMIT $2
   ```
   Pass `""` as `afterID` for the first page (UUID sorts above empty string in pgx).
   Use `'\x00000000-0000-0000-0000-000000000000'` as the sentinel if needed.
-- [ ] Add `queryListListingsCursor` SQL constant
-- [ ] Implement `ListListingsCursor` in `postgres.go`
-- [ ] Rewrite `RescoreAll` in `engine.go` to use cursor pagination:
+- [x] Add `queryListListingsCursor` SQL constant
+- [x] Implement `ListListingsCursor` in `postgres.go`
+- [x] Rewrite `RescoreAll` in `engine.go` to use cursor pagination:
   ```go
   const rescoreBatchSize = 200
   var cursor string
@@ -797,13 +797,13 @@ the correct cursor.
       cursor = listings[len(listings)-1].ID
   }
   ```
-- [ ] Add test `TestRescoreAll_CursorPagination` — mock store returns 3 pages of 2 listings, assert all 6 are scored and cursor advances correctly
+- [x] Add test `TestRescoreAll_CursorPagination` — mock store returns 3 pages of 2 listings, assert all 6 are scored and cursor advances correctly
 
 ---
 
 ### Code Cleanup
 
-- [ ] Remove the `// Deprecated` count methods from `Store` interface and `postgres.go`
+- [x] Remove the `// Deprecated` count methods from `Store` interface and `postgres.go`
   that were superseded by `GetSystemState` (after confirming no callers remain):
   - `CountIncompleteExtractions`
   - `CountIncompleteExtractionsByType`
@@ -812,16 +812,17 @@ the correct cursor.
   - `CountUnscoredListings`
   - `CountBaselinesByMaturity`
   - `CountProductKeysWithoutBaseline`
-- [ ] Remove `ListingsIncompleteExtraction` and `ListingsIncompleteExtractionByType`
-  Prometheus gauges from `metrics.go` (replaced by `system_state` view column)
-- [ ] Remove `SyncNextRunTimestamps` from `scheduler.go` — replaced by `job_runs` table
-- [ ] Remove `SchedulerNextIngestionTimestamp`, `SchedulerNextBaselineTimestamp`,
+- [x] Remove `ListingsIncompleteExtractionByType` Prometheus gauge from `metrics.go`
+  (replaced by `system_state` view; `ListingsIncompleteExtraction` retained as it is
+  still populated from `GetSystemState` in `SyncStateMetrics`)
+- [x] Remove `SyncNextRunTimestamps` from `scheduler.go` — replaced by `job_runs` table
+- [x] Remove `SchedulerNextIngestionTimestamp`, `SchedulerNextBaselineTimestamp`,
   `SchedulerNextReExtractionTimestamp` gauges from `metrics.go` — the `GET /api/v1/jobs`
   endpoint now provides next-run visibility from DB
-- [ ] Remove `ExtractionStatsProvider` interface from `handlers/extraction_stats.go`
-  (the `GET /api/v1/extraction/stats` endpoint can now delegate to `GET /api/v1/system/state`)
-- [ ] Run `make mocks` after every interface change
-- [ ] Run `make test && make lint`
+- [x] Remove `ExtractionStatsProvider` interface from `handlers/extraction_stats.go`
+  (the `GET /api/v1/extraction/stats` endpoint now delegates to `GetSystemState`)
+- [x] Run `make mocks` after every interface change
+- [x] Run `make test && make lint`
 
 ---
 

@@ -185,295 +185,6 @@ func (_c *MockStore_CompleteJobRun_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
-// CountBaselinesByMaturity provides a mock function with given fields: ctx
-func (_m *MockStore) CountBaselinesByMaturity(ctx context.Context) (int, int, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CountBaselinesByMaturity")
-	}
-
-	var r0 int
-	var r1 int
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context) (int, int, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) int); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Get(1).(int)
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
-		r2 = rf(ctx)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
-// MockStore_CountBaselinesByMaturity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountBaselinesByMaturity'
-type MockStore_CountBaselinesByMaturity_Call struct {
-	*mock.Call
-}
-
-// CountBaselinesByMaturity is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockStore_Expecter) CountBaselinesByMaturity(ctx interface{}) *MockStore_CountBaselinesByMaturity_Call {
-	return &MockStore_CountBaselinesByMaturity_Call{Call: _e.mock.On("CountBaselinesByMaturity", ctx)}
-}
-
-func (_c *MockStore_CountBaselinesByMaturity_Call) Run(run func(ctx context.Context)) *MockStore_CountBaselinesByMaturity_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *MockStore_CountBaselinesByMaturity_Call) Return(cold int, warm int, err error) *MockStore_CountBaselinesByMaturity_Call {
-	_c.Call.Return(cold, warm, err)
-	return _c
-}
-
-func (_c *MockStore_CountBaselinesByMaturity_Call) RunAndReturn(run func(context.Context) (int, int, error)) *MockStore_CountBaselinesByMaturity_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CountIncompleteExtractions provides a mock function with given fields: ctx
-func (_m *MockStore) CountIncompleteExtractions(ctx context.Context) (int, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CountIncompleteExtractions")
-	}
-
-	var r0 int
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (int, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockStore_CountIncompleteExtractions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountIncompleteExtractions'
-type MockStore_CountIncompleteExtractions_Call struct {
-	*mock.Call
-}
-
-// CountIncompleteExtractions is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockStore_Expecter) CountIncompleteExtractions(ctx interface{}) *MockStore_CountIncompleteExtractions_Call {
-	return &MockStore_CountIncompleteExtractions_Call{Call: _e.mock.On("CountIncompleteExtractions", ctx)}
-}
-
-func (_c *MockStore_CountIncompleteExtractions_Call) Run(run func(ctx context.Context)) *MockStore_CountIncompleteExtractions_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *MockStore_CountIncompleteExtractions_Call) Return(_a0 int, _a1 error) *MockStore_CountIncompleteExtractions_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockStore_CountIncompleteExtractions_Call) RunAndReturn(run func(context.Context) (int, error)) *MockStore_CountIncompleteExtractions_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CountIncompleteExtractionsByType provides a mock function with given fields: ctx
-func (_m *MockStore) CountIncompleteExtractionsByType(ctx context.Context) (map[string]int, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CountIncompleteExtractionsByType")
-	}
-
-	var r0 map[string]int
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (map[string]int, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) map[string]int); ok {
-		r0 = rf(ctx)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]int)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockStore_CountIncompleteExtractionsByType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountIncompleteExtractionsByType'
-type MockStore_CountIncompleteExtractionsByType_Call struct {
-	*mock.Call
-}
-
-// CountIncompleteExtractionsByType is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockStore_Expecter) CountIncompleteExtractionsByType(ctx interface{}) *MockStore_CountIncompleteExtractionsByType_Call {
-	return &MockStore_CountIncompleteExtractionsByType_Call{Call: _e.mock.On("CountIncompleteExtractionsByType", ctx)}
-}
-
-func (_c *MockStore_CountIncompleteExtractionsByType_Call) Run(run func(ctx context.Context)) *MockStore_CountIncompleteExtractionsByType_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *MockStore_CountIncompleteExtractionsByType_Call) Return(_a0 map[string]int, _a1 error) *MockStore_CountIncompleteExtractionsByType_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockStore_CountIncompleteExtractionsByType_Call) RunAndReturn(run func(context.Context) (map[string]int, error)) *MockStore_CountIncompleteExtractionsByType_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CountListings provides a mock function with given fields: ctx
-func (_m *MockStore) CountListings(ctx context.Context) (int, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CountListings")
-	}
-
-	var r0 int
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (int, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockStore_CountListings_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountListings'
-type MockStore_CountListings_Call struct {
-	*mock.Call
-}
-
-// CountListings is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockStore_Expecter) CountListings(ctx interface{}) *MockStore_CountListings_Call {
-	return &MockStore_CountListings_Call{Call: _e.mock.On("CountListings", ctx)}
-}
-
-func (_c *MockStore_CountListings_Call) Run(run func(ctx context.Context)) *MockStore_CountListings_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *MockStore_CountListings_Call) Return(_a0 int, _a1 error) *MockStore_CountListings_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockStore_CountListings_Call) RunAndReturn(run func(context.Context) (int, error)) *MockStore_CountListings_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CountPendingAlerts provides a mock function with given fields: ctx
-func (_m *MockStore) CountPendingAlerts(ctx context.Context) (int, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CountPendingAlerts")
-	}
-
-	var r0 int
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (int, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockStore_CountPendingAlerts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountPendingAlerts'
-type MockStore_CountPendingAlerts_Call struct {
-	*mock.Call
-}
-
-// CountPendingAlerts is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockStore_Expecter) CountPendingAlerts(ctx interface{}) *MockStore_CountPendingAlerts_Call {
-	return &MockStore_CountPendingAlerts_Call{Call: _e.mock.On("CountPendingAlerts", ctx)}
-}
-
-func (_c *MockStore_CountPendingAlerts_Call) Run(run func(ctx context.Context)) *MockStore_CountPendingAlerts_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *MockStore_CountPendingAlerts_Call) Return(_a0 int, _a1 error) *MockStore_CountPendingAlerts_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockStore_CountPendingAlerts_Call) RunAndReturn(run func(context.Context) (int, error)) *MockStore_CountPendingAlerts_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // CountPendingExtractionJobs provides a mock function with given fields: ctx
 func (_m *MockStore) CountPendingExtractionJobs(ctx context.Context) (int, error) {
 	ret := _m.Called(ctx)
@@ -526,237 +237,6 @@ func (_c *MockStore_CountPendingExtractionJobs_Call) Return(_a0 int, _a1 error) 
 }
 
 func (_c *MockStore_CountPendingExtractionJobs_Call) RunAndReturn(run func(context.Context) (int, error)) *MockStore_CountPendingExtractionJobs_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CountProductKeysWithoutBaseline provides a mock function with given fields: ctx
-func (_m *MockStore) CountProductKeysWithoutBaseline(ctx context.Context) (int, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CountProductKeysWithoutBaseline")
-	}
-
-	var r0 int
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (int, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockStore_CountProductKeysWithoutBaseline_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountProductKeysWithoutBaseline'
-type MockStore_CountProductKeysWithoutBaseline_Call struct {
-	*mock.Call
-}
-
-// CountProductKeysWithoutBaseline is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockStore_Expecter) CountProductKeysWithoutBaseline(ctx interface{}) *MockStore_CountProductKeysWithoutBaseline_Call {
-	return &MockStore_CountProductKeysWithoutBaseline_Call{Call: _e.mock.On("CountProductKeysWithoutBaseline", ctx)}
-}
-
-func (_c *MockStore_CountProductKeysWithoutBaseline_Call) Run(run func(ctx context.Context)) *MockStore_CountProductKeysWithoutBaseline_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *MockStore_CountProductKeysWithoutBaseline_Call) Return(_a0 int, _a1 error) *MockStore_CountProductKeysWithoutBaseline_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockStore_CountProductKeysWithoutBaseline_Call) RunAndReturn(run func(context.Context) (int, error)) *MockStore_CountProductKeysWithoutBaseline_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CountUnextractedListings provides a mock function with given fields: ctx
-func (_m *MockStore) CountUnextractedListings(ctx context.Context) (int, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CountUnextractedListings")
-	}
-
-	var r0 int
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (int, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockStore_CountUnextractedListings_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountUnextractedListings'
-type MockStore_CountUnextractedListings_Call struct {
-	*mock.Call
-}
-
-// CountUnextractedListings is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockStore_Expecter) CountUnextractedListings(ctx interface{}) *MockStore_CountUnextractedListings_Call {
-	return &MockStore_CountUnextractedListings_Call{Call: _e.mock.On("CountUnextractedListings", ctx)}
-}
-
-func (_c *MockStore_CountUnextractedListings_Call) Run(run func(ctx context.Context)) *MockStore_CountUnextractedListings_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *MockStore_CountUnextractedListings_Call) Return(_a0 int, _a1 error) *MockStore_CountUnextractedListings_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockStore_CountUnextractedListings_Call) RunAndReturn(run func(context.Context) (int, error)) *MockStore_CountUnextractedListings_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CountUnscoredListings provides a mock function with given fields: ctx
-func (_m *MockStore) CountUnscoredListings(ctx context.Context) (int, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CountUnscoredListings")
-	}
-
-	var r0 int
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (int, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockStore_CountUnscoredListings_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountUnscoredListings'
-type MockStore_CountUnscoredListings_Call struct {
-	*mock.Call
-}
-
-// CountUnscoredListings is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockStore_Expecter) CountUnscoredListings(ctx interface{}) *MockStore_CountUnscoredListings_Call {
-	return &MockStore_CountUnscoredListings_Call{Call: _e.mock.On("CountUnscoredListings", ctx)}
-}
-
-func (_c *MockStore_CountUnscoredListings_Call) Run(run func(ctx context.Context)) *MockStore_CountUnscoredListings_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *MockStore_CountUnscoredListings_Call) Return(_a0 int, _a1 error) *MockStore_CountUnscoredListings_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockStore_CountUnscoredListings_Call) RunAndReturn(run func(context.Context) (int, error)) *MockStore_CountUnscoredListings_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CountWatches provides a mock function with given fields: ctx
-func (_m *MockStore) CountWatches(ctx context.Context) (int, int, error) {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CountWatches")
-	}
-
-	var r0 int
-	var r1 int
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context) (int, int, error)); ok {
-		return rf(ctx)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) int); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Get(1).(int)
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
-		r2 = rf(ctx)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
-// MockStore_CountWatches_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountWatches'
-type MockStore_CountWatches_Call struct {
-	*mock.Call
-}
-
-// CountWatches is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *MockStore_Expecter) CountWatches(ctx interface{}) *MockStore_CountWatches_Call {
-	return &MockStore_CountWatches_Call{Call: _e.mock.On("CountWatches", ctx)}
-}
-
-func (_c *MockStore_CountWatches_Call) Run(run func(ctx context.Context)) *MockStore_CountWatches_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *MockStore_CountWatches_Call) Return(total int, enabled int, err error) *MockStore_CountWatches_Call {
-	_c.Call.Return(total, enabled, err)
-	return _c
-}
-
-func (_c *MockStore_CountWatches_Call) RunAndReturn(run func(context.Context) (int, int, error)) *MockStore_CountWatches_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1889,6 +1369,66 @@ func (_c *MockStore_ListListings_Call) RunAndReturn(run func(context.Context, *s
 	return _c
 }
 
+// ListListingsCursor provides a mock function with given fields: ctx, afterID, limit
+func (_m *MockStore) ListListingsCursor(ctx context.Context, afterID string, limit int) ([]domain.Listing, error) {
+	ret := _m.Called(ctx, afterID, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListListingsCursor")
+	}
+
+	var r0 []domain.Listing
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) ([]domain.Listing, error)); ok {
+		return rf(ctx, afterID, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) []domain.Listing); ok {
+		r0 = rf(ctx, afterID, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.Listing)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
+		r1 = rf(ctx, afterID, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_ListListingsCursor_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListListingsCursor'
+type MockStore_ListListingsCursor_Call struct {
+	*mock.Call
+}
+
+// ListListingsCursor is a helper method to define mock.On call
+//   - ctx context.Context
+//   - afterID string
+//   - limit int
+func (_e *MockStore_Expecter) ListListingsCursor(ctx interface{}, afterID interface{}, limit interface{}) *MockStore_ListListingsCursor_Call {
+	return &MockStore_ListListingsCursor_Call{Call: _e.mock.On("ListListingsCursor", ctx, afterID, limit)}
+}
+
+func (_c *MockStore_ListListingsCursor_Call) Run(run func(ctx context.Context, afterID string, limit int)) *MockStore_ListListingsCursor_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *MockStore_ListListingsCursor_Call) Return(_a0 []domain.Listing, _a1 error) *MockStore_ListListingsCursor_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_ListListingsCursor_Call) RunAndReturn(run func(context.Context, string, int) ([]domain.Listing, error)) *MockStore_ListListingsCursor_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListPendingAlerts provides a mock function with given fields: ctx
 func (_m *MockStore) ListPendingAlerts(ctx context.Context) ([]domain.Alert, error) {
 	ret := _m.Called(ctx)
@@ -2124,6 +1664,64 @@ func (_c *MockStore_ListWatches_Call) RunAndReturn(run func(context.Context, boo
 	return _c
 }
 
+// LoadRateLimiterState provides a mock function with given fields: ctx
+func (_m *MockStore) LoadRateLimiterState(ctx context.Context) (*domain.RateLimiterState, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LoadRateLimiterState")
+	}
+
+	var r0 *domain.RateLimiterState
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (*domain.RateLimiterState, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) *domain.RateLimiterState); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*domain.RateLimiterState)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_LoadRateLimiterState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LoadRateLimiterState'
+type MockStore_LoadRateLimiterState_Call struct {
+	*mock.Call
+}
+
+// LoadRateLimiterState is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockStore_Expecter) LoadRateLimiterState(ctx interface{}) *MockStore_LoadRateLimiterState_Call {
+	return &MockStore_LoadRateLimiterState_Call{Call: _e.mock.On("LoadRateLimiterState", ctx)}
+}
+
+func (_c *MockStore_LoadRateLimiterState_Call) Run(run func(ctx context.Context)) *MockStore_LoadRateLimiterState_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *MockStore_LoadRateLimiterState_Call) Return(_a0 *domain.RateLimiterState, _a1 error) *MockStore_LoadRateLimiterState_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_LoadRateLimiterState_Call) RunAndReturn(run func(context.Context) (*domain.RateLimiterState, error)) *MockStore_LoadRateLimiterState_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // MarkAlertNotified provides a mock function with given fields: ctx, id
 func (_m *MockStore) MarkAlertNotified(ctx context.Context, id string) error {
 	ret := _m.Called(ctx, id)
@@ -2260,6 +1858,55 @@ func (_c *MockStore_Migrate_Call) Return(_a0 error) *MockStore_Migrate_Call {
 }
 
 func (_c *MockStore_Migrate_Call) RunAndReturn(run func(context.Context) error) *MockStore_Migrate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// PersistRateLimiterState provides a mock function with given fields: ctx, tokensUsed, dailyLimit, resetAt
+func (_m *MockStore) PersistRateLimiterState(ctx context.Context, tokensUsed int, dailyLimit int, resetAt time.Time) error {
+	ret := _m.Called(ctx, tokensUsed, dailyLimit, resetAt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PersistRateLimiterState")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, time.Time) error); ok {
+		r0 = rf(ctx, tokensUsed, dailyLimit, resetAt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockStore_PersistRateLimiterState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PersistRateLimiterState'
+type MockStore_PersistRateLimiterState_Call struct {
+	*mock.Call
+}
+
+// PersistRateLimiterState is a helper method to define mock.On call
+//   - ctx context.Context
+//   - tokensUsed int
+//   - dailyLimit int
+//   - resetAt time.Time
+func (_e *MockStore_Expecter) PersistRateLimiterState(ctx interface{}, tokensUsed interface{}, dailyLimit interface{}, resetAt interface{}) *MockStore_PersistRateLimiterState_Call {
+	return &MockStore_PersistRateLimiterState_Call{Call: _e.mock.On("PersistRateLimiterState", ctx, tokensUsed, dailyLimit, resetAt)}
+}
+
+func (_c *MockStore_PersistRateLimiterState_Call) Run(run func(ctx context.Context, tokensUsed int, dailyLimit int, resetAt time.Time)) *MockStore_PersistRateLimiterState_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int), args[2].(int), args[3].(time.Time))
+	})
+	return _c
+}
+
+func (_c *MockStore_PersistRateLimiterState_Call) Return(_a0 error) *MockStore_PersistRateLimiterState_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockStore_PersistRateLimiterState_Call) RunAndReturn(run func(context.Context, int, int, time.Time) error) *MockStore_PersistRateLimiterState_Call {
 	_c.Call.Return(run)
 	return _c
 }

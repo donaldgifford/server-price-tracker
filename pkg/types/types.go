@@ -131,6 +131,14 @@ type ExtractionJob struct {
 	Attempts   int       `json:"attempts"    db:"attempts"`
 }
 
+// RateLimiterState records the persisted eBay API quota state across restarts.
+type RateLimiterState struct {
+	TokensUsed int       `json:"tokens_used" db:"tokens_used"`
+	DailyLimit int       `json:"daily_limit" db:"daily_limit"`
+	ResetAt    time.Time `json:"reset_at"    db:"reset_at"`
+	SyncedAt   time.Time `json:"synced_at"   db:"synced_at"`
+}
+
 // SystemState holds a precomputed snapshot of aggregate system metrics.
 type SystemState struct {
 	WatchesTotal                 int `json:"watches_total"                  db:"watches_total"`

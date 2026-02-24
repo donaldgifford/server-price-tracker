@@ -43,8 +43,7 @@ type Store interface {
 	ListUnextractedListings(ctx context.Context, limit int) ([]domain.Listing, error)
 	ListUnscoredListings(ctx context.Context, limit int) ([]domain.Listing, error)
 	ListIncompleteExtractions(ctx context.Context, componentType string, limit int) ([]domain.Listing, error)
-	CountIncompleteExtractions(ctx context.Context) (int, error)
-	CountIncompleteExtractionsByType(ctx context.Context) (map[string]int, error)
+	ListListingsCursor(ctx context.Context, afterID string, limit int) ([]domain.Listing, error)
 
 	// Watches
 	CreateWatch(ctx context.Context, w *domain.Watch) error
@@ -70,29 +69,11 @@ type Store interface {
 	InsertNotificationAttempt(ctx context.Context, alertID string, succeeded bool, httpStatus int, errText string) error
 	HasSuccessfulNotification(ctx context.Context, alertID string) (bool, error)
 
-	// Counts
-	//
-	// Deprecated: use GetSystemState.
-	CountWatches(ctx context.Context) (total int, enabled int, err error)
-	//
-	// Deprecated: use GetSystemState.
-	CountListings(ctx context.Context) (int, error)
-	//
-	// Deprecated: use GetSystemState.
-	CountUnextractedListings(ctx context.Context) (int, error)
-	//
-	// Deprecated: use GetSystemState.
-	CountUnscoredListings(ctx context.Context) (int, error)
-	//
-	// Deprecated: use GetSystemState.
-	CountPendingAlerts(ctx context.Context) (int, error)
-	//
-	// Deprecated: use GetSystemState.
-	CountBaselinesByMaturity(ctx context.Context) (cold int, warm int, err error)
-	//
-	// Deprecated: use GetSystemState.
-	CountProductKeysWithoutBaseline(ctx context.Context) (int, error)
 	GetSystemState(ctx context.Context) (*domain.SystemState, error)
+
+	// RateLimiterState
+	PersistRateLimiterState(ctx context.Context, tokensUsed, dailyLimit int, resetAt time.Time) error
+	LoadRateLimiterState(ctx context.Context) (*domain.RateLimiterState, error)
 
 	// Scheduler
 	InsertJobRun(ctx context.Context, jobName string) (id string, err error)

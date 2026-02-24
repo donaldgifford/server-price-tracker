@@ -13,6 +13,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -85,7 +86,6 @@ func startServer(opts *Options) error {
 	// Start scheduler.
 	if scheduler != nil {
 		scheduler.Start()
-		scheduler.SyncNextRunTimestamps()
 		slogger.Info("scheduler started")
 	}
 
@@ -324,6 +324,22 @@ func buildEngine(
 
 	eng := engine.NewEngine(s, ebayClient, extractor, notifier, opts...)
 	logger.Info("engine created")
+
+	// Pre-warm rate limiter from persisted state (best-effort, before quota sync).
+	if rl != nil {
+		st, loadErr := s.LoadRateLimiterState(context.Background())
+		switch {
+		case loadErr == nil:
+			rl.Sync(int64(st.TokensUsed), int64(st.DailyLimit), st.ResetAt)
+			logger.Info("rate limiter pre-warmed from persisted state",
+				"tokens_used", st.TokensUsed,
+				"daily_limit", st.DailyLimit,
+				"reset_at", st.ResetAt,
+			)
+		case !errors.Is(loadErr, pgx.ErrNoRows):
+			logger.Warn("failed to load rate limiter state", "error", loadErr)
+		}
+	}
 
 	// Sync eBay quota on startup (best-effort, before scheduler starts).
 	eng.SyncQuota(context.Background())

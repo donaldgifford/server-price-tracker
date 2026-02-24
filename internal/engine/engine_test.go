@@ -426,10 +426,10 @@ func TestRunBaselineRefresh_Success(t *testing.T) {
 		Return(nil).
 		Once()
 
-	// RescoreAll calls ListListings.
+	// RescoreAll calls ListListingsCursor; empty first page terminates loop.
 	ms.EXPECT().
-		ListListings(mock.Anything, mock.Anything).
-		Return(nil, 0, nil).
+		ListListingsCursor(mock.Anything, "", 200).
+		Return(nil, nil).
 		Once()
 
 	err := eng.RunBaselineRefresh(context.Background())
@@ -470,8 +470,8 @@ func TestRunBaselineRefresh_RescoreError(t *testing.T) {
 		Once()
 
 	ms.EXPECT().
-		ListListings(mock.Anything, mock.Anything).
-		Return(nil, 0, errors.New("db error")).
+		ListListingsCursor(mock.Anything, "", 200).
+		Return(nil, errors.New("db error")).
 		Once()
 
 	err := eng.RunBaselineRefresh(context.Background())
@@ -868,6 +868,11 @@ func TestSyncQuota_SetsMetricsAndSyncsRateLimiter(t *testing.T) {
 		WithAnalyticsClient(ac),
 		WithRateLimiter(rl),
 	)
+
+	ms.EXPECT().
+		PersistRateLimiterState(mock.Anything, 200, 5000, mock.AnythingOfType("time.Time")).
+		Return(nil).
+		Once()
 
 	eng.SyncQuota(context.Background())
 

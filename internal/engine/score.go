@@ -92,17 +92,31 @@ func RescoreByProductKey(
 	return scoreAll(ctx, s, listings)
 }
 
-// RescoreAll re-scores all active listings.
+// RescoreAll re-scores all active listings using cursor-based pagination to
+// avoid loading the entire table into memory.
 func RescoreAll(ctx context.Context, s store.Store) (int, error) {
-	q := &store.ListingQuery{
-		Limit: 500,
-	}
-	listings, _, err := s.ListListings(ctx, q)
-	if err != nil {
-		return 0, fmt.Errorf("listing all: %w", err)
+	const batchSize = 200
+	var cursor string
+	total := 0
+	var errs []error
+
+	for {
+		batch, err := s.ListListingsCursor(ctx, cursor, batchSize)
+		if err != nil {
+			return total, fmt.Errorf("listing by cursor: %w", err)
+		}
+		if len(batch) == 0 {
+			break
+		}
+		scored, batchErr := scoreAll(ctx, s, batch)
+		total += scored
+		if batchErr != nil {
+			errs = append(errs, batchErr)
+		}
+		cursor = batch[len(batch)-1].ID
 	}
 
-	return scoreAll(ctx, s, listings)
+	return total, errors.Join(errs...)
 }
 
 func scoreAll(ctx context.Context, s store.Store, listings []domain.Listing) (int, error) {

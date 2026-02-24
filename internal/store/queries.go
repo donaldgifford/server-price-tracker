@@ -96,9 +96,18 @@ const (
 		ORDER BY first_seen_at DESC
 		LIMIT $1`
 
-	queryCountListings            = `SELECT COUNT(*) FROM listings`
-	queryCountUnextractedListings = `SELECT COUNT(*) FROM listings WHERE component_type IS NULL`
-	queryCountUnscoredListings    = `SELECT COUNT(*) FROM listings WHERE component_type IS NOT NULL AND score IS NULL`
+	queryListListingsCursor = `
+		SELECT id, ebay_item_id, title, item_url, image_url,
+			price, currency, shipping_cost, listing_type,
+			seller_name, seller_feedback_score, seller_feedback_pct, seller_top_rated,
+			condition_raw, COALESCE(condition_norm, 'unknown'), COALESCE(component_type, ''), quantity,
+			COALESCE(attributes, '{}'), COALESCE(extraction_confidence, 0), COALESCE(product_key, ''),
+			score, score_breakdown,
+			listed_at, sold_at, sold_price, first_seen_at, updated_at
+		FROM listings
+		WHERE id > $1
+		ORDER BY id ASC
+		LIMIT $2`
 )
 
 // Watch queries.
@@ -146,8 +155,6 @@ const (
 
 	queryDeleteWatch = `DELETE FROM watches WHERE id = $1`
 
-	queryCountWatches = `SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE enabled = true) AS enabled FROM watches`
-
 	querySetWatchEnabled = `
 		UPDATE watches SET
 			enabled = $2,
@@ -173,19 +180,6 @@ const (
 		SELECT DISTINCT product_key
 		FROM listings
 		WHERE product_key IS NOT NULL AND product_key != ''`
-
-	queryCountBaselinesByMaturity = `
-		SELECT
-			COUNT(*) FILTER (WHERE sample_count < 10) AS cold,
-			COUNT(*) FILTER (WHERE sample_count >= 10) AS warm
-		FROM price_baselines`
-
-	queryCountProductKeysWithoutBaseline = `
-		SELECT COUNT(DISTINCT l.product_key)
-		FROM listings l
-		LEFT JOIN price_baselines b ON l.product_key = b.product_key
-		WHERE l.product_key != '' AND l.product_key IS NOT NULL
-		  AND b.product_key IS NULL`
 )
 
 // Extraction quality queries.
@@ -219,23 +213,6 @@ const (
 		)
 		ORDER BY first_seen_at DESC
 		LIMIT $2`
-
-	queryCountIncompleteExtractions = `
-		SELECT COUNT(*)
-		FROM listings
-		WHERE component_type IS NOT NULL AND (
-			(component_type = 'ram' AND (product_key LIKE '%:0' OR (attributes->>'speed_mhz') IS NULL))
-			OR (component_type = 'drive' AND (product_key LIKE '%:unknown%'))
-		)`
-
-	queryCountIncompleteExtractionsByType = `
-		SELECT component_type, COUNT(*)
-		FROM listings
-		WHERE component_type IS NOT NULL AND (
-			(component_type = 'ram' AND (product_key LIKE '%:0' OR (attributes->>'speed_mhz') IS NULL))
-			OR (component_type = 'drive' AND (product_key LIKE '%:unknown%'))
-		)
-		GROUP BY component_type`
 )
 
 // Scheduler queries.
@@ -336,6 +313,23 @@ const queryGetSystemState = `SELECT
     extraction_queue_depth
 FROM system_state`
 
+// Rate limiter state queries.
+const (
+	queryPersistRateLimiterState = `
+		INSERT INTO rate_limiter_state (tokens_used, daily_limit, reset_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT ((true)) DO UPDATE SET
+			tokens_used = EXCLUDED.tokens_used,
+			daily_limit = EXCLUDED.daily_limit,
+			reset_at    = EXCLUDED.reset_at,
+			synced_at   = now()`
+
+	queryLoadRateLimiterState = `
+		SELECT tokens_used, daily_limit, reset_at, synced_at
+		FROM rate_limiter_state
+		LIMIT 1`
+)
+
 // Alert queries.
 const (
 	queryCreateAlert = `
@@ -368,8 +362,6 @@ const (
 			notified = true,
 			notified_at = now()
 		WHERE id = ANY($1)`
-
-	queryCountPendingAlerts = `SELECT COUNT(*) FROM alerts WHERE notified = false`
 
 	queryHasRecentAlert = `
 		SELECT EXISTS (

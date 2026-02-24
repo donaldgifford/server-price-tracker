@@ -5,21 +5,22 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
-// ExtractionStatsProvider defines the interface for extraction quality queries.
-type ExtractionStatsProvider interface {
-	CountIncompleteExtractions(ctx context.Context) (int, error)
-	CountIncompleteExtractionsByType(ctx context.Context) (map[string]int, error)
+// ExtractionStatsStore queries the system_state view for extraction quality data.
+type ExtractionStatsStore interface {
+	GetSystemState(ctx context.Context) (*domain.SystemState, error)
 }
 
 // ExtractionStatsHandler handles extraction quality statistics requests.
 type ExtractionStatsHandler struct {
-	store ExtractionStatsProvider
+	store ExtractionStatsStore
 }
 
 // NewExtractionStatsHandler creates a new ExtractionStatsHandler.
-func NewExtractionStatsHandler(s ExtractionStatsProvider) *ExtractionStatsHandler {
+func NewExtractionStatsHandler(s ExtractionStatsStore) *ExtractionStatsHandler {
 	return &ExtractionStatsHandler{store: s}
 }
 
@@ -31,28 +32,19 @@ type ExtractionStatsOutput struct {
 	}
 }
 
-// Stats returns extraction quality statistics.
+// Stats returns extraction quality statistics derived from the system_state view.
 func (h *ExtractionStatsHandler) Stats(
 	ctx context.Context,
 	_ *struct{},
 ) (*ExtractionStatsOutput, error) {
-	total, err := h.store.CountIncompleteExtractions(ctx)
+	state, err := h.store.GetSystemState(ctx)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to count incomplete extractions: " + err.Error())
-	}
-
-	byType, err := h.store.CountIncompleteExtractionsByType(ctx)
-	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to count incomplete extractions by type: " + err.Error())
-	}
-
-	if byType == nil {
-		byType = map[string]int{}
+		return nil, huma.Error500InternalServerError("failed to get extraction stats")
 	}
 
 	resp := &ExtractionStatsOutput{}
-	resp.Body.TotalIncomplete = total
-	resp.Body.ByType = byType
+	resp.Body.TotalIncomplete = state.ListingsIncompleteExtraction
+	resp.Body.ByType = map[string]int{}
 	return resp, nil
 }
 
@@ -63,7 +55,7 @@ func RegisterExtractionStatsRoutes(api huma.API, h *ExtractionStatsHandler) {
 		Method:      http.MethodGet,
 		Path:        "/api/v1/extraction/stats",
 		Summary:     "Get extraction quality statistics",
-		Description: "Returns the total count and per-component-type breakdown of listings with incomplete extraction data.",
+		Description: "Returns the total count of listings with incomplete extraction data.",
 		Tags:        []string{"extract"},
 	}, h.Stats)
 }

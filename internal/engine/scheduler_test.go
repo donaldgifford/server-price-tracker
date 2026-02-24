@@ -6,13 +6,11 @@ import (
 	"testing"
 	"time"
 
-	ptestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	ebayMocks "github.com/donaldgifford/server-price-tracker/internal/ebay/mocks"
-	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	notifyMocks "github.com/donaldgifford/server-price-tracker/internal/notify/mocks"
 	storeMocks "github.com/donaldgifford/server-price-tracker/internal/store/mocks"
 	extractMocks "github.com/donaldgifford/server-price-tracker/pkg/extract/mocks"
@@ -67,54 +65,6 @@ func TestScheduler_StartStop(t *testing.T) {
 	<-ctx.Done()
 }
 
-func TestScheduler_SyncNextRunTimestamps(t *testing.T) {
-	t.Parallel()
-
-	eng, ms := newSchedulerTestEngine(t)
-
-	sched, err := NewScheduler(
-		eng,
-		ms,
-		15*time.Minute,
-		6*time.Hour,
-		0,
-		quietLogger(),
-	)
-	require.NoError(t, err)
-
-	// Start so that cron populates Next times.
-	sched.Start()
-	defer sched.Stop()
-
-	sched.SyncNextRunTimestamps()
-
-	ingestionNext := ptestutil.ToFloat64(metrics.SchedulerNextIngestionTimestamp)
-	baselineNext := ptestutil.ToFloat64(metrics.SchedulerNextBaselineTimestamp)
-	assert.Greater(t, ingestionNext, float64(0), "ingestion next timestamp should be set")
-	assert.Greater(t, baselineNext, float64(0), "baseline next timestamp should be set")
-}
-
-func TestScheduler_StoresEntryIDs(t *testing.T) {
-	t.Parallel()
-
-	eng, ms := newSchedulerTestEngine(t)
-
-	sched, err := NewScheduler(
-		eng,
-		ms,
-		15*time.Minute,
-		6*time.Hour,
-		0,
-		quietLogger(),
-	)
-	require.NoError(t, err)
-
-	// Verify entry IDs are stored (non-zero).
-	assert.NotZero(t, sched.ingestionEntryID)
-	assert.NotZero(t, sched.baselineEntryID)
-	assert.NotEqual(t, sched.ingestionEntryID, sched.baselineEntryID)
-}
-
 func TestNewScheduler_WithReExtraction(t *testing.T) {
 	t.Parallel()
 
@@ -132,7 +82,6 @@ func TestNewScheduler_WithReExtraction(t *testing.T) {
 
 	entries := sched.Entries()
 	assert.Len(t, entries, 3)
-	assert.NotZero(t, sched.reExtractionEntryID)
 }
 
 func TestNewScheduler_WithoutReExtraction(t *testing.T) {
@@ -152,7 +101,6 @@ func TestNewScheduler_WithoutReExtraction(t *testing.T) {
 
 	entries := sched.Entries()
 	assert.Len(t, entries, 2)
-	assert.Zero(t, sched.reExtractionEntryID)
 }
 
 func TestScheduler_RunJob_Success(t *testing.T) {
