@@ -57,39 +57,21 @@ func startServer(opts *Options) error {
 	// --- Notifier ---
 	notifier := buildNotifier(cfg, slogger)
 
+	// --- Extraction workers ---
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+
 	// --- Engine + Scheduler ---
 	eng, scheduler := buildEngine(
 		cfg, pgStore, ebayClient, extractor, notifier,
 		analyticsClient, rateLimiter, slogger,
 	)
-
-	// --- Echo server ---
-	e := echo.New()
-	e.HideBanner = true
-	e.HidePort = true
-
-	// Recovery middleware (must be first to catch panics from other middleware).
-	e.Use(apimw.Recovery(slogger))
-
-	// Request logging middleware.
-	e.Use(apimw.RequestLog(slogger))
-
-	// Prometheus HTTP middleware.
-	e.Use(apimw.Metrics())
-
-	// --- Huma API ---
-	humaConfig := huma.DefaultConfig("Server Price Tracker API", "1.0.0")
-	humaConfig.Info.Description = "API for monitoring eBay server hardware listings, " +
-		"extracting structured attributes via LLM, scoring deals, and sending alerts."
-	humaConfig.Info.Contact = &huma.Contact{
-		Name: "Donald Gifford",
-		URL:  "https://github.com/donaldgifford/server-price-tracker",
+	if eng != nil {
+		eng.StartExtractionWorkers(workerCtx)
+		slogger.Info("extraction workers started", "count", cfg.LLM.Concurrency)
 	}
-	humaConfig.Info.License = &huma.License{
-		Name: "Apache 2.0",
-		URL:  "http://www.apache.org/licenses/LICENSE-2.0.html",
-	}
-	humaAPI := humaecho.New(e, humaConfig)
+
+	// --- Echo + Huma ---
+	e, humaAPI := buildHTTPServer(slogger)
 
 	// --- Routes ---
 	registerRoutes(humaAPI, pgStore, ebayClient, extractor, eng, rateLimiter)
@@ -121,6 +103,9 @@ func startServer(opts *Options) error {
 
 	slogger.Info("shutting down server")
 
+	workerCancel()
+	slogger.Info("extraction workers stopped")
+
 	// Stop scheduler first.
 	if scheduler != nil {
 		schedCtx := scheduler.Stop()
@@ -137,6 +122,32 @@ func startServer(opts *Options) error {
 
 	slogger.Info("server stopped")
 	return nil
+}
+
+// buildHTTPServer creates the Echo server and Huma API with standard middleware and config.
+func buildHTTPServer(logger *slog.Logger) (*echo.Echo, huma.API) {
+	e := echo.New()
+	e.HideBanner = true
+	e.HidePort = true
+
+	// Recovery middleware must be first to catch panics from other middleware.
+	e.Use(apimw.Recovery(logger))
+	e.Use(apimw.RequestLog(logger))
+	e.Use(apimw.Metrics())
+
+	humaConfig := huma.DefaultConfig("Server Price Tracker API", "1.0.0")
+	humaConfig.Info.Description = "API for monitoring eBay server hardware listings, " +
+		"extracting structured attributes via LLM, scoring deals, and sending alerts."
+	humaConfig.Info.Contact = &huma.Contact{
+		Name: "Donald Gifford",
+		URL:  "https://github.com/donaldgifford/server-price-tracker",
+	}
+	humaConfig.Info.License = &huma.License{
+		Name: "Apache 2.0",
+		URL:  "http://www.apache.org/licenses/LICENSE-2.0.html",
+	}
+
+	return e, humaecho.New(e, humaConfig)
 }
 
 // registerRoutes sets up all HTTP routes on the Huma API.
@@ -306,6 +317,7 @@ func buildEngine(
 	if cfg.Ebay.MaxCallsPerCycle > 0 {
 		opts = append(opts, engine.WithMaxCallsPerCycle(cfg.Ebay.MaxCallsPerCycle))
 	}
+	opts = append(opts, engine.WithWorkerCount(cfg.LLM.Concurrency))
 
 	eng := engine.NewEngine(s, ebayClient, extractor, notifier, opts...)
 	logger.Info("engine created")

@@ -89,6 +89,12 @@ type Store interface {
 	AcquireSchedulerLock(ctx context.Context, jobName string, holder string, ttl time.Duration) (bool, error)
 	ReleaseSchedulerLock(ctx context.Context, jobName string, holder string) error
 
+	// ExtractionQueue
+	EnqueueExtraction(ctx context.Context, listingID string, priority int) error
+	DequeueExtractions(ctx context.Context, workerID string, batchSize int) ([]domain.ExtractionJob, error)
+	CompleteExtractionJob(ctx context.Context, id string, errText string) error
+	CountPendingExtractionJobs(ctx context.Context) (int, error)
+
 	// Migrations
 	Migrate(ctx context.Context) error
 

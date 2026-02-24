@@ -90,6 +90,12 @@ var (
 		Name:      "listings_incomplete_extraction_by_type",
 		Help:      "Listings with incomplete extraction data, by component type.",
 	}, []string{"component_type"})
+
+	ExtractionQueueDepth = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "extraction_queue_depth",
+		Help:      "Number of pending extraction jobs in the queue.",
+	})
 )
 
 // Scoring metrics.

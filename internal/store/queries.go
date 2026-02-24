@@ -294,6 +294,38 @@ const (
 		DELETE FROM scheduler_locks WHERE job_name = $1 AND lock_holder = $2`
 )
 
+// ExtractionQueue queries.
+const (
+	queryEnqueueExtraction = `
+		INSERT INTO extraction_queue (listing_id, priority)
+		VALUES ($1, $2)
+		ON CONFLICT (listing_id) WHERE completed_at IS NULL DO NOTHING`
+
+	queryDequeueExtractions = `
+		WITH claimed AS (
+			SELECT id FROM extraction_queue
+			WHERE completed_at IS NULL AND claimed_at IS NULL
+			ORDER BY priority DESC, enqueued_at ASC
+			LIMIT $2
+			FOR UPDATE SKIP LOCKED
+		)
+		UPDATE extraction_queue
+		SET claimed_at = now(), claimed_by = $1, attempts = attempts + 1
+		FROM claimed
+		WHERE extraction_queue.id = claimed.id
+		RETURNING extraction_queue.id, extraction_queue.listing_id,
+		          extraction_queue.priority, extraction_queue.enqueued_at,
+		          extraction_queue.attempts`
+
+	queryCompleteExtractionJob = `
+		UPDATE extraction_queue
+		SET completed_at = now(), error_text = NULLIF($2, '')
+		WHERE id = $1`
+
+	queryCountPendingExtractionJobs = `
+		SELECT COUNT(*) FROM extraction_queue WHERE completed_at IS NULL`
+)
+
 // Alert queries.
 const (
 	queryCreateAlert = `

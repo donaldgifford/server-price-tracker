@@ -87,6 +87,54 @@ func (_c *MockStore_AcquireSchedulerLock_Call) RunAndReturn(run func(context.Con
 	return _c
 }
 
+// CompleteExtractionJob provides a mock function with given fields: ctx, id, errText
+func (_m *MockStore) CompleteExtractionJob(ctx context.Context, id string, errText string) error {
+	ret := _m.Called(ctx, id, errText)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CompleteExtractionJob")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, id, errText)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockStore_CompleteExtractionJob_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CompleteExtractionJob'
+type MockStore_CompleteExtractionJob_Call struct {
+	*mock.Call
+}
+
+// CompleteExtractionJob is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - errText string
+func (_e *MockStore_Expecter) CompleteExtractionJob(ctx interface{}, id interface{}, errText interface{}) *MockStore_CompleteExtractionJob_Call {
+	return &MockStore_CompleteExtractionJob_Call{Call: _e.mock.On("CompleteExtractionJob", ctx, id, errText)}
+}
+
+func (_c *MockStore_CompleteExtractionJob_Call) Run(run func(ctx context.Context, id string, errText string)) *MockStore_CompleteExtractionJob_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockStore_CompleteExtractionJob_Call) Return(_a0 error) *MockStore_CompleteExtractionJob_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockStore_CompleteExtractionJob_Call) RunAndReturn(run func(context.Context, string, string) error) *MockStore_CompleteExtractionJob_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CompleteJobRun provides a mock function with given fields: ctx, id, status, errText, rowsAffected
 func (_m *MockStore) CompleteJobRun(ctx context.Context, id string, status string, errText string, rowsAffected int) error {
 	ret := _m.Called(ctx, id, status, errText, rowsAffected)
@@ -422,6 +470,62 @@ func (_c *MockStore_CountPendingAlerts_Call) Return(_a0 int, _a1 error) *MockSto
 }
 
 func (_c *MockStore_CountPendingAlerts_Call) RunAndReturn(run func(context.Context) (int, error)) *MockStore_CountPendingAlerts_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CountPendingExtractionJobs provides a mock function with given fields: ctx
+func (_m *MockStore) CountPendingExtractionJobs(ctx context.Context) (int, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountPendingExtractionJobs")
+	}
+
+	var r0 int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (int, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) int); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_CountPendingExtractionJobs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountPendingExtractionJobs'
+type MockStore_CountPendingExtractionJobs_Call struct {
+	*mock.Call
+}
+
+// CountPendingExtractionJobs is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockStore_Expecter) CountPendingExtractionJobs(ctx interface{}) *MockStore_CountPendingExtractionJobs_Call {
+	return &MockStore_CountPendingExtractionJobs_Call{Call: _e.mock.On("CountPendingExtractionJobs", ctx)}
+}
+
+func (_c *MockStore_CountPendingExtractionJobs_Call) Run(run func(ctx context.Context)) *MockStore_CountPendingExtractionJobs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *MockStore_CountPendingExtractionJobs_Call) Return(_a0 int, _a1 error) *MockStore_CountPendingExtractionJobs_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_CountPendingExtractionJobs_Call) RunAndReturn(run func(context.Context) (int, error)) *MockStore_CountPendingExtractionJobs_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -794,6 +898,114 @@ func (_c *MockStore_DeleteWatch_Call) Return(_a0 error) *MockStore_DeleteWatch_C
 }
 
 func (_c *MockStore_DeleteWatch_Call) RunAndReturn(run func(context.Context, string) error) *MockStore_DeleteWatch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DequeueExtractions provides a mock function with given fields: ctx, workerID, batchSize
+func (_m *MockStore) DequeueExtractions(ctx context.Context, workerID string, batchSize int) ([]domain.ExtractionJob, error) {
+	ret := _m.Called(ctx, workerID, batchSize)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DequeueExtractions")
+	}
+
+	var r0 []domain.ExtractionJob
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) ([]domain.ExtractionJob, error)); ok {
+		return rf(ctx, workerID, batchSize)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) []domain.ExtractionJob); ok {
+		r0 = rf(ctx, workerID, batchSize)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.ExtractionJob)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
+		r1 = rf(ctx, workerID, batchSize)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_DequeueExtractions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DequeueExtractions'
+type MockStore_DequeueExtractions_Call struct {
+	*mock.Call
+}
+
+// DequeueExtractions is a helper method to define mock.On call
+//   - ctx context.Context
+//   - workerID string
+//   - batchSize int
+func (_e *MockStore_Expecter) DequeueExtractions(ctx interface{}, workerID interface{}, batchSize interface{}) *MockStore_DequeueExtractions_Call {
+	return &MockStore_DequeueExtractions_Call{Call: _e.mock.On("DequeueExtractions", ctx, workerID, batchSize)}
+}
+
+func (_c *MockStore_DequeueExtractions_Call) Run(run func(ctx context.Context, workerID string, batchSize int)) *MockStore_DequeueExtractions_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *MockStore_DequeueExtractions_Call) Return(_a0 []domain.ExtractionJob, _a1 error) *MockStore_DequeueExtractions_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_DequeueExtractions_Call) RunAndReturn(run func(context.Context, string, int) ([]domain.ExtractionJob, error)) *MockStore_DequeueExtractions_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// EnqueueExtraction provides a mock function with given fields: ctx, listingID, priority
+func (_m *MockStore) EnqueueExtraction(ctx context.Context, listingID string, priority int) error {
+	ret := _m.Called(ctx, listingID, priority)
+
+	if len(ret) == 0 {
+		panic("no return value specified for EnqueueExtraction")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) error); ok {
+		r0 = rf(ctx, listingID, priority)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockStore_EnqueueExtraction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnqueueExtraction'
+type MockStore_EnqueueExtraction_Call struct {
+	*mock.Call
+}
+
+// EnqueueExtraction is a helper method to define mock.On call
+//   - ctx context.Context
+//   - listingID string
+//   - priority int
+func (_e *MockStore_Expecter) EnqueueExtraction(ctx interface{}, listingID interface{}, priority interface{}) *MockStore_EnqueueExtraction_Call {
+	return &MockStore_EnqueueExtraction_Call{Call: _e.mock.On("EnqueueExtraction", ctx, listingID, priority)}
+}
+
+func (_c *MockStore_EnqueueExtraction_Call) Run(run func(ctx context.Context, listingID string, priority int)) *MockStore_EnqueueExtraction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *MockStore_EnqueueExtraction_Call) Return(_a0 error) *MockStore_EnqueueExtraction_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockStore_EnqueueExtraction_Call) RunAndReturn(run func(context.Context, string, int) error) *MockStore_EnqueueExtraction_Call {
 	_c.Call.Return(run)
 	return _c
 }

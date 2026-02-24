@@ -821,3 +821,54 @@ func scanListingRow(rows pgx.Rows, l *domain.Listing) error {
 		&l.ListedAt, &l.SoldAt, &l.SoldPrice, &l.FirstSeenAt, &l.UpdatedAt,
 	)
 }
+
+// ExtractionQueue
+
+// EnqueueExtraction adds a listing to the extraction queue.
+// If a pending job already exists for the listing, the INSERT is silently ignored.
+func (s *PostgresStore) EnqueueExtraction(ctx context.Context, listingID string, priority int) error {
+	if _, err := s.pool.Exec(ctx, queryEnqueueExtraction, listingID, priority); err != nil {
+		return fmt.Errorf("enqueuing extraction: %w", err)
+	}
+	return nil
+}
+
+// DequeueExtractions claims up to batchSize pending extraction jobs for the given worker.
+func (s *PostgresStore) DequeueExtractions(
+	ctx context.Context,
+	workerID string,
+	batchSize int,
+) ([]domain.ExtractionJob, error) {
+	rows, err := s.pool.Query(ctx, queryDequeueExtractions, workerID, batchSize)
+	if err != nil {
+		return nil, fmt.Errorf("dequeuing extractions: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []domain.ExtractionJob
+	for rows.Next() {
+		var j domain.ExtractionJob
+		if err := rows.Scan(&j.ID, &j.ListingID, &j.Priority, &j.EnqueuedAt, &j.Attempts); err != nil {
+			return nil, fmt.Errorf("scanning extraction job: %w", err)
+		}
+		jobs = append(jobs, j)
+	}
+	return jobs, rows.Err()
+}
+
+// CompleteExtractionJob marks a queue entry as completed with an optional error.
+func (s *PostgresStore) CompleteExtractionJob(ctx context.Context, id, errText string) error {
+	if _, err := s.pool.Exec(ctx, queryCompleteExtractionJob, id, errText); err != nil {
+		return fmt.Errorf("completing extraction job: %w", err)
+	}
+	return nil
+}
+
+// CountPendingExtractionJobs returns the number of uncompleted extraction queue entries.
+func (s *PostgresStore) CountPendingExtractionJobs(ctx context.Context) (int, error) {
+	var count int
+	if err := s.pool.QueryRow(ctx, queryCountPendingExtractionJobs).Scan(&count); err != nil {
+		return 0, fmt.Errorf("counting pending extraction jobs: %w", err)
+	}
+	return count, nil
+}

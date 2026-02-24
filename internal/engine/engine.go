@@ -33,6 +33,7 @@ type Engine struct {
 	baselineWindowDays int
 	staggerOffset      time.Duration
 	alertsConfig       config.AlertsConfig
+	workerCount        int
 }
 
 // NewEngine creates a new Engine with injected dependencies.
@@ -115,6 +116,119 @@ func WithRateLimiter(rl *ebay.RateLimiter) EngineOption {
 func WithAlertsConfig(cfg config.AlertsConfig) EngineOption {
 	return func(e *Engine) {
 		e.alertsConfig = cfg
+	}
+}
+
+// WithWorkerCount sets the number of extraction worker goroutines.
+func WithWorkerCount(n int) EngineOption {
+	return func(e *Engine) {
+		e.workerCount = n
+	}
+}
+
+const (
+	workerIdleSleep    = 100 * time.Millisecond
+	defaultWorkerCount = 1
+)
+
+// StartExtractionWorkers launches workerCount goroutines that drain the extraction queue.
+// Workers stop when ctx is cancelled.
+func (eng *Engine) StartExtractionWorkers(ctx context.Context) {
+	count := eng.workerCount
+	if count <= 0 {
+		count = defaultWorkerCount
+	}
+	for i := range count {
+		workerID := fmt.Sprintf("worker-%d", i)
+		go eng.runExtractionWorker(ctx, workerID)
+	}
+}
+
+// runExtractionWorker continuously dequeues and processes extraction jobs until ctx is done.
+func (eng *Engine) runExtractionWorker(ctx context.Context, workerID string) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		jobs, err := eng.store.DequeueExtractions(ctx, workerID, 1)
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			eng.log.Error("dequeue failed", "worker", workerID, "error", err)
+			time.Sleep(workerIdleSleep)
+			continue
+		}
+
+		if len(jobs) == 0 {
+			time.Sleep(workerIdleSleep)
+			continue
+		}
+
+		eng.processExtractionJob(ctx, workerID, &jobs[0])
+	}
+}
+
+// processExtractionJob extracts, scores, and completes a single queued job.
+func (eng *Engine) processExtractionJob(
+	ctx context.Context,
+	workerID string,
+	job *domain.ExtractionJob,
+) {
+	listing, err := eng.store.GetListingByID(ctx, job.ListingID)
+	if err != nil {
+		eng.log.Error("get listing failed",
+			"worker", workerID, "listing", job.ListingID, "error", err,
+		)
+		eng.completeJob(ctx, workerID, job.ID, err.Error())
+		return
+	}
+
+	extractStart := time.Now()
+	ct, attrs, extractErr := eng.extractor.ClassifyAndExtract(ctx, listing.Title, nil)
+	metrics.ExtractionDuration.Observe(time.Since(extractStart).Seconds())
+
+	if extractErr != nil {
+		eng.log.Error("extraction failed",
+			"worker", workerID, "listing", listing.EbayID, "error", extractErr,
+		)
+		metrics.ExtractionFailuresTotal.Inc()
+		eng.completeJob(ctx, workerID, job.ID, extractErr.Error())
+		return
+	}
+
+	productKey := extract.ProductKey(string(ct), attrs)
+	if updateErr := eng.store.UpdateListingExtraction(
+		ctx, listing.ID, string(ct), attrs, 0.9, productKey,
+	); updateErr != nil {
+		eng.log.Error("update extraction failed",
+			"worker", workerID, "listing", listing.EbayID, "error", updateErr,
+		)
+		eng.completeJob(ctx, workerID, job.ID, updateErr.Error())
+		return
+	}
+
+	listing.ProductKey = productKey
+	listing.ComponentType = ct
+
+	if scoreErr := ScoreListing(ctx, eng.store, listing); scoreErr != nil {
+		eng.log.Error("scoring failed",
+			"worker", workerID, "listing", listing.EbayID, "error", scoreErr,
+		)
+	}
+
+	eng.completeJob(ctx, workerID, job.ID, "")
+}
+
+// completeJob marks a queue entry as done, logging on failure.
+func (eng *Engine) completeJob(ctx context.Context, workerID, jobID, errText string) {
+	if err := eng.store.CompleteExtractionJob(ctx, jobID, errText); err != nil {
+		eng.log.Error("complete job failed",
+			"worker", workerID, "job", jobID, "error", err,
+		)
 	}
 }
 
@@ -245,38 +359,12 @@ func (eng *Engine) processListing(
 
 	metrics.IngestionListingsTotal.Inc()
 
-	// Extract attributes.
-	extractStart := time.Now()
-	ct, attrs, extractErr := eng.extractor.ClassifyAndExtract(
-		ctx, listing.Title, nil,
-	)
-	metrics.ExtractionDuration.Observe(time.Since(extractStart).Seconds())
-
-	if extractErr != nil {
-		eng.log.Error("extraction failed", "listing", listing.EbayID, "error", extractErr)
-		metrics.ExtractionFailuresTotal.Inc()
-		return
+	// Enqueue for async extraction by the worker pool.
+	if err := eng.store.EnqueueExtraction(ctx, listing.ID, 0); err != nil {
+		eng.log.Error("enqueue extraction failed", "listing", listing.EbayID, "error", err)
 	}
 
-	productKey := extract.ProductKey(string(ct), attrs)
-	if err := eng.store.UpdateListingExtraction(
-		ctx, listing.ID, string(ct), attrs, 0.9, productKey,
-	); err != nil {
-		eng.log.Error("update extraction failed", "listing", listing.EbayID, "error", err)
-		return
-	}
-
-	// Update the listing in-place for scoring.
-	listing.ProductKey = productKey
-	listing.ComponentType = ct
-
-	// Score the listing.
-	if err := ScoreListing(ctx, eng.store, listing); err != nil {
-		eng.log.Error("scoring failed", "listing", listing.EbayID, "error", err)
-		return
-	}
-
-	// Evaluate alert.
+	// Evaluate alert for listings that already have a score (e.g., re-ingested).
 	eng.evaluateAlert(ctx, w, listing)
 }
 
@@ -421,10 +509,17 @@ func (eng *Engine) SyncStateMetrics(ctx context.Context) {
 			metrics.ListingsIncompleteExtractionByType.WithLabelValues(ct).Set(float64(count))
 		}
 	}
+
+	queueDepth, err := eng.store.CountPendingExtractionJobs(ctx)
+	if err != nil {
+		eng.log.Warn("failed to count pending extraction jobs", "error", err)
+	} else {
+		metrics.ExtractionQueueDepth.Set(float64(queueDepth))
+	}
 }
 
-// RunReExtraction re-extracts listings with incomplete extraction data.
-// Returns the count of successfully re-extracted listings.
+// RunReExtraction enqueues listings with incomplete extraction data for re-processing.
+// Returns the count of successfully enqueued listings.
 func (eng *Engine) RunReExtraction(ctx context.Context, componentType string, limit int) (int, error) {
 	const defaultLimit = 100
 	if limit <= 0 {
@@ -441,46 +536,26 @@ func (eng *Engine) RunReExtraction(ctx context.Context, componentType string, li
 		return 0, nil
 	}
 
-	var success int
-	var ctxErr error
+	var enqueued int
 	for i := range listings {
 		if ctx.Err() != nil {
-			ctxErr = ctx.Err()
-			break
+			return enqueued, ctx.Err()
 		}
-
-		l := &listings[i]
-		ct, attrs, extractErr := eng.extractor.ClassifyAndExtract(ctx, l.Title, nil)
-		if extractErr != nil {
-			eng.log.Error("re-extraction failed", "listing", l.EbayID, "error", extractErr)
+		if err := eng.store.EnqueueExtraction(ctx, listings[i].ID, 1); err != nil {
+			eng.log.Error("enqueue re-extraction failed",
+				"listing", listings[i].EbayID, "error", err,
+			)
 			continue
 		}
-
-		productKey := extract.ProductKey(string(ct), attrs)
-		if err := eng.store.UpdateListingExtraction(
-			ctx, l.ID, string(ct), attrs, 0.9, productKey,
-		); err != nil {
-			eng.log.Error("update re-extraction failed", "listing", l.EbayID, "error", err)
-			continue
-		}
-
-		l.ProductKey = productKey
-		l.ComponentType = ct
-
-		if err := ScoreListing(ctx, eng.store, l); err != nil {
-			eng.log.Error("re-scoring failed", "listing", l.EbayID, "error", err)
-		}
-
-		success++
+		enqueued++
 	}
 
-	eng.log.Info("re-extraction complete",
+	eng.log.Info("re-extraction enqueued",
 		"total", len(listings),
-		"success", success,
-		"failed", len(listings)-success,
+		"enqueued", enqueued,
 	)
 
-	return success, ctxErr
+	return enqueued, nil
 }
 
 // RunBaselineRefresh recomputes all baselines and re-scores affected listings.

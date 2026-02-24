@@ -122,6 +122,15 @@ type JobRun struct {
 	RowsAffected *int       `json:"rows_affected,omitempty" db:"rows_affected"`
 }
 
+// ExtractionJob represents a pending LLM extraction task.
+type ExtractionJob struct {
+	ID         string    `json:"id"          db:"id"`
+	ListingID  string    `json:"listing_id"  db:"listing_id"`
+	Priority   int       `json:"priority"    db:"priority"`
+	EnqueuedAt time.Time `json:"enqueued_at" db:"enqueued_at"`
+	Attempts   int       `json:"attempts"    db:"attempts"`
+}
+
 // WatchFilters defines the structured filtering criteria.
 type WatchFilters struct {
 	// Price

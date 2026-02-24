@@ -46,6 +46,7 @@ func expectCountMethods(ms *storeMocks.MockStore) {
 	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(0, nil).Maybe()
 	ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(0, nil).Maybe()
 	ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(nil, nil).Maybe()
+	ms.EXPECT().CountPendingExtractionJobs(mock.Anything).Return(0, nil).Maybe()
 	ms.EXPECT().UpdateWatchLastPolled(mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 }
 
@@ -144,37 +145,18 @@ func TestRunIngestion_TwoWatchesThreeListingsEach(t *testing.T) {
 			Once()
 	}
 
-	// 6 upserts, 6 extractions, 6 extraction updates, 6 score lookups.
+	// 6 upserts + 6 enqueues.
 	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Times(6)
+	ms.EXPECT().EnqueueExtraction(mock.Anything, mock.Anything, 0).Return(nil).Times(6)
 
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, mock.Anything, mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{"capacity_gb": 32.0}, nil).
-		Times(6)
-
-	ms.EXPECT().
-		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
-		Return(nil).
-		Times(6)
-
-	// Scoring: GetBaseline + UpdateScore for each.
-	ms.EXPECT().
-		GetBaseline(mock.Anything, mock.Anything).
-		Return(nil, pgx.ErrNoRows).
-		Times(6)
-	ms.EXPECT().
-		UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil).
-		Times(6)
-
-	// No alerts (score won't meet threshold with cold start).
+	// No alerts (listings have no score yet).
 	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
 
 	err := eng.RunIngestion(context.Background())
 	require.NoError(t, err)
 }
 
-func TestRunIngestion_ExtractionFailsForOneListing(t *testing.T) {
+func TestRunIngestion_EnqueuesAllListings(t *testing.T) {
 	t.Parallel()
 
 	ms := storeMocks.NewMockStore(t)
@@ -190,18 +172,18 @@ func TestRunIngestion_ExtractionFailsForOneListing(t *testing.T) {
 
 	items := []ebay.ItemSummary{
 		{
-			ItemID: "good-1",
-			Title:  "Good Listing 1",
+			ItemID: "item-1",
+			Title:  "Listing 1",
 			Price:  ebay.ItemPrice{Value: "30.00", Currency: "USD"},
 		},
 		{
-			ItemID: "bad-1",
-			Title:  "Bad Listing",
+			ItemID: "item-2",
+			Title:  "Listing 2",
 			Price:  ebay.ItemPrice{Value: "40.00", Currency: "USD"},
 		},
 		{
-			ItemID: "good-2",
-			Title:  "Good Listing 2",
+			ItemID: "item-3",
+			Title:  "Listing 3",
 			Price:  ebay.ItemPrice{Value: "50.00", Currency: "USD"},
 		},
 	}
@@ -210,36 +192,8 @@ func TestRunIngestion_ExtractionFailsForOneListing(t *testing.T) {
 		Return(&ebay.SearchResponse{Items: items}, nil).
 		Once()
 
-	// All 3 upsert successfully.
 	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Times(3)
-
-	// Extraction: first succeeds, second fails, third succeeds.
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, "Good Listing 1", mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{"capacity_gb": 32.0}, nil).
-		Once()
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, "Bad Listing", mock.Anything).
-		Return(domain.ComponentType(""), nil, errors.New("LLM timeout")).
-		Once()
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, "Good Listing 2", mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{"capacity_gb": 64.0}, nil).
-		Once()
-
-	// Only 2 extraction updates (bad listing skipped).
-	ms.EXPECT().
-		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
-		Return(nil).
-		Times(2)
-
-	// 2 scorings.
-	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Times(2)
-	ms.EXPECT().
-		UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil).
-		Times(2)
-
+	ms.EXPECT().EnqueueExtraction(mock.Anything, mock.Anything, 0).Return(nil).Times(3)
 	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
 
 	err := eng.RunIngestion(context.Background())
@@ -280,17 +234,7 @@ func TestRunIngestion_EbayErrorForOneWatch(t *testing.T) {
 		Once()
 
 	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Once()
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, "OK Item", mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{}, nil).Once()
-	ms.EXPECT().
-		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
-		Return(nil).Once()
-	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Once()
-	ms.EXPECT().
-		UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil).
-		Once()
+	ms.EXPECT().EnqueueExtraction(mock.Anything, mock.Anything, 0).Return(nil).Once()
 
 	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
 
@@ -719,96 +663,7 @@ func TestRunIngestion_UpsertFailsContinues(t *testing.T) {
 		return l.EbayID == "pass"
 	})).Return(nil).Once()
 
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, "Pass Item", mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{}, nil).Once()
-	ms.EXPECT().
-		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
-		Return(nil).Once()
-	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Once()
-	ms.EXPECT().
-		UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil).
-		Once()
-
-	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
-
-	err := eng.RunIngestion(context.Background())
-	require.NoError(t, err)
-}
-
-func TestRunIngestion_UpdateExtractionFails(t *testing.T) {
-	t.Parallel()
-
-	ms := storeMocks.NewMockStore(t)
-	me := ebayMocks.NewMockEbayClient(t)
-	mx := extractMocks.NewMockExtractor(t)
-	mn := notifyMocks.NewMockNotifier(t)
-	eng := newTestEngine(ms, me, mx, mn)
-
-	watches := []domain.Watch{
-		{ID: "w1", Name: "W", SearchQuery: "test", Enabled: true},
-	}
-	ms.EXPECT().ListWatches(mock.Anything, true).Return(watches, nil).Once()
-
-	items := []ebay.ItemSummary{
-		{ItemID: "item1", Title: "Item 1", Price: ebay.ItemPrice{Value: "10", Currency: "USD"}},
-	}
-	me.EXPECT().
-		Search(mock.Anything, mock.Anything).
-		Return(&ebay.SearchResponse{Items: items}, nil).
-		Once()
-
-	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Once()
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, "Item 1", mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{}, nil).Once()
-	ms.EXPECT().
-		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
-		Return(errors.New("db error")).Once()
-
-	// Scoring and alert eval should NOT be called.
-	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
-
-	err := eng.RunIngestion(context.Background())
-	require.NoError(t, err)
-}
-
-func TestRunIngestion_ScoringFails(t *testing.T) {
-	t.Parallel()
-
-	ms := storeMocks.NewMockStore(t)
-	me := ebayMocks.NewMockEbayClient(t)
-	mx := extractMocks.NewMockExtractor(t)
-	mn := notifyMocks.NewMockNotifier(t)
-	eng := newTestEngine(ms, me, mx, mn)
-
-	watches := []domain.Watch{
-		{ID: "w1", Name: "W", SearchQuery: "test", Enabled: true},
-	}
-	ms.EXPECT().ListWatches(mock.Anything, true).Return(watches, nil).Once()
-
-	items := []ebay.ItemSummary{
-		{ItemID: "item1", Title: "Item 1", Price: ebay.ItemPrice{Value: "10", Currency: "USD"}},
-	}
-	me.EXPECT().
-		Search(mock.Anything, mock.Anything).
-		Return(&ebay.SearchResponse{Items: items}, nil).
-		Once()
-
-	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Once()
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, "Item 1", mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{}, nil).Once()
-	ms.EXPECT().
-		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
-		Return(nil).Once()
-
-	// GetBaseline succeeds but UpdateScore fails.
-	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Once()
-	ms.EXPECT().
-		UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(errors.New("score db error")).Once()
+	ms.EXPECT().EnqueueExtraction(mock.Anything, mock.Anything, 0).Return(nil).Once()
 
 	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
 
@@ -874,16 +729,7 @@ func TestRunIngestion_CycleBudgetExhausted(t *testing.T) {
 		Once()
 
 	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Once()
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, "Item 1", mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{}, nil).Once()
-	ms.EXPECT().
-		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
-		Return(nil).Once()
-	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Once()
-	ms.EXPECT().
-		UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil).Once()
+	ms.EXPECT().EnqueueExtraction(mock.Anything, mock.Anything, 0).Return(nil).Once()
 
 	// Alert processing should still run.
 	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
@@ -935,17 +781,7 @@ func TestRunIngestion_WithPaginator(t *testing.T) {
 
 	// Standard ingestion flow for 2 new listings.
 	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Times(2)
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, mock.Anything, mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{"capacity_gb": 32.0}, nil).
-		Times(2)
-	ms.EXPECT().
-		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
-		Return(nil).Times(2)
-	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Times(2)
-	ms.EXPECT().
-		UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil).Times(2)
+	ms.EXPECT().EnqueueExtraction(mock.Anything, mock.Anything, 0).Return(nil).Times(2)
 
 	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
 
@@ -981,8 +817,9 @@ func getHistogramSampleCount(h prometheus.Histogram) uint64 {
 	return pb.GetHistogram().GetSampleCount()
 }
 
-func TestRunIngestion_ObservesExtractionDuration(t *testing.T) {
-	t.Parallel()
+func TestRunIngestion_DoesNotExtractInline(t *testing.T) {
+	// Not parallel: checks global ExtractionDuration histogram count.
+	// Worker tests running in parallel would increment the same counter.
 
 	ms := storeMocks.NewMockStore(t)
 	me := ebayMocks.NewMockEbayClient(t)
@@ -996,20 +833,12 @@ func TestRunIngestion_ObservesExtractionDuration(t *testing.T) {
 	ms.EXPECT().ListWatches(mock.Anything, true).Return(watches, nil).Once()
 
 	items := []ebay.ItemSummary{
-		{ItemID: "ext-dur-1", Title: "Test RAM", Price: ebay.ItemPrice{Value: "30.00", Currency: "USD"}},
+		{ItemID: "inline-1", Title: "Test RAM", Price: ebay.ItemPrice{Value: "30.00", Currency: "USD"}},
 	}
 	me.EXPECT().Search(mock.Anything, mock.Anything).
 		Return(&ebay.SearchResponse{Items: items}, nil).Once()
 	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Once()
-
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, "Test RAM", mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{"capacity_gb": 32.0}, nil).Once()
-	ms.EXPECT().
-		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
-		Return(nil).Once()
-	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Once()
-	ms.EXPECT().UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	ms.EXPECT().EnqueueExtraction(mock.Anything, mock.Anything, 0).Return(nil).Once()
 	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
 
 	before := getHistogramSampleCount(metrics.ExtractionDuration)
@@ -1018,7 +847,7 @@ func TestRunIngestion_ObservesExtractionDuration(t *testing.T) {
 	require.NoError(t, err)
 
 	after := getHistogramSampleCount(metrics.ExtractionDuration)
-	assert.Greater(t, after, before, "ExtractionDuration histogram sample count should increase after extraction")
+	assert.Equal(t, before, after, "RunIngestion must not extract inline — extraction is async via worker pool")
 }
 
 func TestSyncQuota_SetsMetricsAndSyncsRateLimiter(t *testing.T) {
@@ -1133,6 +962,7 @@ func TestSyncStateMetrics_SetsAllGauges(t *testing.T) {
 	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(7, nil).Once()
 	ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(42, nil).Once()
 	ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(map[string]int{"ram": 38, "drive": 4}, nil).Once()
+	ms.EXPECT().CountPendingExtractionJobs(mock.Anything).Return(8, nil).Once()
 
 	eng := NewEngine(ms, me, mx, mn,
 		WithLogger(quietLogger()),
@@ -1151,6 +981,7 @@ func TestSyncStateMetrics_SetsAllGauges(t *testing.T) {
 	assert.InDelta(t, 15, ptestutil.ToFloat64(metrics.BaselinesTotal), 0.1)
 	assert.InDelta(t, 7, ptestutil.ToFloat64(metrics.ProductKeysNoBaseline), 0.1)
 	assert.InDelta(t, 42, ptestutil.ToFloat64(metrics.ListingsIncompleteExtraction), 0.1)
+	assert.InDelta(t, 8, ptestutil.ToFloat64(metrics.ExtractionQueueDepth), 0.1)
 }
 
 func TestSyncStateMetrics_StoreErrorDoesNotPanic(t *testing.T) {
@@ -1171,6 +1002,7 @@ func TestSyncStateMetrics_StoreErrorDoesNotPanic(t *testing.T) {
 	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(0, errors.New("db error")).Once()
 	ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(0, errors.New("db error")).Once()
 	ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(nil, errors.New("db error")).Once()
+	ms.EXPECT().CountPendingExtractionJobs(mock.Anything).Return(0, errors.New("db error")).Once()
 
 	eng := NewEngine(ms, me, mx, mn,
 		WithLogger(quietLogger()),
@@ -1199,35 +1031,9 @@ func TestRunReExtraction_Success(t *testing.T) {
 		Return(listings, nil).
 		Once()
 
-	// ClassifyAndExtract for each listing.
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, listings[0].Title, mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{
-			"generation": "DDR4", "capacity_gb": float64(32), "speed_mhz": 2666,
-			"ecc": true, "registered": true, "condition": "used_working",
-		}, nil).
-		Once()
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, listings[1].Title, mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{
-			"generation": "DDR4", "capacity_gb": float64(16), "speed_mhz": 2400,
-			"ecc": true, "registered": true, "condition": "used_working",
-		}, nil).
-		Once()
-
-	// UpdateListingExtraction for each.
-	ms.EXPECT().
-		UpdateListingExtraction(mock.Anything, "id1", "ram", mock.Anything, 0.9, mock.Anything).
-		Return(nil).
-		Once()
-	ms.EXPECT().
-		UpdateListingExtraction(mock.Anything, "id2", "ram", mock.Anything, 0.9, mock.Anything).
-		Return(nil).
-		Once()
-
-	// ScoreListing: GetBaseline + UpdateScore for each.
-	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Times(2)
-	ms.EXPECT().UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(2)
+	// Enqueue with priority 1 (re-extract).
+	ms.EXPECT().EnqueueExtraction(mock.Anything, "id1", 1).Return(nil).Once()
+	ms.EXPECT().EnqueueExtraction(mock.Anything, "id2", 1).Return(nil).Once()
 
 	count, err := eng.RunReExtraction(context.Background(), "ram", 50)
 	require.NoError(t, err)
@@ -1244,9 +1050,9 @@ func TestRunReExtraction_PartialFailure(t *testing.T) {
 	eng := newTestEngine(ms, me, mx, mn)
 
 	listings := []domain.Listing{
-		{ID: "id1", EbayID: "e1", Title: "Samsung 32GB DDR4 PC4-21300"},
-		{ID: "id2", EbayID: "e2", Title: "Bad listing"},
-		{ID: "id3", EbayID: "e3", Title: "Hynix 16GB DDR4 PC4-19200"},
+		{ID: "id1", EbayID: "e1", Title: "Listing 1"},
+		{ID: "id2", EbayID: "e2", Title: "Listing 2"},
+		{ID: "id3", EbayID: "e3", Title: "Listing 3"},
 	}
 
 	ms.EXPECT().
@@ -1254,35 +1060,14 @@ func TestRunReExtraction_PartialFailure(t *testing.T) {
 		Return(listings, nil).
 		Once()
 
-	// First succeeds, second fails, third succeeds.
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, listings[0].Title, mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{
-			"generation": "DDR4", "capacity_gb": float64(32), "speed_mhz": 2666,
-			"ecc": true, "registered": true, "condition": "used_working",
-		}, nil).
-		Once()
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, listings[1].Title, mock.Anything).
-		Return("", nil, errors.New("extraction failed")).
-		Once()
-	mx.EXPECT().
-		ClassifyAndExtract(mock.Anything, listings[2].Title, mock.Anything).
-		Return(domain.ComponentRAM, map[string]any{
-			"generation": "DDR4", "capacity_gb": float64(16), "speed_mhz": 2400,
-			"ecc": true, "registered": true, "condition": "used_working",
-		}, nil).
-		Once()
-
+	// First enqueue succeeds, second fails, third succeeds.
+	ms.EXPECT().EnqueueExtraction(mock.Anything, "id1", 1).Return(nil).Once()
 	ms.EXPECT().
-		UpdateListingExtraction(mock.Anything, mock.Anything, "ram", mock.Anything, 0.9, mock.Anything).
-		Return(nil).
-		Times(2)
+		EnqueueExtraction(mock.Anything, "id2", 1).
+		Return(errors.New("db error")).Once()
+	ms.EXPECT().EnqueueExtraction(mock.Anything, "id3", 1).Return(nil).Once()
 
-	ms.EXPECT().GetBaseline(mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Times(2)
-	ms.EXPECT().UpdateScore(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(2)
-
-	count, err := eng.RunReExtraction(context.Background(), "", 0) // default limit
+	count, err := eng.RunReExtraction(context.Background(), "", 0)
 	require.NoError(t, err)
 	assert.Equal(t, 2, count)
 }
@@ -1346,4 +1131,145 @@ func TestRunReExtraction_DefaultLimit(t *testing.T) {
 	count, err := eng.RunReExtraction(context.Background(), "", 0)
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
+}
+
+func TestRunIngestion_EnqueuesNotExtracts(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	watches := []domain.Watch{
+		{ID: "w1", Name: "Watch 1", SearchQuery: "DDR4", Enabled: true},
+	}
+	ms.EXPECT().ListWatches(mock.Anything, true).Return(watches, nil).Once()
+
+	me.EXPECT().Search(mock.Anything, mock.Anything).
+		Return(&ebay.SearchResponse{Items: []ebay.ItemSummary{
+			{ItemID: "i1", Title: "Test RAM", Price: ebay.ItemPrice{Value: "30.00", Currency: "USD"}},
+		}}, nil).Once()
+
+	ms.EXPECT().UpsertListing(mock.Anything, mock.Anything).Return(nil).Once()
+	// EnqueueExtraction must be called — ClassifyAndExtract must NOT be called.
+	ms.EXPECT().EnqueueExtraction(mock.Anything, mock.Anything, 0).Return(nil).Once()
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
+
+	// mx has NO expectations — ClassifyAndExtract should never be called inline.
+	err := eng.RunIngestion(context.Background())
+	require.NoError(t, err)
+}
+
+func TestStartExtractionWorkers_ProcessesJob(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	job := domain.ExtractionJob{
+		ID:        "job-1",
+		ListingID: "listing-1",
+	}
+	listing := testListing("ram:ddr4:32gb")
+	listing.ID = "listing-1"
+
+	// First dequeue returns the job; subsequent calls return empty (worker idles).
+	ms.EXPECT().
+		DequeueExtractions(mock.Anything, mock.AnythingOfType("string"), 1).
+		Return([]domain.ExtractionJob{job}, nil).Once()
+	ms.EXPECT().
+		DequeueExtractions(mock.Anything, mock.AnythingOfType("string"), 1).
+		Return(nil, nil).Maybe()
+
+	ms.EXPECT().
+		GetListingByID(mock.Anything, "listing-1").
+		Return(listing, nil).Once()
+
+	mx.EXPECT().
+		ClassifyAndExtract(mock.Anything, listing.Title, mock.Anything).
+		Return(domain.ComponentRAM, map[string]any{"speed_mhz": 2666}, nil).Once()
+
+	ms.EXPECT().
+		UpdateListingExtraction(mock.Anything, "listing-1", "ram", mock.Anything, 0.9, mock.AnythingOfType("string")).
+		Return(nil).Once()
+
+	ms.EXPECT().
+		GetBaseline(mock.Anything, mock.AnythingOfType("string")).
+		Return(nil, pgx.ErrNoRows).Once()
+	ms.EXPECT().
+		UpdateScore(mock.Anything, "listing-1", mock.AnythingOfType("int"), mock.Anything).
+		Return(nil).Once()
+
+	done := make(chan struct{})
+	ms.EXPECT().
+		CompleteExtractionJob(mock.Anything, "job-1", "").
+		Run(func(_ context.Context, _ string, _ string) {
+			close(done)
+		}).
+		Return(nil).Once()
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Use newTestEngine but override workerCount directly.
+	eng := newTestEngine(ms, me, mx, mn)
+	eng.workerCount = 1
+	eng.StartExtractionWorkers(ctx)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout: worker did not process the job")
+	}
+	cancel()
+}
+
+func TestRunExtractionWorker_HandlesExtractError(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	job := domain.ExtractionJob{ID: "job-2", ListingID: "listing-2"}
+	listing := &domain.Listing{ID: "listing-2", EbayID: "e2", Title: "Failing Listing"}
+
+	ms.EXPECT().
+		DequeueExtractions(mock.Anything, mock.AnythingOfType("string"), 1).
+		Return([]domain.ExtractionJob{job}, nil).Once()
+	ms.EXPECT().
+		DequeueExtractions(mock.Anything, mock.AnythingOfType("string"), 1).
+		Return(nil, nil).Maybe()
+
+	ms.EXPECT().
+		GetListingByID(mock.Anything, "listing-2").
+		Return(listing, nil).Once()
+
+	mx.EXPECT().
+		ClassifyAndExtract(mock.Anything, "Failing Listing", mock.Anything).
+		Return(domain.ComponentType(""), nil, errors.New("LLM timeout")).Once()
+
+	done := make(chan struct{})
+	ms.EXPECT().
+		CompleteExtractionJob(mock.Anything, "job-2", "LLM timeout").
+		Run(func(_ context.Context, _ string, _ string) {
+			close(done)
+		}).
+		Return(nil).Once()
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	eng := newTestEngine(ms, me, mx, mn)
+	go eng.runExtractionWorker(ctx, "worker-0")
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout: worker did not complete the failed job")
+	}
+	cancel()
 }

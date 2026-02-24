@@ -457,7 +457,7 @@ engine, scheduler wired to drain queue continuously.
 
 ### Migration
 
-- [ ] Create `migrations/004_extraction_queue.sql`:
+- [x] Create `migrations/004_extraction_queue.sql`:
 
   ```sql
   CREATE TABLE extraction_queue (
@@ -478,7 +478,7 @@ engine, scheduler wired to drain queue continuously.
       WHERE completed_at IS NULL AND claimed_at IS NULL;
   ```
 
-- [ ] Copy migration to `internal/store/migrations/004_extraction_queue.sql`
+- [x] Copy migration to `internal/store/migrations/004_extraction_queue.sql`
 
 ---
 
@@ -486,16 +486,16 @@ engine, scheduler wired to drain queue continuously.
 
 Add a new `// ExtractionQueue` section:
 
-- [ ] `EnqueueExtraction(ctx context.Context, listingID string, priority int) error`
-- [ ] `DequeueExtractions(ctx context.Context, workerID string, batchSize int) ([]domain.ExtractionJob, error)` — uses `SELECT ... FOR UPDATE SKIP LOCKED`
-- [ ] `CompleteExtractionJob(ctx context.Context, id string, errText string) error`
-- [ ] `CountPendingExtractionJobs(ctx context.Context) (int, error)`
+- [x] `EnqueueExtraction(ctx context.Context, listingID string, priority int) error`
+- [x] `DequeueExtractions(ctx context.Context, workerID string, batchSize int) ([]domain.ExtractionJob, error)` — uses `SELECT ... FOR UPDATE SKIP LOCKED`
+- [x] `CompleteExtractionJob(ctx context.Context, id string, errText string) error`
+- [x] `CountPendingExtractionJobs(ctx context.Context) (int, error)`
 
 ---
 
 ### Domain Types (`pkg/types/types.go`)
 
-- [ ] Add `ExtractionJob` struct:
+- [x] Add `ExtractionJob` struct:
   ```go
   type ExtractionJob struct {
       ID        string    `json:"id"`
@@ -510,49 +510,49 @@ Add a new `// ExtractionQueue` section:
 
 ### SQL Queries (`internal/store/queries.go`)
 
-- [ ] Add `queryEnqueueExtraction` — INSERT with ON CONFLICT DO NOTHING (idempotent)
-- [ ] Add `queryDequeueExtractions` — `SELECT ... FOR UPDATE SKIP LOCKED LIMIT $2` UPDATE claimed_at, claimed_by
-- [ ] Add `queryCompleteExtractionJob` — UPDATE completed_at, error_text, increment attempts
-- [ ] Add `queryCountPendingExtractionJobs` — COUNT WHERE completed_at IS NULL
+- [x] Add `queryEnqueueExtraction` — INSERT with ON CONFLICT DO NOTHING (idempotent)
+- [x] Add `queryDequeueExtractions` — `SELECT ... FOR UPDATE SKIP LOCKED LIMIT $2` UPDATE claimed_at, claimed_by
+- [x] Add `queryCompleteExtractionJob` — UPDATE completed_at, error_text, increment attempts
+- [x] Add `queryCountPendingExtractionJobs` — COUNT WHERE completed_at IS NULL
 
 ---
 
 ### PostgreSQL Store (`internal/store/postgres.go`)
 
-- [ ] Implement `EnqueueExtraction` — wraps INSERT with `ON CONFLICT (listing_id) WHERE completed_at IS NULL DO NOTHING`
-- [ ] Implement `DequeueExtractions` — CTE with `SELECT ... FOR UPDATE SKIP LOCKED`, returns `ExtractionJob` slice
-- [ ] Implement `CompleteExtractionJob`
-- [ ] Implement `CountPendingExtractionJobs`
+- [x] Implement `EnqueueExtraction` — wraps INSERT with `ON CONFLICT (listing_id) WHERE completed_at IS NULL DO NOTHING`
+- [x] Implement `DequeueExtractions` — CTE with `SELECT ... FOR UPDATE SKIP LOCKED`, returns `ExtractionJob` slice
+- [x] Implement `CompleteExtractionJob`
+- [x] Implement `CountPendingExtractionJobs`
 
 ---
 
 ### Engine (`internal/engine/engine.go`)
 
-- [ ] Add `workerCount int` field to `Engine` (sourced from `cfg.LLM.Concurrency`)
-- [ ] Add `WithWorkerCount(n int) EngineOption`
-- [ ] Add `StartExtractionWorkers(ctx context.Context)` — launches `workerCount` goroutines each calling `runExtractionWorker`
-- [ ] Add `runExtractionWorker(ctx context.Context, workerID string)` — loop:
+- [x] Add `workerCount int` field to `Engine` (sourced from `cfg.LLM.Concurrency`)
+- [x] Add `WithWorkerCount(n int) EngineOption`
+- [x] Add `StartExtractionWorkers(ctx context.Context)` — launches `workerCount` goroutines each calling `runExtractionWorker`
+- [x] Add `runExtractionWorker(ctx context.Context, workerID string)` — loop:
   1. `store.DequeueExtractions(ctx, workerID, 1)` — claim one job
   2. `store.GetListingByID(ctx, job.ListingID)` — fetch full listing
   3. `ClassifyAndExtract` → `NormalizeRAMSpeed` → `UpdateListingExtraction`
   4. `ScoreListing` → `UpdateScore`
   5. `store.CompleteExtractionJob(ctx, job.ID, errText)`
   6. Sleep 100ms on empty queue before retrying
-- [ ] Modify `RunIngestion` — after `UpsertListing`, call `store.EnqueueExtraction(ctx, listing.ID, 0)` instead of calling `ClassifyAndExtract` inline
-- [ ] Modify `RunReExtraction` — call `store.EnqueueExtraction(ctx, listing.ID, 1)` (priority=1) instead of extracting inline
-- [ ] In `startServer()`, call `eng.StartExtractionWorkers(cancelCtx)` after engine creation
+- [x] Modify `RunIngestion` — after `UpsertListing`, call `store.EnqueueExtraction(ctx, listing.ID, 0)` instead of calling `ClassifyAndExtract` inline
+- [x] Modify `RunReExtraction` — call `store.EnqueueExtraction(ctx, listing.ID, 1)` (priority=1) instead of extracting inline
+- [x] In `startServer()`, call `eng.StartExtractionWorkers(cancelCtx)` after engine creation
 
 ---
 
 ### Config (`internal/config/config.go`)
 
-- [ ] Confirm `LLMConfig.Concurrency int` is already present — it is (`llm.concurrency`, default 4). Wire it to `WithWorkerCount` in `serve.go`.
+- [x] Confirm `LLMConfig.Concurrency int` is already present — it is (`llm.concurrency`, default 4). Wire it to `WithWorkerCount` in `serve.go`.
 
 ---
 
 ### Metrics (`internal/metrics/metrics.go`)
 
-- [ ] Add `ExtractionQueueDepth` gauge:
+- [x] Add `ExtractionQueueDepth` gauge:
   ```go
   ExtractionQueueDepth = promauto.NewGauge(prometheus.GaugeOpts{
       Namespace: namespace,
@@ -560,17 +560,17 @@ Add a new `// ExtractionQueue` section:
       Help:      "Number of pending extraction jobs in the queue.",
   })
   ```
-- [ ] Wire into `SyncStateMetrics` — call `store.CountPendingExtractionJobs`
+- [x] Wire into `SyncStateMetrics` — call `store.CountPendingExtractionJobs`
 
 ---
 
 ### Tests
 
-- [ ] `TestStartExtractionWorkers_ProcessesJob` — enqueue a job, start 1 worker, assert listing extraction is called and job is completed
-- [ ] `TestRunExtractionWorker_HandlesExtractError` — LLM returns error, assert job is completed with error text (not retried infinitely)
-- [ ] `TestRunIngestion_EnqueuesNotExtracts` — verify `EnqueueExtraction` is called and `ClassifyAndExtract` is NOT called inline
-- [ ] `TestDequeueExtractions_SkipLocked` — two goroutines dequeue simultaneously, assert no duplicate claims
-- [ ] Run `make test && make lint`
+- [x] `TestStartExtractionWorkers_ProcessesJob` — enqueue a job, start 1 worker, assert listing extraction is called and job is completed
+- [x] `TestRunExtractionWorker_HandlesExtractError` — LLM returns error, assert job is completed with error text (not retried infinitely)
+- [x] `TestRunIngestion_EnqueuesNotExtracts` — verify `EnqueueExtraction` is called and `ClassifyAndExtract` is NOT called inline
+- [x] `TestDequeueExtractions_SkipLocked` — two goroutines dequeue simultaneously, assert no duplicate claims (integration test)
+- [x] Run `make test && make lint`
 
 ---
 
