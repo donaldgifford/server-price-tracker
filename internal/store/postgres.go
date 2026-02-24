@@ -444,6 +444,46 @@ func (s *PostgresStore) MarkAlertsNotified(ctx context.Context, ids []string) er
 	return nil
 }
 
+// HasRecentAlert returns true if a notified alert for the same (watch, listing)
+// pair exists within the given cooldown window.
+func (s *PostgresStore) HasRecentAlert(
+	ctx context.Context,
+	watchID, listingID string,
+	cooldown time.Duration,
+) (bool, error) {
+	cutoff := time.Now().Add(-cooldown)
+	var exists bool
+	if err := s.pool.QueryRow(ctx, queryHasRecentAlert, watchID, listingID, cutoff).Scan(&exists); err != nil {
+		return false, fmt.Errorf("checking recent alert: %w", err)
+	}
+	return exists, nil
+}
+
+// InsertNotificationAttempt records the outcome of a notification send attempt.
+func (s *PostgresStore) InsertNotificationAttempt(
+	ctx context.Context,
+	alertID string,
+	succeeded bool,
+	httpStatus int,
+	errText string,
+) error {
+	_, err := s.pool.Exec(ctx, queryInsertNotificationAttempt, alertID, succeeded, httpStatus, errText)
+	if err != nil {
+		return fmt.Errorf("inserting notification attempt: %w", err)
+	}
+	return nil
+}
+
+// HasSuccessfulNotification returns true if at least one successful notification
+// attempt exists for the given alert.
+func (s *PostgresStore) HasSuccessfulNotification(ctx context.Context, alertID string) (bool, error) {
+	var exists bool
+	if err := s.pool.QueryRow(ctx, queryHasSuccessfulNotification, alertID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("checking successful notification: %w", err)
+	}
+	return exists, nil
+}
+
 // CountWatches returns the total and enabled watch counts.
 func (s *PostgresStore) CountWatches(ctx context.Context) (int, int, error) {
 	var total, enabled int

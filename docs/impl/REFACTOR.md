@@ -317,7 +317,7 @@ tracking. No new endpoints. No new infrastructure.
 
 ### Migration
 
-- [ ] Create `migrations/003_alert_reliability.sql`:
+- [x] Create `migrations/003_alert_reliability.sql`:
 
   ```sql
   -- Drop unique constraint that prevents re-alerting on a returned deal.
@@ -333,7 +333,7 @@ tracking. No new endpoints. No new infrastructure.
   -- Enforced in application logic, not schema (avoids DDL complexity).
   ```
 
-- [ ] Copy migration to `internal/store/migrations/003_alert_reliability.sql`
+- [x] Copy migration to `internal/store/migrations/003_alert_reliability.sql`
 
 ---
 
@@ -342,21 +342,21 @@ tracking. No new endpoints. No new infrastructure.
 In the `processListing` function (the private helper that assembles `score.ListingData`
 from a `*domain.Listing`):
 
-- [ ] Set `IsAuction`:
+- [x] Set `IsAuction`:
   ```go
   IsAuction: listing.ListingType == domain.ListingTypeAuction,
   ```
-- [ ] Set `AuctionEndingSoon`:
+- [x] Set `AuctionEndingSoon`:
   ```go
   AuctionEndingSoon: listing.ListingType == domain.ListingTypeAuction &&
       listing.AuctionEndAt != nil &&
       time.Until(*listing.AuctionEndAt) < 4*time.Hour,
   ```
-- [ ] Set `IsNewListing`:
+- [x] Set `IsNewListing`:
   ```go
   IsNewListing: time.Since(listing.FirstSeenAt) < 24*time.Hour,
   ```
-- [ ] Add unit test `TestProcessListing_TimescoreInputs` confirming all three fields
+- [x] Add unit test `TestProcessListing_TimescoreInputs` confirming all three fields
   are populated correctly for an auction listing ending in 2 hours
 
 ---
@@ -365,7 +365,7 @@ from a `*domain.Listing`):
 
 Re-alerts are **disabled by default**. When enabled, the cooldown defaults to 24h.
 
-- [ ] Add `ReAlerts` struct to config:
+- [x] Add `ReAlerts` struct to config:
   ```go
   // AlertsConfig defines alert behavior.
   type AlertsConfig struct {
@@ -373,16 +373,16 @@ Re-alerts are **disabled by default**. When enabled, the cooldown defaults to 24
       ReAlertsCooldown     time.Duration `yaml:"re_alerts_cooldown"`      // default: 24h
   }
   ```
-- [ ] Add `Alerts AlertsConfig` field to `Config` struct
-- [ ] Add `applyAlertsDefaults` to `applyDefaults`: if `ReAlertsCooldown == 0`, set to `24*time.Hour`
-- [ ] Add `cfg.Alerts` to `Engine` options via `WithAlertsConfig(cfg AlertsConfig) EngineOption`
+- [x] Add `Alerts AlertsConfig` field to `Config` struct
+- [x] Add `applyAlertsDefaults` to `applyDefaults`: if `ReAlertsCooldown == 0`, set to `24*time.Hour`
+- [x] Add `cfg.Alerts` to `Engine` options via `WithAlertsConfig(cfg AlertsConfig) EngineOption`
 
 ---
 
 ### Alert Re-alert Cooldown (`internal/store/store.go` and `internal/store/postgres.go`)
 
-- [ ] Add `HasRecentAlert(ctx context.Context, watchID, listingID string, cooldown time.Duration) (bool, error)` to `Store` interface
-- [ ] Add `queryHasRecentAlert` SQL constant:
+- [x] Add `HasRecentAlert(ctx context.Context, watchID, listingID string, cooldown time.Duration) (bool, error)` to `Store` interface
+- [x] Add `queryHasRecentAlert` SQL constant:
   ```sql
   SELECT EXISTS (
       SELECT 1 FROM alerts
@@ -392,44 +392,44 @@ Re-alerts are **disabled by default**. When enabled, the cooldown defaults to 24
         AND notified_at > now() - $3::interval
   )
   ```
-- [ ] Implement `HasRecentAlert` in `postgres.go`
-- [ ] In `engine.evaluateAlert`:
+- [x] Implement `HasRecentAlert` in `postgres.go`
+- [x] In `engine.evaluateAlert`:
   - If `cfg.Alerts.ReAlertsEnabled == false`: keep the existing partial unique index behaviour — a second alert is prevented by `alerts_pending_unique` index, no application-layer check needed
   - If `cfg.Alerts.ReAlertsEnabled == true`: call `HasRecentAlert(ctx, watch.ID, listing.ID, cfg.Alerts.ReAlertsCooldown)` before `CreateAlert`; skip if true
-- [ ] Add unit tests:
+- [x] Add unit tests:
   - `TestEvaluateAlert_ReAlertsDisabled_NoDuplicateWhilePending`
   - `TestEvaluateAlert_ReAlertsEnabled_SkipsCooldownListing`
   - `TestEvaluateAlert_ReAlertsEnabled_AllowsAfterCooldown`
-- [ ] Run `make mocks`
+- [x] Run `make mocks`
 
 ---
 
 ### Idempotent Notifications (`internal/notify/` and `internal/engine/engine.go`)
 
-- [ ] Add `InsertNotificationAttempt(ctx context.Context, alertID string, succeeded bool, httpStatus int, errText string) error` to `Store` interface
-- [ ] Add `HasSuccessfulNotification(ctx context.Context, alertID string) (bool, error)` to `Store` interface
-- [ ] Add SQL constants `queryInsertNotificationAttempt` and `queryHasSuccessfulNotification`
-- [ ] Implement both methods in `postgres.go`
-- [ ] In `engine.ProcessAlerts`, for each alert before sending:
+- [x] Add `InsertNotificationAttempt(ctx context.Context, alertID string, succeeded bool, httpStatus int, errText string) error` to `Store` interface
+- [x] Add `HasSuccessfulNotification(ctx context.Context, alertID string) (bool, error)` to `Store` interface
+- [x] Add SQL constants `queryInsertNotificationAttempt` and `queryHasSuccessfulNotification`
+- [x] Implement both methods in `postgres.go`
+- [x] In `engine.ProcessAlerts`, for each alert before sending:
   1. Call `HasSuccessfulNotification(ctx, alert.ID)` — skip send if true (prevents re-send after timeout)
   2. After Discord webhook call (success or failure), call `InsertNotificationAttempt`
   3. Only call `MarkAlertNotified` on success
-- [ ] Add unit tests:
+- [x] Add unit tests:
   - `TestProcessAlerts_SkipsAlreadyNotified`
   - `TestProcessAlerts_RecordsFailedAttempt`
   - `TestProcessAlerts_RecordsSuccessfulAttempt`
-- [ ] Run `make mocks`
+- [x] Run `make mocks`
 
 ---
 
 ### Tests
 
-- [ ] `TestHasRecentAlert_WithinCooldown` — mock returns true, verify alert skipped
-- [ ] `TestHasRecentAlert_OutsideCooldown` — mock returns false, verify alert created
-- [ ] `TestScorer_TimeScore_AuctionEndingSoon` — assert time factor = 100
-- [ ] `TestScorer_TimeScore_NewListing` — assert time factor = 80
-- [ ] `TestScorer_TimeScore_OldBuyItNow` — assert time factor = 30
-- [ ] Run `make test && make lint`
+- [x] `TestHasRecentAlert_WithinCooldown` — mock returns true, verify alert skipped
+- [x] `TestHasRecentAlert_OutsideCooldown` — mock returns false, verify alert created
+- [x] `TestScorer_TimeScore_AuctionEndingSoon` — assert time factor = 100
+- [x] `TestScorer_TimeScore_NewListing` — assert time factor = 80
+- [x] `TestScorer_TimeScore_OldBuyItNow` — assert time factor = 30
+- [x] Run `make test && make lint`
 
 ---
 

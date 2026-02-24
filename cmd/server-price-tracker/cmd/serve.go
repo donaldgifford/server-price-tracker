@@ -286,6 +286,7 @@ func buildEngine(
 		engine.WithLogger(logger),
 		engine.WithBaselineWindowDays(cfg.Scoring.BaselineWindowDays),
 		engine.WithStaggerOffset(cfg.Schedule.StaggerOffset),
+		engine.WithAlertsConfig(cfg.Alerts),
 	}
 
 	if ac != nil {

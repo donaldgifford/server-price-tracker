@@ -299,7 +299,7 @@ const (
 	queryCreateAlert = `
 		INSERT INTO alerts (watch_id, listing_id, score, created_at)
 		VALUES ($1, $2, $3, now())
-		ON CONFLICT (watch_id, listing_id) DO NOTHING
+		ON CONFLICT (watch_id, listing_id) WHERE notified = false DO NOTHING
 		RETURNING id, created_at`
 
 	queryListPendingAlerts = `
@@ -328,4 +328,24 @@ const (
 		WHERE id = ANY($1)`
 
 	queryCountPendingAlerts = `SELECT COUNT(*) FROM alerts WHERE notified = false`
+
+	queryHasRecentAlert = `
+		SELECT EXISTS (
+			SELECT 1 FROM alerts
+			WHERE watch_id = $1
+			  AND listing_id = $2
+			  AND notified = true
+			  AND notified_at > $3
+		)`
+
+	queryInsertNotificationAttempt = `
+		INSERT INTO notification_attempts (alert_id, succeeded, http_status, error_text)
+		VALUES ($1, $2, $3, NULLIF($4, ''))`
+
+	queryHasSuccessfulNotification = `
+		SELECT EXISTS (
+			SELECT 1 FROM notification_attempts
+			WHERE alert_id = $1
+			  AND succeeded = true
+		)`
 )

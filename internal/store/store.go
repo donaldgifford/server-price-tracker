@@ -66,6 +66,9 @@ type Store interface {
 	ListAlertsByWatch(ctx context.Context, watchID string, limit int) ([]domain.Alert, error)
 	MarkAlertNotified(ctx context.Context, id string) error
 	MarkAlertsNotified(ctx context.Context, ids []string) error
+	HasRecentAlert(ctx context.Context, watchID, listingID string, cooldown time.Duration) (bool, error)
+	InsertNotificationAttempt(ctx context.Context, alertID string, succeeded bool, httpStatus int, errText string) error
+	HasSuccessfulNotification(ctx context.Context, alertID string) (bool, error)
 
 	// Counts
 	CountWatches(ctx context.Context) (total int, enabled int, err error)

@@ -541,3 +541,21 @@ func TestScore_CompositeCalculation(t *testing.T) {
 
 	assert.Equal(t, int(expected+0.5), b.Total)
 }
+
+func TestScorer_TimeScore_AuctionEndingSoon(t *testing.T) {
+	t.Parallel()
+	data := &ListingData{IsAuction: true, AuctionEndingSoon: true}
+	assert.Equal(t, 100.0, timeScore(data))
+}
+
+func TestScorer_TimeScore_NewListing(t *testing.T) {
+	t.Parallel()
+	data := &ListingData{IsNewListing: true}
+	assert.Equal(t, 80.0, timeScore(data))
+}
+
+func TestScorer_TimeScore_OldBuyItNow(t *testing.T) {
+	t.Parallel()
+	data := &ListingData{}
+	assert.Equal(t, 30.0, timeScore(data))
+}

@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/donaldgifford/server-price-tracker/internal/metrics"
@@ -84,15 +85,36 @@ func sendSingle(
 	watch *domain.Watch,
 	alert *domain.Alert,
 ) error {
+	// Idempotency: skip if already successfully notified (prevents re-send after timeout).
+	already, err := s.HasSuccessfulNotification(ctx, alert.ID)
+	if err != nil {
+		return fmt.Errorf("checking notification status: %w", err)
+	}
+	if already {
+		return nil
+	}
+
 	listing, err := s.GetListingByID(ctx, alert.ListingID)
 	if err != nil {
 		return fmt.Errorf("getting listing %s: %w", alert.ListingID, err)
 	}
 
 	payload := buildAlertPayload(watch, listing, alert.Score)
+	sendErr := n.SendAlert(ctx, payload)
 
-	if err := n.SendAlert(ctx, payload); err != nil {
-		return fmt.Errorf("sending alert: %w", err)
+	// Record the attempt regardless of outcome.
+	errText := ""
+	if sendErr != nil {
+		errText = sendErr.Error()
+	}
+	if attemptErr := s.InsertNotificationAttempt(ctx, alert.ID, sendErr == nil, 0, errText); attemptErr != nil {
+		slog.Default().Warn("failed to record notification attempt",
+			"alert_id", alert.ID, "error", attemptErr,
+		)
+	}
+
+	if sendErr != nil {
+		return fmt.Errorf("sending alert: %w", sendErr)
 	}
 
 	metrics.AlertsFiredTotal.Inc()
@@ -110,23 +132,45 @@ func sendBatch(
 	alerts []domain.Alert,
 ) error {
 	payloads := make([]notify.AlertPayload, 0, len(alerts))
-	alertIDs := make([]string, 0, len(alerts))
+	toSend := make([]domain.Alert, 0, len(alerts))
 
 	for i := range alerts {
+		// Idempotency: skip if already successfully notified.
+		already, err := s.HasSuccessfulNotification(ctx, alerts[i].ID)
+		if err != nil || already {
+			continue
+		}
 		listing, err := s.GetListingByID(ctx, alerts[i].ListingID)
 		if err != nil {
 			continue // listing may have been removed
 		}
 		payloads = append(payloads, *buildAlertPayload(watch, listing, alerts[i].Score))
-		alertIDs = append(alertIDs, alerts[i].ID)
+		toSend = append(toSend, alerts[i])
 	}
 
 	if len(payloads) == 0 {
 		return nil
 	}
 
-	if err := n.SendBatchAlert(ctx, payloads, watch.Name); err != nil {
-		return fmt.Errorf("sending batch alert: %w", err)
+	sendErr := n.SendBatchAlert(ctx, payloads, watch.Name)
+
+	// Record attempts for every alert that was included in the batch.
+	errText := ""
+	if sendErr != nil {
+		errText = sendErr.Error()
+	}
+	alertIDs := make([]string, 0, len(toSend))
+	for i := range toSend {
+		if attemptErr := s.InsertNotificationAttempt(ctx, toSend[i].ID, sendErr == nil, 0, errText); attemptErr != nil {
+			slog.Default().Warn("failed to record notification attempt",
+				"alert_id", toSend[i].ID, "error", attemptErr,
+			)
+		}
+		alertIDs = append(alertIDs, toSend[i].ID)
+	}
+
+	if sendErr != nil {
+		return fmt.Errorf("sending batch alert: %w", sendErr)
 	}
 
 	metrics.AlertsFiredTotal.Add(float64(len(alertIDs)))

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	ptestutil "github.com/prometheus/client_golang/prometheus/testutil"
@@ -285,6 +286,38 @@ func TestBuildListingData(t *testing.T) {
 	assert.True(t, data.HasImages)
 	assert.True(t, data.HasItemSpecifics)
 	assert.True(t, data.IsAuction)
+}
+
+func TestProcessListing_TimescoreInputs(t *testing.T) {
+	t.Parallel()
+
+	// Auction listing ending in 2 hours (< 4h threshold → AuctionEndingSoon = true).
+	endSoon := time.Now().Add(2 * time.Hour)
+	l := &domain.Listing{
+		ListingType:  domain.ListingAuction,
+		AuctionEndAt: &endSoon,
+		// FirstSeenAt zero value → more than 24h ago → IsNewListing = false.
+	}
+
+	data := buildListingData(l)
+	assert.True(t, data.IsAuction, "IsAuction should be true for auction listing")
+	assert.True(t, data.AuctionEndingSoon, "AuctionEndingSoon should be true when end < 4h")
+	assert.False(t, data.IsNewListing, "IsNewListing should be false for old listing")
+}
+
+func TestBuildListingData_IsNewListing(t *testing.T) {
+	t.Parallel()
+
+	// Listing first seen less than 24h ago → IsNewListing = true.
+	l := &domain.Listing{
+		FirstSeenAt: time.Now().Add(-1 * time.Hour),
+		ListingType: domain.ListingBuyItNow,
+	}
+
+	data := buildListingData(l)
+	assert.True(t, data.IsNewListing, "IsNewListing should be true when first seen < 24h ago")
+	assert.False(t, data.IsAuction)
+	assert.False(t, data.AuctionEndingSoon)
 }
 
 func TestRescoreAll(t *testing.T) {

@@ -76,11 +76,12 @@ type Listing struct {
 	ScoreBreakdown json.RawMessage `json:"score_breakdown,omitempty" db:"score_breakdown"`
 
 	// Timestamps
-	ListedAt    *time.Time `json:"listed_at,omitempty"  db:"listed_at"`
-	SoldAt      *time.Time `json:"sold_at,omitempty"    db:"sold_at"`
-	SoldPrice   *float64   `json:"sold_price,omitempty" db:"sold_price"`
-	FirstSeenAt time.Time  `json:"first_seen_at"        db:"first_seen_at"`
-	UpdatedAt   time.Time  `json:"updated_at"           db:"updated_at"`
+	ListedAt     *time.Time `json:"listed_at,omitempty"      db:"listed_at"`
+	SoldAt       *time.Time `json:"sold_at,omitempty"        db:"sold_at"`
+	SoldPrice    *float64   `json:"sold_price,omitempty"     db:"sold_price"`
+	AuctionEndAt *time.Time `json:"auction_end_at,omitempty" db:"auction_end_at"`
+	FirstSeenAt  time.Time  `json:"first_seen_at"            db:"first_seen_at"`
+	UpdatedAt    time.Time  `json:"updated_at"               db:"updated_at"`
 }
 
 // UnitPrice returns the per-unit price including shipping.

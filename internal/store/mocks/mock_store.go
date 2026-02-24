@@ -1034,6 +1034,122 @@ func (_c *MockStore_GetWatch_Call) RunAndReturn(run func(context.Context, string
 	return _c
 }
 
+// HasRecentAlert provides a mock function with given fields: ctx, watchID, listingID, cooldown
+func (_m *MockStore) HasRecentAlert(ctx context.Context, watchID string, listingID string, cooldown time.Duration) (bool, error) {
+	ret := _m.Called(ctx, watchID, listingID, cooldown)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HasRecentAlert")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, time.Duration) (bool, error)); ok {
+		return rf(ctx, watchID, listingID, cooldown)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, time.Duration) bool); ok {
+		r0 = rf(ctx, watchID, listingID, cooldown)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, time.Duration) error); ok {
+		r1 = rf(ctx, watchID, listingID, cooldown)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_HasRecentAlert_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HasRecentAlert'
+type MockStore_HasRecentAlert_Call struct {
+	*mock.Call
+}
+
+// HasRecentAlert is a helper method to define mock.On call
+//   - ctx context.Context
+//   - watchID string
+//   - listingID string
+//   - cooldown time.Duration
+func (_e *MockStore_Expecter) HasRecentAlert(ctx interface{}, watchID interface{}, listingID interface{}, cooldown interface{}) *MockStore_HasRecentAlert_Call {
+	return &MockStore_HasRecentAlert_Call{Call: _e.mock.On("HasRecentAlert", ctx, watchID, listingID, cooldown)}
+}
+
+func (_c *MockStore_HasRecentAlert_Call) Run(run func(ctx context.Context, watchID string, listingID string, cooldown time.Duration)) *MockStore_HasRecentAlert_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(time.Duration))
+	})
+	return _c
+}
+
+func (_c *MockStore_HasRecentAlert_Call) Return(_a0 bool, _a1 error) *MockStore_HasRecentAlert_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_HasRecentAlert_Call) RunAndReturn(run func(context.Context, string, string, time.Duration) (bool, error)) *MockStore_HasRecentAlert_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// HasSuccessfulNotification provides a mock function with given fields: ctx, alertID
+func (_m *MockStore) HasSuccessfulNotification(ctx context.Context, alertID string) (bool, error) {
+	ret := _m.Called(ctx, alertID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HasSuccessfulNotification")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (bool, error)); ok {
+		return rf(ctx, alertID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) bool); ok {
+		r0 = rf(ctx, alertID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, alertID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_HasSuccessfulNotification_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HasSuccessfulNotification'
+type MockStore_HasSuccessfulNotification_Call struct {
+	*mock.Call
+}
+
+// HasSuccessfulNotification is a helper method to define mock.On call
+//   - ctx context.Context
+//   - alertID string
+func (_e *MockStore_Expecter) HasSuccessfulNotification(ctx interface{}, alertID interface{}) *MockStore_HasSuccessfulNotification_Call {
+	return &MockStore_HasSuccessfulNotification_Call{Call: _e.mock.On("HasSuccessfulNotification", ctx, alertID)}
+}
+
+func (_c *MockStore_HasSuccessfulNotification_Call) Run(run func(ctx context.Context, alertID string)) *MockStore_HasSuccessfulNotification_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockStore_HasSuccessfulNotification_Call) Return(_a0 bool, _a1 error) *MockStore_HasSuccessfulNotification_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_HasSuccessfulNotification_Call) RunAndReturn(run func(context.Context, string) (bool, error)) *MockStore_HasSuccessfulNotification_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // InsertJobRun provides a mock function with given fields: ctx, jobName
 func (_m *MockStore) InsertJobRun(ctx context.Context, jobName string) (string, error) {
 	ret := _m.Called(ctx, jobName)
@@ -1087,6 +1203,56 @@ func (_c *MockStore_InsertJobRun_Call) Return(id string, err error) *MockStore_I
 }
 
 func (_c *MockStore_InsertJobRun_Call) RunAndReturn(run func(context.Context, string) (string, error)) *MockStore_InsertJobRun_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// InsertNotificationAttempt provides a mock function with given fields: ctx, alertID, succeeded, httpStatus, errText
+func (_m *MockStore) InsertNotificationAttempt(ctx context.Context, alertID string, succeeded bool, httpStatus int, errText string) error {
+	ret := _m.Called(ctx, alertID, succeeded, httpStatus, errText)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InsertNotificationAttempt")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, bool, int, string) error); ok {
+		r0 = rf(ctx, alertID, succeeded, httpStatus, errText)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockStore_InsertNotificationAttempt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InsertNotificationAttempt'
+type MockStore_InsertNotificationAttempt_Call struct {
+	*mock.Call
+}
+
+// InsertNotificationAttempt is a helper method to define mock.On call
+//   - ctx context.Context
+//   - alertID string
+//   - succeeded bool
+//   - httpStatus int
+//   - errText string
+func (_e *MockStore_Expecter) InsertNotificationAttempt(ctx interface{}, alertID interface{}, succeeded interface{}, httpStatus interface{}, errText interface{}) *MockStore_InsertNotificationAttempt_Call {
+	return &MockStore_InsertNotificationAttempt_Call{Call: _e.mock.On("InsertNotificationAttempt", ctx, alertID, succeeded, httpStatus, errText)}
+}
+
+func (_c *MockStore_InsertNotificationAttempt_Call) Run(run func(ctx context.Context, alertID string, succeeded bool, httpStatus int, errText string)) *MockStore_InsertNotificationAttempt_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(bool), args[3].(int), args[4].(string))
+	})
+	return _c
+}
+
+func (_c *MockStore_InsertNotificationAttempt_Call) Return(_a0 error) *MockStore_InsertNotificationAttempt_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockStore_InsertNotificationAttempt_Call) RunAndReturn(run func(context.Context, string, bool, int, string) error) *MockStore_InsertNotificationAttempt_Call {
 	_c.Call.Return(run)
 	return _c
 }

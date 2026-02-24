@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/donaldgifford/server-price-tracker/internal/config"
 	"github.com/donaldgifford/server-price-tracker/internal/ebay"
 	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	"github.com/donaldgifford/server-price-tracker/internal/notify"
@@ -31,6 +32,7 @@ type Engine struct {
 	maxCallsPerCycle   int
 	baselineWindowDays int
 	staggerOffset      time.Duration
+	alertsConfig       config.AlertsConfig
 }
 
 // NewEngine creates a new Engine with injected dependencies.
@@ -106,6 +108,13 @@ func WithAnalyticsClient(ac *ebay.AnalyticsClient) EngineOption {
 func WithRateLimiter(rl *ebay.RateLimiter) EngineOption {
 	return func(e *Engine) {
 		e.rateLimiter = rl
+	}
+}
+
+// WithAlertsConfig sets the alert behavior configuration.
+func WithAlertsConfig(cfg config.AlertsConfig) EngineOption {
+	return func(e *Engine) {
+		e.alertsConfig = cfg
 	}
 }
 
@@ -282,6 +291,23 @@ func (eng *Engine) evaluateAlert(
 
 	if !w.Filters.Match(listing) {
 		return
+	}
+
+	// When re-alerts are enabled, skip listings notified within the cooldown window.
+	if eng.alertsConfig.ReAlertsEnabled {
+		recent, err := eng.store.HasRecentAlert(
+			ctx, w.ID, listing.ID, eng.alertsConfig.ReAlertsCooldown,
+		)
+		if err != nil {
+			eng.log.Error("checking recent alert failed", "listing", listing.ID, "error", err)
+			return
+		}
+		if recent {
+			eng.log.Debug("skipping alert: within cooldown window",
+				"watch", w.Name, "listing", listing.ID,
+			)
+			return
+		}
 	}
 
 	alert := &domain.Alert{

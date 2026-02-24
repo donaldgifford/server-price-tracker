@@ -19,6 +19,7 @@ type Config struct {
 	LLM           LLMConfig           `yaml:"llm"`
 	Scoring       ScoringConfig       `yaml:"scoring"`
 	Schedule      ScheduleConfig      `yaml:"schedule"`
+	Alerts        AlertsConfig        `yaml:"alerts"`
 	Notifications NotificationsConfig `yaml:"notifications"`
 	Logging       LoggingConfig       `yaml:"logging"`
 }
@@ -141,6 +142,12 @@ type WebhookConfig struct {
 	Headers map[string]string `yaml:"headers"`
 }
 
+// AlertsConfig defines alert behavior.
+type AlertsConfig struct {
+	ReAlertsEnabled  bool          `yaml:"re_alerts_enabled"`  // default: false
+	ReAlertsCooldown time.Duration `yaml:"re_alerts_cooldown"` // default: 24h
+}
+
 // LoggingConfig defines logging settings.
 type LoggingConfig struct {
 	Level  string `yaml:"level"`  // debug, info, warn, error
@@ -179,6 +186,7 @@ func applyDefaults(cfg *Config) {
 	applyLLMDefaults(&cfg.LLM)
 	applyScoringDefaults(&cfg.Scoring)
 	applyScheduleDefaults(&cfg.Schedule)
+	applyAlertsDefaults(&cfg.Alerts)
 	applyLoggingDefaults(&cfg.Logging)
 }
 
@@ -264,6 +272,12 @@ func applyScheduleDefaults(s *ScheduleConfig) {
 	}
 	if s.StaggerOffset == 0 {
 		s.StaggerOffset = 30 * time.Second
+	}
+}
+
+func applyAlertsDefaults(a *AlertsConfig) {
+	if a.ReAlertsCooldown == 0 {
+		a.ReAlertsCooldown = 24 * time.Hour
 	}
 }
 
