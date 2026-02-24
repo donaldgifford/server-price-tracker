@@ -39,7 +39,7 @@ func (h *ExtractionStatsHandler) Stats(
 ) (*ExtractionStatsOutput, error) {
 	state, err := h.store.GetSystemState(ctx)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to get extraction stats")
+		return nil, huma.Error500InternalServerError("failed to get extraction stats: " + err.Error())
 	}
 
 	resp := &ExtractionStatsOutput{}
