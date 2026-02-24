@@ -71,13 +71,28 @@ type Store interface {
 	HasSuccessfulNotification(ctx context.Context, alertID string) (bool, error)
 
 	// Counts
+	//
+	// Deprecated: use GetSystemState.
 	CountWatches(ctx context.Context) (total int, enabled int, err error)
+	//
+	// Deprecated: use GetSystemState.
 	CountListings(ctx context.Context) (int, error)
+	//
+	// Deprecated: use GetSystemState.
 	CountUnextractedListings(ctx context.Context) (int, error)
+	//
+	// Deprecated: use GetSystemState.
 	CountUnscoredListings(ctx context.Context) (int, error)
+	//
+	// Deprecated: use GetSystemState.
 	CountPendingAlerts(ctx context.Context) (int, error)
+	//
+	// Deprecated: use GetSystemState.
 	CountBaselinesByMaturity(ctx context.Context) (cold int, warm int, err error)
+	//
+	// Deprecated: use GetSystemState.
 	CountProductKeysWithoutBaseline(ctx context.Context) (int, error)
+	GetSystemState(ctx context.Context) (*domain.SystemState, error)
 
 	// Scheduler
 	InsertJobRun(ctx context.Context, jobName string) (id string, err error)

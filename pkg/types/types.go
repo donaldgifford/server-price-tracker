@@ -131,6 +131,22 @@ type ExtractionJob struct {
 	Attempts   int       `json:"attempts"    db:"attempts"`
 }
 
+// SystemState holds a precomputed snapshot of aggregate system metrics.
+type SystemState struct {
+	WatchesTotal                 int `json:"watches_total"                  db:"watches_total"`
+	WatchesEnabled               int `json:"watches_enabled"                db:"watches_enabled"`
+	ListingsTotal                int `json:"listings_total"                 db:"listings_total"`
+	ListingsUnextracted          int `json:"listings_unextracted"           db:"listings_unextracted"`
+	ListingsUnscored             int `json:"listings_unscored"              db:"listings_unscored"`
+	AlertsPending                int `json:"alerts_pending"                 db:"alerts_pending"`
+	BaselinesTotal               int `json:"baselines_total"                db:"baselines_total"`
+	BaselinesWarm                int `json:"baselines_warm"                 db:"baselines_warm"`
+	BaselinesCold                int `json:"baselines_cold"                 db:"baselines_cold"`
+	ProductKeysNoBaseline        int `json:"product_keys_no_baseline"       db:"product_keys_no_baseline"`
+	ListingsIncompleteExtraction int `json:"listings_incomplete_extraction" db:"listings_incomplete_extraction"`
+	ExtractionQueueDepth         int `json:"extraction_queue_depth"         db:"extraction_queue_depth"`
+}
+
 // WatchFilters defines the structured filtering criteria.
 type WatchFilters struct {
 	// Price

@@ -598,7 +598,7 @@ scattered across the codebase.
 
 ### Migration
 
-- [ ] Create `migrations/005_system_state_view.sql`:
+- [x] Create `migrations/005_system_state_view.sql`:
 
   ```sql
   -- Precomputed aggregate view for Prometheus scrape.
@@ -633,14 +633,14 @@ scattered across the codebase.
                                                                 AS extraction_queue_depth;
   ```
 
-- [ ] Copy migration to `internal/store/migrations/005_system_state_view.sql`
+- [x] Copy migration to `internal/store/migrations/005_system_state_view.sql`
 
 ---
 
 ### Store Interface (`internal/store/store.go`)
 
-- [ ] Add `GetSystemState(ctx context.Context) (*domain.SystemState, error)` to `Store` interface
-- [ ] Remove (or deprecate) individual count methods that are now covered by the view:
+- [x] Add `GetSystemState(ctx context.Context) (*domain.SystemState, error)` to `Store` interface
+- [x] Remove (or deprecate) individual count methods that are now covered by the view:
   - `CountWatches`, `CountListings`, `CountUnextractedListings`, `CountUnscoredListings`,
     `CountPendingAlerts`, `CountBaselinesByMaturity`, `CountProductKeysWithoutBaseline`,
     `CountIncompleteExtractions`, `CountPendingExtractionJobs`
@@ -651,7 +651,7 @@ scattered across the codebase.
 
 ### Domain Types (`pkg/types/types.go`)
 
-- [ ] Add `SystemState` struct mirroring the view columns:
+- [x] Add `SystemState` struct mirroring the view columns:
   ```go
   type SystemState struct {
       WatchesTotal              int `json:"watches_total"`
@@ -673,14 +673,14 @@ scattered across the codebase.
 
 ### PostgreSQL Store (`internal/store/postgres.go`)
 
-- [ ] Add `queryGetSystemState` constant — `SELECT * FROM system_state`
-- [ ] Implement `GetSystemState` — single query, scan all columns
+- [x] Add `queryGetSystemState` constant — `SELECT * FROM system_state`
+- [x] Implement `GetSystemState` — single query, scan all columns
 
 ---
 
 ### Engine (`internal/engine/engine.go`)
 
-- [ ] Rewrite `SyncStateMetrics(ctx context.Context)`:
+- [x] Rewrite `SyncStateMetrics(ctx context.Context)`:
   1. Call `store.GetSystemState(ctx)` — one DB round-trip
   2. Set all gauges from `SystemState` fields:
      ```go
@@ -694,7 +694,7 @@ scattered across the codebase.
 
 ### Expose System State via API
 
-- [ ] Add `GET /api/v1/system/state` handler:
+- [x] Add `GET /api/v1/system/state` handler:
   - Returns `SystemState` JSON directly from DB
   - Registered in `if s != nil` block in `serve.go`
   - This makes operational dashboards possible without Prometheus
@@ -703,10 +703,10 @@ scattered across the codebase.
 
 ### Tests
 
-- [ ] `TestSyncStateMetrics_UsesGetSystemState` — verify `GetSystemState` is called once and all gauges are set correctly
-- [ ] `TestGetSystemState_ReturnsAllFields` — integration test against real view (tagged `//go:build integration`)
-- [ ] Update all existing `TestSyncStateMetrics_*` tests to use new mock shape
-- [ ] Run `make test && make lint`
+- [x] `TestSyncStateMetrics_UsesGetSystemState` — verify `GetSystemState` is called once and all gauges are set correctly
+- [x] `TestGetSystemState_ReturnsAllFields` — integration test against real view (tagged `//go:build integration`)
+- [x] Update all existing `TestSyncStateMetrics_*` tests to use new mock shape
+- [x] Run `make test && make lint`
 
 ---
 

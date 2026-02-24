@@ -33,20 +33,11 @@ func quietLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
-// expectCountMethods sets up Maybe expectations for all Store count methods
-// so that tests exercising RunIngestion (which calls SyncStateMetrics) don't
-// fail on unexpected calls. Returns zeroes for all counts.
+// expectCountMethods sets up Maybe expectations for the GetSystemState call and
+// UpdateWatchLastPolled so that tests exercising RunIngestion (which calls
+// SyncStateMetrics) don't fail on unexpected calls.
 func expectCountMethods(ms *storeMocks.MockStore) {
-	ms.EXPECT().CountWatches(mock.Anything).Return(0, 0, nil).Maybe()
-	ms.EXPECT().CountListings(mock.Anything).Return(0, nil).Maybe()
-	ms.EXPECT().CountUnextractedListings(mock.Anything).Return(0, nil).Maybe()
-	ms.EXPECT().CountUnscoredListings(mock.Anything).Return(0, nil).Maybe()
-	ms.EXPECT().CountPendingAlerts(mock.Anything).Return(0, nil).Maybe()
-	ms.EXPECT().CountBaselinesByMaturity(mock.Anything).Return(0, 0, nil).Maybe()
-	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(0, nil).Maybe()
-	ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(0, nil).Maybe()
-	ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(nil, nil).Maybe()
-	ms.EXPECT().CountPendingExtractionJobs(mock.Anything).Return(0, nil).Maybe()
+	ms.EXPECT().GetSystemState(mock.Anything).Return(&domain.SystemState{}, nil).Maybe()
 	ms.EXPECT().UpdateWatchLastPolled(mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 }
 
@@ -946,45 +937,28 @@ func TestSyncQuota_NilAnalyticsClientIsNoOp(t *testing.T) {
 	eng.SyncQuota(context.Background())
 }
 
-func TestSyncStateMetrics_SetsAllGauges(t *testing.T) {
+func TestSyncStateMetrics_UsesGetSystemState(t *testing.T) {
 	// Not parallel: uses global Prometheus gauges that can race with other tests.
 	ms := storeMocks.NewMockStore(t)
 	me := ebayMocks.NewMockEbayClient(t)
 	mx := extractMocks.NewMockExtractor(t)
 	mn := notifyMocks.NewMockNotifier(t)
 
-	ms.EXPECT().CountWatches(mock.Anything).Return(5, 3, nil).Once()
-	ms.EXPECT().CountListings(mock.Anything).Return(100, nil).Once()
-	ms.EXPECT().CountUnextractedListings(mock.Anything).Return(10, nil).Once()
-	ms.EXPECT().CountUnscoredListings(mock.Anything).Return(5, nil).Once()
-	ms.EXPECT().CountPendingAlerts(mock.Anything).Return(2, nil).Once()
-	ms.EXPECT().CountBaselinesByMaturity(mock.Anything).Return(3, 12, nil).Once()
-	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(7, nil).Once()
-	ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(42, nil).Once()
-	ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(map[string]int{"ram": 38, "drive": 4}, nil).Once()
-	ms.EXPECT().CountPendingExtractionJobs(mock.Anything).Return(8, nil).Once()
+	state := &domain.SystemState{
+		WatchesTotal:   10,
+		WatchesEnabled: 8,
+		ListingsTotal:  500,
+	}
+	ms.EXPECT().GetSystemState(mock.Anything).Return(state, nil).Once()
 
 	eng := NewEngine(ms, me, mx, mn,
 		WithLogger(quietLogger()),
 	)
 
 	eng.SyncStateMetrics(context.Background())
-
-	assert.InDelta(t, 5, ptestutil.ToFloat64(metrics.WatchesTotal), 0.1)
-	assert.InDelta(t, 3, ptestutil.ToFloat64(metrics.WatchesEnabled), 0.1)
-	assert.InDelta(t, 100, ptestutil.ToFloat64(metrics.ListingsTotal), 0.1)
-	assert.InDelta(t, 10, ptestutil.ToFloat64(metrics.ListingsUnextracted), 0.1)
-	assert.InDelta(t, 5, ptestutil.ToFloat64(metrics.ListingsUnscored), 0.1)
-	assert.InDelta(t, 2, ptestutil.ToFloat64(metrics.AlertsPending), 0.1)
-	assert.InDelta(t, 3, ptestutil.ToFloat64(metrics.BaselinesCold), 0.1)
-	assert.InDelta(t, 12, ptestutil.ToFloat64(metrics.BaselinesWarm), 0.1)
-	assert.InDelta(t, 15, ptestutil.ToFloat64(metrics.BaselinesTotal), 0.1)
-	assert.InDelta(t, 7, ptestutil.ToFloat64(metrics.ProductKeysNoBaseline), 0.1)
-	assert.InDelta(t, 42, ptestutil.ToFloat64(metrics.ListingsIncompleteExtraction), 0.1)
-	assert.InDelta(t, 8, ptestutil.ToFloat64(metrics.ExtractionQueueDepth), 0.1)
 }
 
-func TestSyncStateMetrics_StoreErrorDoesNotPanic(t *testing.T) {
+func TestSyncStateMetrics_GetSystemStateError(t *testing.T) {
 	t.Parallel()
 
 	ms := storeMocks.NewMockStore(t)
@@ -992,17 +966,7 @@ func TestSyncStateMetrics_StoreErrorDoesNotPanic(t *testing.T) {
 	mx := extractMocks.NewMockExtractor(t)
 	mn := notifyMocks.NewMockNotifier(t)
 
-	// All count methods return errors.
-	ms.EXPECT().CountWatches(mock.Anything).Return(0, 0, errors.New("db error")).Once()
-	ms.EXPECT().CountListings(mock.Anything).Return(0, errors.New("db error")).Once()
-	ms.EXPECT().CountUnextractedListings(mock.Anything).Return(0, errors.New("db error")).Once()
-	ms.EXPECT().CountUnscoredListings(mock.Anything).Return(0, errors.New("db error")).Once()
-	ms.EXPECT().CountPendingAlerts(mock.Anything).Return(0, errors.New("db error")).Once()
-	ms.EXPECT().CountBaselinesByMaturity(mock.Anything).Return(0, 0, errors.New("db error")).Once()
-	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(0, errors.New("db error")).Once()
-	ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(0, errors.New("db error")).Once()
-	ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(nil, errors.New("db error")).Once()
-	ms.EXPECT().CountPendingExtractionJobs(mock.Anything).Return(0, errors.New("db error")).Once()
+	ms.EXPECT().GetSystemState(mock.Anything).Return(nil, errors.New("db error")).Once()
 
 	eng := NewEngine(ms, me, mx, mn,
 		WithLogger(quietLogger()),

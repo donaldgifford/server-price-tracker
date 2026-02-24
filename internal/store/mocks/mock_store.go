@@ -1187,6 +1187,64 @@ func (_c *MockStore_GetListingByID_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
+// GetSystemState provides a mock function with given fields: ctx
+func (_m *MockStore) GetSystemState(ctx context.Context) (*domain.SystemState, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSystemState")
+	}
+
+	var r0 *domain.SystemState
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (*domain.SystemState, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) *domain.SystemState); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*domain.SystemState)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_GetSystemState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSystemState'
+type MockStore_GetSystemState_Call struct {
+	*mock.Call
+}
+
+// GetSystemState is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockStore_Expecter) GetSystemState(ctx interface{}) *MockStore_GetSystemState_Call {
+	return &MockStore_GetSystemState_Call{Call: _e.mock.On("GetSystemState", ctx)}
+}
+
+func (_c *MockStore_GetSystemState_Call) Run(run func(ctx context.Context)) *MockStore_GetSystemState_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *MockStore_GetSystemState_Call) Return(_a0 *domain.SystemState, _a1 error) *MockStore_GetSystemState_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_GetSystemState_Call) RunAndReturn(run func(context.Context) (*domain.SystemState, error)) *MockStore_GetSystemState_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetWatch provides a mock function with given fields: ctx, id
 func (_m *MockStore) GetWatch(ctx context.Context, id string) (*domain.Watch, error) {
 	ret := _m.Called(ctx, id)

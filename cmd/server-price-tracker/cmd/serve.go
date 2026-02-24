@@ -184,6 +184,9 @@ func registerRoutes(
 		extractionStatsH := handlers.NewExtractionStatsHandler(s)
 		handlers.RegisterExtractionStatsRoutes(humaAPI, extractionStatsH)
 
+		systemStateH := handlers.NewSystemStateHandler(s)
+		handlers.RegisterSystemStateRoutes(humaAPI, systemStateH)
+
 		jobsH := handlers.NewJobsHandler(s)
 		handlers.RegisterJobRoutes(humaAPI, jobsH)
 	}

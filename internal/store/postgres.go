@@ -548,6 +548,23 @@ func (s *PostgresStore) CountProductKeysWithoutBaseline(ctx context.Context) (in
 	return count, nil
 }
 
+// GetSystemState queries the system_state view for a single-row snapshot.
+func (s *PostgresStore) GetSystemState(ctx context.Context) (*domain.SystemState, error) {
+	var st domain.SystemState
+	err := s.pool.QueryRow(ctx, queryGetSystemState).Scan(
+		&st.WatchesTotal, &st.WatchesEnabled,
+		&st.ListingsTotal, &st.ListingsUnextracted, &st.ListingsUnscored,
+		&st.AlertsPending,
+		&st.BaselinesTotal, &st.BaselinesWarm, &st.BaselinesCold,
+		&st.ProductKeysNoBaseline, &st.ListingsIncompleteExtraction,
+		&st.ExtractionQueueDepth,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("getting system state: %w", err)
+	}
+	return &st, nil
+}
+
 // ListIncompleteExtractions returns listings with incomplete extraction data.
 // If componentType is empty, returns all component types. Otherwise filters by type.
 func (s *PostgresStore) ListIncompleteExtractions(

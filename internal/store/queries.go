@@ -326,6 +326,16 @@ const (
 		SELECT COUNT(*) FROM extraction_queue WHERE completed_at IS NULL`
 )
 
+// System state query.
+const queryGetSystemState = `SELECT
+    watches_total, watches_enabled,
+    listings_total, listings_unextracted, listings_unscored,
+    alerts_pending,
+    baselines_total, baselines_warm, baselines_cold,
+    product_keys_no_baseline, listings_incomplete_extraction,
+    extraction_queue_depth
+FROM system_state`
+
 // Alert queries.
 const (
 	queryCreateAlert = `
