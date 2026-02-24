@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -221,7 +222,7 @@ func (s *PostgresStore) GetWatch(ctx context.Context, id string) (*domain.Watch,
 
 	err := s.pool.QueryRow(ctx, queryGetWatch, id).Scan(
 		&w.ID, &w.Name, &w.SearchQuery, &w.CategoryID, &w.ComponentType,
-		&filtersJSON, &w.ScoreThreshold, &w.Enabled, &w.CreatedAt, &w.UpdatedAt,
+		&filtersJSON, &w.ScoreThreshold, &w.Enabled, &w.LastPolledAt, &w.CreatedAt, &w.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -257,7 +258,7 @@ func (s *PostgresStore) ListWatches(
 
 		if err := rows.Scan(
 			&w.ID, &w.Name, &w.SearchQuery, &w.CategoryID, &w.ComponentType,
-			&filtersJSON, &w.ScoreThreshold, &w.Enabled, &w.CreatedAt, &w.UpdatedAt,
+			&filtersJSON, &w.ScoreThreshold, &w.Enabled, &w.LastPolledAt, &w.CreatedAt, &w.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning watch: %w", err)
 		}
@@ -564,6 +565,141 @@ func (s *PostgresStore) CountIncompleteExtractionsByType(ctx context.Context) (m
 	}
 
 	return result, rows.Err()
+}
+
+// InsertJobRun records the start of a scheduled job and returns its UUID.
+func (s *PostgresStore) InsertJobRun(ctx context.Context, jobName string) (string, error) {
+	var id string
+	if err := s.pool.QueryRow(ctx, queryInsertJobRun, jobName).Scan(&id); err != nil {
+		return "", fmt.Errorf("inserting job run: %w", err)
+	}
+	return id, nil
+}
+
+// CompleteJobRun marks a job run as finished with the given status and metadata.
+func (s *PostgresStore) CompleteJobRun(
+	ctx context.Context,
+	id string,
+	status string,
+	errText string,
+	rowsAffected int,
+) error {
+	_, err := s.pool.Exec(ctx, queryCompleteJobRun, id, status, errText, rowsAffected)
+	if err != nil {
+		return fmt.Errorf("completing job run: %w", err)
+	}
+	return nil
+}
+
+// ListJobRuns returns the most recent runs for a specific job, newest first.
+func (s *PostgresStore) ListJobRuns(
+	ctx context.Context,
+	jobName string,
+	limit int,
+) ([]domain.JobRun, error) {
+	rows, err := s.pool.Query(ctx, queryListJobRuns, jobName, limit)
+	if err != nil {
+		return nil, fmt.Errorf("querying job runs: %w", err)
+	}
+	defer rows.Close()
+
+	return scanJobRuns(rows)
+}
+
+// ListLatestJobRuns returns the single most recent run for each distinct job name.
+func (s *PostgresStore) ListLatestJobRuns(ctx context.Context) ([]domain.JobRun, error) {
+	rows, err := s.pool.Query(ctx, queryListLatestJobRuns)
+	if err != nil {
+		return nil, fmt.Errorf("querying latest job runs: %w", err)
+	}
+	defer rows.Close()
+
+	return scanJobRuns(rows)
+}
+
+// UpdateWatchLastPolled sets the last_polled_at timestamp for a watch.
+func (s *PostgresStore) UpdateWatchLastPolled(
+	ctx context.Context,
+	watchID string,
+	t time.Time,
+) error {
+	_, err := s.pool.Exec(ctx, queryUpdateWatchLastPolled, watchID, t)
+	if err != nil {
+		return fmt.Errorf("updating watch last_polled_at: %w", err)
+	}
+	return nil
+}
+
+// RecoverStaleJobRuns marks any 'running' job rows older than olderThan as 'crashed',
+// then deletes all rows older than 30 days. Returns the number of rows marked as crashed.
+func (s *PostgresStore) RecoverStaleJobRuns(
+	ctx context.Context,
+	olderThan time.Duration,
+) (int, error) {
+	cutoff := time.Now().Add(-olderThan)
+
+	tag, err := s.pool.Exec(ctx, queryMarkStaleJobRunsCrashed, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("marking stale job runs crashed: %w", err)
+	}
+	affected := int(tag.RowsAffected())
+
+	if _, err := s.pool.Exec(ctx, queryDeleteOldJobRuns); err != nil {
+		return affected, fmt.Errorf("deleting old job runs: %w", err)
+	}
+
+	return affected, nil
+}
+
+// AcquireSchedulerLock attempts to acquire a distributed lock for the given job.
+// Returns true if the lock was acquired, false if another holder already owns it.
+func (s *PostgresStore) AcquireSchedulerLock(
+	ctx context.Context,
+	jobName string,
+	holder string,
+	ttl time.Duration,
+) (bool, error) {
+	expiresAt := time.Now().Add(ttl)
+
+	var gotName string
+	err := s.pool.QueryRow(ctx, queryAcquireSchedulerLock, jobName, holder, expiresAt).Scan(&gotName)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil // lock held by another; conflict not replaced
+	}
+	if err != nil {
+		return false, fmt.Errorf("acquiring scheduler lock: %w", err)
+	}
+
+	return true, nil
+}
+
+// ReleaseSchedulerLock deletes the lock row for the given job and holder.
+func (s *PostgresStore) ReleaseSchedulerLock(
+	ctx context.Context,
+	jobName string,
+	holder string,
+) error {
+	_, err := s.pool.Exec(ctx, queryReleaseSchedulerLock, jobName, holder)
+	if err != nil {
+		return fmt.Errorf("releasing scheduler lock: %w", err)
+	}
+	return nil
+}
+
+// scanJobRuns scans rows from a job_runs query into a slice.
+func scanJobRuns(rows pgx.Rows) ([]domain.JobRun, error) {
+	var runs []domain.JobRun
+	for rows.Next() {
+		var r domain.JobRun
+		if err := rows.Scan(
+			&r.ID, &r.JobName, &r.StartedAt, &r.CompletedAt,
+			&r.Status, &r.ErrorText, &r.RowsAffected,
+		); err != nil {
+			return nil, fmt.Errorf("scanning job run: %w", err)
+		}
+		runs = append(runs, r)
+	}
+	return runs, rows.Err()
 }
 
 // queryListings is a helper for listing queries with a LIMIT parameter.

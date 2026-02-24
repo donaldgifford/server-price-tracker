@@ -115,19 +115,19 @@ const (
 
 	queryGetWatch = `
 		SELECT id, name, search_query, category_id, component_type,
-			filters, score_threshold, enabled, created_at, updated_at
+			filters, score_threshold, enabled, last_polled_at, created_at, updated_at
 		FROM watches
 		WHERE id = $1`
 
 	queryListWatchesAll = `
 		SELECT id, name, search_query, category_id, component_type,
-			filters, score_threshold, enabled, created_at, updated_at
+			filters, score_threshold, enabled, last_polled_at, created_at, updated_at
 		FROM watches
 		ORDER BY created_at DESC`
 
 	queryListWatchesEnabled = `
 		SELECT id, name, search_query, category_id, component_type,
-			filters, score_threshold, enabled, created_at, updated_at
+			filters, score_threshold, enabled, last_polled_at, created_at, updated_at
 		FROM watches
 		WHERE enabled = true
 		ORDER BY created_at DESC`
@@ -236,6 +236,62 @@ const (
 			OR (component_type = 'drive' AND (product_key LIKE '%:unknown%'))
 		)
 		GROUP BY component_type`
+)
+
+// Scheduler queries.
+const (
+	queryInsertJobRun = `
+		INSERT INTO job_runs (job_name)
+		VALUES ($1)
+		RETURNING id`
+
+	queryCompleteJobRun = `
+		UPDATE job_runs SET
+			completed_at  = now(),
+			status        = $2,
+			error_text    = $3,
+			rows_affected = $4
+		WHERE id = $1`
+
+	queryListJobRuns = `
+		SELECT id, job_name, started_at, completed_at, status,
+			COALESCE(error_text, ''), rows_affected
+		FROM job_runs
+		WHERE job_name = $1
+		ORDER BY started_at DESC
+		LIMIT $2`
+
+	queryListLatestJobRuns = `
+		SELECT DISTINCT ON (job_name)
+			id, job_name, started_at, completed_at, status,
+			COALESCE(error_text, ''), rows_affected
+		FROM job_runs
+		ORDER BY job_name, started_at DESC`
+
+	queryUpdateWatchLastPolled = `
+		UPDATE watches SET last_polled_at = $2 WHERE id = $1`
+
+	queryMarkStaleJobRunsCrashed = `
+		UPDATE job_runs SET
+			status       = 'crashed',
+			completed_at = now()
+		WHERE status = 'running' AND started_at < $1`
+
+	queryDeleteOldJobRuns = `
+		DELETE FROM job_runs WHERE started_at < now() - interval '30 days'`
+
+	queryAcquireSchedulerLock = `
+		INSERT INTO scheduler_locks (job_name, lock_holder, expires_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (job_name) DO UPDATE
+			SET locked_at   = now(),
+				lock_holder = EXCLUDED.lock_holder,
+				expires_at  = EXCLUDED.expires_at
+			WHERE scheduler_locks.expires_at < now()
+		RETURNING job_name`
+
+	queryReleaseSchedulerLock = `
+		DELETE FROM scheduler_locks WHERE job_name = $1 AND lock_holder = $2`
 )
 
 // Alert queries.

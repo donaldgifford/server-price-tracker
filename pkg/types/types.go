@@ -97,16 +97,28 @@ func (l *Listing) UnitPrice() float64 {
 
 // Watch represents a saved search with alert configuration.
 type Watch struct {
-	ID             string        `json:"id"                    db:"id"`
-	Name           string        `json:"name"                  db:"name"`
-	SearchQuery    string        `json:"search_query"          db:"search_query"`
-	CategoryID     string        `json:"category_id,omitempty" db:"category_id"`
-	ComponentType  ComponentType `json:"component_type"        db:"component_type"`
-	Filters        WatchFilters  `json:"filters"               db:"filters"`
-	ScoreThreshold int           `json:"score_threshold"       db:"score_threshold"`
-	Enabled        bool          `json:"enabled"               db:"enabled"`
-	CreatedAt      time.Time     `json:"created_at"            db:"created_at"`
-	UpdatedAt      time.Time     `json:"updated_at"            db:"updated_at"`
+	ID             string        `json:"id"                       db:"id"`
+	Name           string        `json:"name"                     db:"name"`
+	SearchQuery    string        `json:"search_query"             db:"search_query"`
+	CategoryID     string        `json:"category_id,omitempty"    db:"category_id"`
+	ComponentType  ComponentType `json:"component_type"           db:"component_type"`
+	Filters        WatchFilters  `json:"filters"                  db:"filters"`
+	ScoreThreshold int           `json:"score_threshold"          db:"score_threshold"`
+	Enabled        bool          `json:"enabled"                  db:"enabled"`
+	LastPolledAt   *time.Time    `json:"last_polled_at,omitempty" db:"last_polled_at"`
+	CreatedAt      time.Time     `json:"created_at"               db:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"               db:"updated_at"`
+}
+
+// JobRun records a single execution of a scheduled job.
+type JobRun struct {
+	ID           string     `json:"id"                      db:"id"`
+	JobName      string     `json:"job_name"                db:"job_name"`
+	StartedAt    time.Time  `json:"started_at"              db:"started_at"`
+	CompletedAt  *time.Time `json:"completed_at,omitempty"  db:"completed_at"`
+	Status       string     `json:"status"                  db:"status"`
+	ErrorText    string     `json:"error_text,omitempty"    db:"error_text"`
+	RowsAffected *int       `json:"rows_affected,omitempty" db:"rows_affected"`
 }
 
 // WatchFilters defines the structured filtering criteria.

@@ -172,6 +172,9 @@ func registerRoutes(
 
 		extractionStatsH := handlers.NewExtractionStatsHandler(s)
 		handlers.RegisterExtractionStatsRoutes(humaAPI, extractionStatsH)
+
+		jobsH := handlers.NewJobsHandler(s)
+		handlers.RegisterJobRoutes(humaAPI, jobsH)
 	}
 
 	// Search (Huma).
@@ -314,6 +317,7 @@ func buildEngine(
 
 	sched, err := engine.NewScheduler(
 		eng,
+		s,
 		cfg.Schedule.IngestionInterval,
 		cfg.Schedule.BaselineInterval,
 		cfg.Schedule.ReExtractionInterval,
@@ -327,6 +331,10 @@ func buildEngine(
 		"ingestion_interval", cfg.Schedule.IngestionInterval,
 		"baseline_interval", cfg.Schedule.BaselineInterval,
 	)
+
+	// Recover any job runs that were left in 'running' state at last crash.
+	sched.RecoverStaleJobRuns(context.Background())
+
 	return eng, sched
 }
 

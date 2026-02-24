@@ -6,6 +6,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
@@ -74,6 +75,16 @@ type Store interface {
 	CountPendingAlerts(ctx context.Context) (int, error)
 	CountBaselinesByMaturity(ctx context.Context) (cold int, warm int, err error)
 	CountProductKeysWithoutBaseline(ctx context.Context) (int, error)
+
+	// Scheduler
+	InsertJobRun(ctx context.Context, jobName string) (id string, err error)
+	CompleteJobRun(ctx context.Context, id string, status string, errText string, rowsAffected int) error
+	ListJobRuns(ctx context.Context, jobName string, limit int) ([]domain.JobRun, error)
+	ListLatestJobRuns(ctx context.Context) ([]domain.JobRun, error)
+	UpdateWatchLastPolled(ctx context.Context, watchID string, t time.Time) error
+	RecoverStaleJobRuns(ctx context.Context, olderThan time.Duration) (int, error)
+	AcquireSchedulerLock(ctx context.Context, jobName string, holder string, ttl time.Duration) (bool, error)
+	ReleaseSchedulerLock(ctx context.Context, jobName string, holder string) error
 
 	// Migrations
 	Migrate(ctx context.Context) error

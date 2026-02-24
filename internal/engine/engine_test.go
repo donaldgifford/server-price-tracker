@@ -46,6 +46,7 @@ func expectCountMethods(ms *storeMocks.MockStore) {
 	ms.EXPECT().CountProductKeysWithoutBaseline(mock.Anything).Return(0, nil).Maybe()
 	ms.EXPECT().CountIncompleteExtractions(mock.Anything).Return(0, nil).Maybe()
 	ms.EXPECT().CountIncompleteExtractionsByType(mock.Anything).Return(nil, nil).Maybe()
+	ms.EXPECT().UpdateWatchLastPolled(mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 }
 
 func newTestEngine(
@@ -1303,6 +1304,29 @@ func TestRunReExtraction_NoListings(t *testing.T) {
 	count, err := eng.RunReExtraction(context.Background(), "", 0)
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
+}
+
+func TestRunIngestion_WritesLastPolledAt(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	watch := domain.Watch{
+		ID: "w-poll", Name: "Poll Watch", SearchQuery: "test query", Enabled: true,
+	}
+	ms.EXPECT().ListWatches(mock.Anything, true).Return([]domain.Watch{watch}, nil).Once()
+	me.EXPECT().Search(mock.Anything, mock.Anything).Return(&ebay.SearchResponse{}, nil).Once()
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
+
+	err := eng.RunIngestion(context.Background())
+	require.NoError(t, err)
+
+	// UpdateWatchLastPolled must have been called for the processed watch.
+	ms.AssertNumberOfCalls(t, "UpdateWatchLastPolled", 1)
 }
 
 func TestRunReExtraction_DefaultLimit(t *testing.T) {

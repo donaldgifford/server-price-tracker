@@ -131,6 +131,27 @@ func printBaselineDetail(b *domain.PriceBaseline) error {
 	return tw.finish()
 }
 
+func printJobRunsTable(runs []domain.JobRun) error {
+	tw := newTabWriter(os.Stdout)
+	tw.writef("JOB\tSTATUS\tSTARTED\tCOMPLETED\tERROR\n")
+	for i := range runs {
+		r := &runs[i]
+		completed := "-"
+		if r.CompletedAt != nil {
+			completed = r.CompletedAt.Format("2006-01-02 15:04:05")
+		}
+		errText := truncate(r.ErrorText, 40)
+		tw.writef("%s\t%s\t%s\t%s\t%s\n",
+			r.JobName,
+			r.Status,
+			r.StartedAt.Format("2006-01-02 15:04:05"),
+			completed,
+			errText,
+		)
+	}
+	return tw.finish()
+}
+
 func outputJSON(v any) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")

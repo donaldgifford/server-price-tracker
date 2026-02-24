@@ -142,6 +142,13 @@ func (eng *Engine) RunIngestion(ctx context.Context) error {
 		pagesUsed, processErr := eng.processWatch(ctx, w)
 		totalPages += pagesUsed
 
+		// Record last poll time regardless of processing outcome.
+		if pollErr := eng.store.UpdateWatchLastPolled(ctx, w.ID, time.Now()); pollErr != nil {
+			eng.log.Warn("failed to update watch last_polled_at",
+				"watch", w.Name, "error", pollErr,
+			)
+		}
+
 		if processErr != nil {
 			if errors.Is(processErr, ebay.ErrDailyLimitReached) {
 				eng.log.Warn("daily API limit reached, stopping ingestion",
