@@ -526,6 +526,10 @@ func (s *PostgresStore) LoadRateLimiterState(ctx context.Context) (*domain.RateL
 // ListListingsCursor returns up to limit listings with id > afterID, ordered by id ASC.
 // Pass an empty string for afterID to start from the beginning.
 func (s *PostgresStore) ListListingsCursor(ctx context.Context, afterID string, limit int) ([]domain.Listing, error) {
+	if afterID == "" {
+		// Nil UUID sorts before all gen_random_uuid() values.
+		afterID = "00000000-0000-0000-0000-000000000000"
+	}
 	rows, err := s.pool.Query(ctx, queryListListingsCursor, afterID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("listing listings by cursor: %w", err)
