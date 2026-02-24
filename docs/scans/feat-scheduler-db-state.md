@@ -19,6 +19,22 @@
 
 ## Findings
 
+### FIXED — Empty cursor string causes UUID cast error in ListListingsCursor
+
+**File:** `internal/store/postgres.go:529`
+**Commit:** `90b684e`
+**Severity:** Medium
+
+`ListListingsCursor` passed the empty string `""` directly into `WHERE id > $1`
+where `id` is `UUID`. PostgreSQL rejects this with `invalid input syntax for type uuid: ""`.
+The function's contract says "pass empty string to start from the beginning" but the
+query didn't implement that. Fixed by substituting the nil UUID
+(`00000000-0000-0000-0000-000000000000`) when `afterID == ""`, which is always less
+than any `gen_random_uuid()` value. Discovered when running `POST /api/v1/baselines/refresh`
+against a live database.
+
+---
+
 ### FIXED — Error detail swallowed in extraction stats handler
 
 **File:** `internal/api/handlers/extraction_stats.go:42`
