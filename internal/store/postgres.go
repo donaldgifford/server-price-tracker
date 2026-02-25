@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -221,7 +222,7 @@ func (s *PostgresStore) GetWatch(ctx context.Context, id string) (*domain.Watch,
 
 	err := s.pool.QueryRow(ctx, queryGetWatch, id).Scan(
 		&w.ID, &w.Name, &w.SearchQuery, &w.CategoryID, &w.ComponentType,
-		&filtersJSON, &w.ScoreThreshold, &w.Enabled, &w.CreatedAt, &w.UpdatedAt,
+		&filtersJSON, &w.ScoreThreshold, &w.Enabled, &w.LastPolledAt, &w.CreatedAt, &w.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -257,7 +258,7 @@ func (s *PostgresStore) ListWatches(
 
 		if err := rows.Scan(
 			&w.ID, &w.Name, &w.SearchQuery, &w.CategoryID, &w.ComponentType,
-			&filtersJSON, &w.ScoreThreshold, &w.Enabled, &w.CreatedAt, &w.UpdatedAt,
+			&filtersJSON, &w.ScoreThreshold, &w.Enabled, &w.LastPolledAt, &w.CreatedAt, &w.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning watch: %w", err)
 		}
@@ -443,68 +444,107 @@ func (s *PostgresStore) MarkAlertsNotified(ctx context.Context, ids []string) er
 	return nil
 }
 
-// CountWatches returns the total and enabled watch counts.
-func (s *PostgresStore) CountWatches(ctx context.Context) (int, int, error) {
-	var total, enabled int
-	if err := s.pool.QueryRow(ctx, queryCountWatches).Scan(&total, &enabled); err != nil {
-		return 0, 0, fmt.Errorf("counting watches: %w", err)
+// HasRecentAlert returns true if a notified alert for the same (watch, listing)
+// pair exists within the given cooldown window.
+func (s *PostgresStore) HasRecentAlert(
+	ctx context.Context,
+	watchID, listingID string,
+	cooldown time.Duration,
+) (bool, error) {
+	cutoff := time.Now().Add(-cooldown)
+	var exists bool
+	if err := s.pool.QueryRow(ctx, queryHasRecentAlert, watchID, listingID, cutoff).Scan(&exists); err != nil {
+		return false, fmt.Errorf("checking recent alert: %w", err)
 	}
-	return total, enabled, nil
+	return exists, nil
 }
 
-// CountListings returns the total number of listings.
-func (s *PostgresStore) CountListings(ctx context.Context) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, queryCountListings).Scan(&count); err != nil {
-		return 0, fmt.Errorf("counting listings: %w", err)
+// InsertNotificationAttempt records the outcome of a notification send attempt.
+func (s *PostgresStore) InsertNotificationAttempt(
+	ctx context.Context,
+	alertID string,
+	succeeded bool,
+	httpStatus int,
+	errText string,
+) error {
+	_, err := s.pool.Exec(ctx, queryInsertNotificationAttempt, alertID, succeeded, httpStatus, errText)
+	if err != nil {
+		return fmt.Errorf("inserting notification attempt: %w", err)
 	}
-	return count, nil
+	return nil
 }
 
-// CountUnextractedListings returns listings without LLM extraction.
-func (s *PostgresStore) CountUnextractedListings(ctx context.Context) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, queryCountUnextractedListings).Scan(&count); err != nil {
-		return 0, fmt.Errorf("counting unextracted listings: %w", err)
+// HasSuccessfulNotification returns true if at least one successful notification
+// attempt exists for the given alert.
+func (s *PostgresStore) HasSuccessfulNotification(ctx context.Context, alertID string) (bool, error) {
+	var exists bool
+	if err := s.pool.QueryRow(ctx, queryHasSuccessfulNotification, alertID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("checking successful notification: %w", err)
 	}
-	return count, nil
+	return exists, nil
 }
 
-// CountUnscoredListings returns listings extracted but not yet scored.
-func (s *PostgresStore) CountUnscoredListings(ctx context.Context) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, queryCountUnscoredListings).Scan(&count); err != nil {
-		return 0, fmt.Errorf("counting unscored listings: %w", err)
+// GetSystemState queries the system_state view for a single-row snapshot.
+func (s *PostgresStore) GetSystemState(ctx context.Context) (*domain.SystemState, error) {
+	var st domain.SystemState
+	err := s.pool.QueryRow(ctx, queryGetSystemState).Scan(
+		&st.WatchesTotal, &st.WatchesEnabled,
+		&st.ListingsTotal, &st.ListingsUnextracted, &st.ListingsUnscored,
+		&st.AlertsPending,
+		&st.BaselinesTotal, &st.BaselinesWarm, &st.BaselinesCold,
+		&st.ProductKeysNoBaseline, &st.ListingsIncompleteExtraction,
+		&st.ExtractionQueueDepth,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("getting system state: %w", err)
 	}
-	return count, nil
+	return &st, nil
 }
 
-// CountPendingAlerts returns the number of un-notified alerts.
-func (s *PostgresStore) CountPendingAlerts(ctx context.Context) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, queryCountPendingAlerts).Scan(&count); err != nil {
-		return 0, fmt.Errorf("counting pending alerts: %w", err)
+// PersistRateLimiterState upserts a single-row snapshot of eBay API quota state.
+func (s *PostgresStore) PersistRateLimiterState(ctx context.Context, tokensUsed, dailyLimit int, resetAt time.Time) error {
+	_, err := s.pool.Exec(ctx, queryPersistRateLimiterState, tokensUsed, dailyLimit, resetAt)
+	if err != nil {
+		return fmt.Errorf("persisting rate limiter state: %w", err)
 	}
-	return count, nil
+	return nil
 }
 
-// CountBaselinesByMaturity returns counts of cold (<10 samples) and warm (>=10) baselines.
-func (s *PostgresStore) CountBaselinesByMaturity(ctx context.Context) (int, int, error) {
-	var cold, warm int
-	if err := s.pool.QueryRow(ctx, queryCountBaselinesByMaturity).Scan(&cold, &warm); err != nil {
-		return 0, 0, fmt.Errorf("counting baselines by maturity: %w", err)
+// LoadRateLimiterState returns the last persisted eBay API quota snapshot.
+// Returns pgx.ErrNoRows when no state has been persisted yet.
+func (s *PostgresStore) LoadRateLimiterState(ctx context.Context) (*domain.RateLimiterState, error) {
+	var st domain.RateLimiterState
+	err := s.pool.QueryRow(ctx, queryLoadRateLimiterState).Scan(
+		&st.TokensUsed, &st.DailyLimit, &st.ResetAt, &st.SyncedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("loading rate limiter state: %w", err)
 	}
-	return cold, warm, nil
+	return &st, nil
 }
 
-// CountProductKeysWithoutBaseline returns the number of distinct product keys
-// in listings that have no corresponding price baseline.
-func (s *PostgresStore) CountProductKeysWithoutBaseline(ctx context.Context) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, queryCountProductKeysWithoutBaseline).Scan(&count); err != nil {
-		return 0, fmt.Errorf("counting product keys without baseline: %w", err)
+// ListListingsCursor returns up to limit listings with id > afterID, ordered by id ASC.
+// Pass an empty string for afterID to start from the beginning.
+func (s *PostgresStore) ListListingsCursor(ctx context.Context, afterID string, limit int) ([]domain.Listing, error) {
+	if afterID == "" {
+		// Nil UUID sorts before all gen_random_uuid() values.
+		afterID = "00000000-0000-0000-0000-000000000000"
 	}
-	return count, nil
+	rows, err := s.pool.Query(ctx, queryListListingsCursor, afterID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("listing listings by cursor: %w", err)
+	}
+	defer rows.Close()
+
+	var listings []domain.Listing
+	for rows.Next() {
+		var l domain.Listing
+		if err := scanListingRow(rows, &l); err != nil {
+			return nil, fmt.Errorf("scanning listing: %w", err)
+		}
+		listings = append(listings, l)
+	}
+	return listings, rows.Err()
 }
 
 // ListIncompleteExtractions returns listings with incomplete extraction data.
@@ -536,34 +576,139 @@ func (s *PostgresStore) ListIncompleteExtractions(
 	return listings, rows.Err()
 }
 
-// CountIncompleteExtractions returns the total count of listings with incomplete extraction data.
-func (s *PostgresStore) CountIncompleteExtractions(ctx context.Context) (int, error) {
-	var count int
-	if err := s.pool.QueryRow(ctx, queryCountIncompleteExtractions).Scan(&count); err != nil {
-		return 0, fmt.Errorf("counting incomplete extractions: %w", err)
+// InsertJobRun records the start of a scheduled job and returns its UUID.
+func (s *PostgresStore) InsertJobRun(ctx context.Context, jobName string) (string, error) {
+	var id string
+	if err := s.pool.QueryRow(ctx, queryInsertJobRun, jobName).Scan(&id); err != nil {
+		return "", fmt.Errorf("inserting job run: %w", err)
 	}
-	return count, nil
+	return id, nil
 }
 
-// CountIncompleteExtractionsByType returns incomplete extraction counts grouped by component type.
-func (s *PostgresStore) CountIncompleteExtractionsByType(ctx context.Context) (map[string]int, error) {
-	rows, err := s.pool.Query(ctx, queryCountIncompleteExtractionsByType)
+// CompleteJobRun marks a job run as finished with the given status and metadata.
+func (s *PostgresStore) CompleteJobRun(
+	ctx context.Context,
+	id string,
+	status string,
+	errText string,
+	rowsAffected int,
+) error {
+	_, err := s.pool.Exec(ctx, queryCompleteJobRun, id, status, errText, rowsAffected)
 	if err != nil {
-		return nil, fmt.Errorf("counting incomplete extractions by type: %w", err)
+		return fmt.Errorf("completing job run: %w", err)
+	}
+	return nil
+}
+
+// ListJobRuns returns the most recent runs for a specific job, newest first.
+func (s *PostgresStore) ListJobRuns(
+	ctx context.Context,
+	jobName string,
+	limit int,
+) ([]domain.JobRun, error) {
+	rows, err := s.pool.Query(ctx, queryListJobRuns, jobName, limit)
+	if err != nil {
+		return nil, fmt.Errorf("querying job runs: %w", err)
 	}
 	defer rows.Close()
 
-	result := make(map[string]int)
-	for rows.Next() {
-		var ct string
-		var count int
-		if err := rows.Scan(&ct, &count); err != nil {
-			return nil, fmt.Errorf("scanning incomplete extraction count: %w", err)
-		}
-		result[ct] = count
+	return scanJobRuns(rows)
+}
+
+// ListLatestJobRuns returns the single most recent run for each distinct job name.
+func (s *PostgresStore) ListLatestJobRuns(ctx context.Context) ([]domain.JobRun, error) {
+	rows, err := s.pool.Query(ctx, queryListLatestJobRuns)
+	if err != nil {
+		return nil, fmt.Errorf("querying latest job runs: %w", err)
+	}
+	defer rows.Close()
+
+	return scanJobRuns(rows)
+}
+
+// UpdateWatchLastPolled sets the last_polled_at timestamp for a watch.
+func (s *PostgresStore) UpdateWatchLastPolled(
+	ctx context.Context,
+	watchID string,
+	t time.Time,
+) error {
+	_, err := s.pool.Exec(ctx, queryUpdateWatchLastPolled, watchID, t)
+	if err != nil {
+		return fmt.Errorf("updating watch last_polled_at: %w", err)
+	}
+	return nil
+}
+
+// RecoverStaleJobRuns marks any 'running' job rows older than olderThan as 'crashed',
+// then deletes all rows older than 30 days. Returns the number of rows marked as crashed.
+func (s *PostgresStore) RecoverStaleJobRuns(
+	ctx context.Context,
+	olderThan time.Duration,
+) (int, error) {
+	cutoff := time.Now().Add(-olderThan)
+
+	tag, err := s.pool.Exec(ctx, queryMarkStaleJobRunsCrashed, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("marking stale job runs crashed: %w", err)
+	}
+	affected := int(tag.RowsAffected())
+
+	if _, err := s.pool.Exec(ctx, queryDeleteOldJobRuns); err != nil {
+		return affected, fmt.Errorf("deleting old job runs: %w", err)
 	}
 
-	return result, rows.Err()
+	return affected, nil
+}
+
+// AcquireSchedulerLock attempts to acquire a distributed lock for the given job.
+// Returns true if the lock was acquired, false if another holder already owns it.
+func (s *PostgresStore) AcquireSchedulerLock(
+	ctx context.Context,
+	jobName string,
+	holder string,
+	ttl time.Duration,
+) (bool, error) {
+	expiresAt := time.Now().Add(ttl)
+
+	var gotName string
+	err := s.pool.QueryRow(ctx, queryAcquireSchedulerLock, jobName, holder, expiresAt).Scan(&gotName)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil // lock held by another; conflict not replaced
+	}
+	if err != nil {
+		return false, fmt.Errorf("acquiring scheduler lock: %w", err)
+	}
+
+	return true, nil
+}
+
+// ReleaseSchedulerLock deletes the lock row for the given job and holder.
+func (s *PostgresStore) ReleaseSchedulerLock(
+	ctx context.Context,
+	jobName string,
+	holder string,
+) error {
+	_, err := s.pool.Exec(ctx, queryReleaseSchedulerLock, jobName, holder)
+	if err != nil {
+		return fmt.Errorf("releasing scheduler lock: %w", err)
+	}
+	return nil
+}
+
+// scanJobRuns scans rows from a job_runs query into a slice.
+func scanJobRuns(rows pgx.Rows) ([]domain.JobRun, error) {
+	var runs []domain.JobRun
+	for rows.Next() {
+		var r domain.JobRun
+		if err := rows.Scan(
+			&r.ID, &r.JobName, &r.StartedAt, &r.CompletedAt,
+			&r.Status, &r.ErrorText, &r.RowsAffected,
+		); err != nil {
+			return nil, fmt.Errorf("scanning job run: %w", err)
+		}
+		runs = append(runs, r)
+	}
+	return runs, rows.Err()
 }
 
 // queryListings is a helper for listing queries with a LIMIT parameter.
@@ -644,4 +789,55 @@ func scanListingRow(rows pgx.Rows, l *domain.Listing) error {
 		&l.ExtractionConfidence, &l.ProductKey, &l.Score, &l.ScoreBreakdown,
 		&l.ListedAt, &l.SoldAt, &l.SoldPrice, &l.FirstSeenAt, &l.UpdatedAt,
 	)
+}
+
+// ExtractionQueue
+
+// EnqueueExtraction adds a listing to the extraction queue.
+// If a pending job already exists for the listing, the INSERT is silently ignored.
+func (s *PostgresStore) EnqueueExtraction(ctx context.Context, listingID string, priority int) error {
+	if _, err := s.pool.Exec(ctx, queryEnqueueExtraction, listingID, priority); err != nil {
+		return fmt.Errorf("enqueuing extraction: %w", err)
+	}
+	return nil
+}
+
+// DequeueExtractions claims up to batchSize pending extraction jobs for the given worker.
+func (s *PostgresStore) DequeueExtractions(
+	ctx context.Context,
+	workerID string,
+	batchSize int,
+) ([]domain.ExtractionJob, error) {
+	rows, err := s.pool.Query(ctx, queryDequeueExtractions, workerID, batchSize)
+	if err != nil {
+		return nil, fmt.Errorf("dequeuing extractions: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []domain.ExtractionJob
+	for rows.Next() {
+		var j domain.ExtractionJob
+		if err := rows.Scan(&j.ID, &j.ListingID, &j.Priority, &j.EnqueuedAt, &j.Attempts); err != nil {
+			return nil, fmt.Errorf("scanning extraction job: %w", err)
+		}
+		jobs = append(jobs, j)
+	}
+	return jobs, rows.Err()
+}
+
+// CompleteExtractionJob marks a queue entry as completed with an optional error.
+func (s *PostgresStore) CompleteExtractionJob(ctx context.Context, id, errText string) error {
+	if _, err := s.pool.Exec(ctx, queryCompleteExtractionJob, id, errText); err != nil {
+		return fmt.Errorf("completing extraction job: %w", err)
+	}
+	return nil
+}
+
+// CountPendingExtractionJobs returns the number of uncompleted extraction queue entries.
+func (s *PostgresStore) CountPendingExtractionJobs(ctx context.Context) (int, error) {
+	var count int
+	if err := s.pool.QueryRow(ctx, queryCountPendingExtractionJobs).Scan(&count); err != nil {
+		return 0, fmt.Errorf("counting pending extraction jobs: %w", err)
+	}
+	return count, nil
 }

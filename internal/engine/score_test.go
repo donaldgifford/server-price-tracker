@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	ptestutil "github.com/prometheus/client_golang/prometheus/testutil"
@@ -287,6 +288,38 @@ func TestBuildListingData(t *testing.T) {
 	assert.True(t, data.IsAuction)
 }
 
+func TestProcessListing_TimescoreInputs(t *testing.T) {
+	t.Parallel()
+
+	// Auction listing ending in 2 hours (< 4h threshold → AuctionEndingSoon = true).
+	endSoon := time.Now().Add(2 * time.Hour)
+	l := &domain.Listing{
+		ListingType:  domain.ListingAuction,
+		AuctionEndAt: &endSoon,
+		// FirstSeenAt zero value → more than 24h ago → IsNewListing = false.
+	}
+
+	data := buildListingData(l)
+	assert.True(t, data.IsAuction, "IsAuction should be true for auction listing")
+	assert.True(t, data.AuctionEndingSoon, "AuctionEndingSoon should be true when end < 4h")
+	assert.False(t, data.IsNewListing, "IsNewListing should be false for old listing")
+}
+
+func TestBuildListingData_IsNewListing(t *testing.T) {
+	t.Parallel()
+
+	// Listing first seen less than 24h ago → IsNewListing = true.
+	l := &domain.Listing{
+		FirstSeenAt: time.Now().Add(-1 * time.Hour),
+		ListingType: domain.ListingBuyItNow,
+	}
+
+	data := buildListingData(l)
+	assert.True(t, data.IsNewListing, "IsNewListing should be true when first seen < 24h ago")
+	assert.False(t, data.IsAuction)
+	assert.False(t, data.AuctionEndingSoon)
+}
+
 func TestRescoreAll(t *testing.T) {
 	t.Parallel()
 
@@ -299,9 +332,16 @@ func TestRescoreAll(t *testing.T) {
 	listings[0].ID = "l1"
 	listings[1].ID = "l2"
 
+	// First page: 2 listings starting from "".
 	mockStore.EXPECT().
-		ListListings(mock.Anything, mock.Anything).
-		Return(listings, 2, nil).
+		ListListingsCursor(mock.Anything, "", 200).
+		Return(listings, nil).
+		Once()
+
+	// Second page: empty, terminates loop.
+	mockStore.EXPECT().
+		ListListingsCursor(mock.Anything, "l2", 200).
+		Return(nil, nil).
 		Once()
 
 	mockStore.EXPECT().
@@ -333,14 +373,53 @@ func TestRescoreAll_StoreError(t *testing.T) {
 	mockStore := storeMocks.NewMockStore(t)
 
 	mockStore.EXPECT().
-		ListListings(mock.Anything, mock.Anything).
-		Return(nil, 0, errors.New("connection refused")).
+		ListListingsCursor(mock.Anything, "", 200).
+		Return(nil, errors.New("connection refused")).
 		Once()
 
 	scored, err := RescoreAll(context.Background(), mockStore)
 	require.Error(t, err)
 	assert.Equal(t, 0, scored)
 	assert.Contains(t, err.Error(), "connection refused")
+}
+
+func TestRescoreAll_CursorPagination(t *testing.T) {
+	t.Parallel()
+
+	mockStore := storeMocks.NewMockStore(t)
+
+	// Three pages of 2 listings each; cursor advances after each page.
+	page1 := []domain.Listing{*testListing("k1"), *testListing("k2")}
+	page1[0].ID = "aaa"
+	page1[1].ID = "bbb"
+
+	page2 := []domain.Listing{*testListing("k3"), *testListing("k4")}
+	page2[0].ID = "ccc"
+	page2[1].ID = "ddd"
+
+	page3 := []domain.Listing{*testListing("k5"), *testListing("k6")}
+	page3[0].ID = "eee"
+	page3[1].ID = "fff"
+
+	mockStore.EXPECT().ListListingsCursor(mock.Anything, "", 200).Return(page1, nil).Once()
+	mockStore.EXPECT().ListListingsCursor(mock.Anything, "bbb", 200).Return(page2, nil).Once()
+	mockStore.EXPECT().ListListingsCursor(mock.Anything, "ddd", 200).Return(page3, nil).Once()
+	mockStore.EXPECT().ListListingsCursor(mock.Anything, "fff", 200).Return(nil, nil).Once()
+
+	for _, key := range []string{"k1", "k2", "k3", "k4", "k5", "k6"} {
+		k := key
+		mockStore.EXPECT().GetBaseline(mock.Anything, k).Return(nil, pgx.ErrNoRows).Once()
+	}
+	for _, id := range []string{"aaa", "bbb", "ccc", "ddd", "eee", "fff"} {
+		i := id
+		mockStore.EXPECT().
+			UpdateScore(mock.Anything, i, mock.AnythingOfType("int"), mock.Anything).
+			Return(nil).Once()
+	}
+
+	scored, err := RescoreAll(context.Background(), mockStore)
+	require.NoError(t, err)
+	assert.Equal(t, 6, scored)
 }
 
 func TestRescoreListings_StoreError(t *testing.T) {

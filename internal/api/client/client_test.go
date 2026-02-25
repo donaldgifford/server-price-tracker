@@ -334,6 +334,97 @@ func TestClient_ListListingsAllParams(t *testing.T) {
 	assert.Equal(t, 0, resp.Total)
 }
 
+func TestClient_ListJobs(t *testing.T) {
+	t.Parallel()
+
+	runs := []domain.JobRun{
+		{ID: "r1", JobName: "ingestion", Status: "succeeded"},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/api/v1/jobs", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(runs)
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL)
+	result, err := c.ListJobs(context.Background())
+	require.NoError(t, err)
+	require.Len(t, result, 1)
+	assert.Equal(t, "ingestion", result[0].JobName)
+}
+
+func TestClient_GetJobHistory(t *testing.T) {
+	t.Parallel()
+
+	runs := []domain.JobRun{
+		{ID: "r1", JobName: "ingestion", Status: "succeeded"},
+		{ID: "r2", JobName: "ingestion", Status: "failed"},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/api/v1/jobs/ingestion", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(runs)
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL)
+	result, err := c.GetJobHistory(context.Background(), "ingestion")
+	require.NoError(t, err)
+	assert.Len(t, result, 2)
+}
+
+func TestClient_ReExtract(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/api/v1/reextract", r.URL.Path)
+
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); !assert.NoError(t, err) {
+			return
+		}
+		assert.Equal(t, "ram", body["component_type"])
+		assert.Equal(t, float64(50), body["limit"])
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]int{"re_extracted": 12})
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL)
+	count, err := c.ReExtract(context.Background(), "ram", 50)
+	require.NoError(t, err)
+	assert.Equal(t, 12, count)
+}
+
+func TestClient_ReExtract_NoParams(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); !assert.NoError(t, err) {
+			return
+		}
+		// Empty body when no type/limit provided.
+		assert.Empty(t, body)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]int{"re_extracted": 0})
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL)
+	count, err := c.ReExtract(context.Background(), "", 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count)
+}
+
 func TestWithHTTPClient(t *testing.T) {
 	t.Parallel()
 

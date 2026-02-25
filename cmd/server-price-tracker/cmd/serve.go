@@ -13,6 +13,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -57,39 +58,21 @@ func startServer(opts *Options) error {
 	// --- Notifier ---
 	notifier := buildNotifier(cfg, slogger)
 
+	// --- Extraction workers ---
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+
 	// --- Engine + Scheduler ---
 	eng, scheduler := buildEngine(
 		cfg, pgStore, ebayClient, extractor, notifier,
 		analyticsClient, rateLimiter, slogger,
 	)
-
-	// --- Echo server ---
-	e := echo.New()
-	e.HideBanner = true
-	e.HidePort = true
-
-	// Recovery middleware (must be first to catch panics from other middleware).
-	e.Use(apimw.Recovery(slogger))
-
-	// Request logging middleware.
-	e.Use(apimw.RequestLog(slogger))
-
-	// Prometheus HTTP middleware.
-	e.Use(apimw.Metrics())
-
-	// --- Huma API ---
-	humaConfig := huma.DefaultConfig("Server Price Tracker API", "1.0.0")
-	humaConfig.Info.Description = "API for monitoring eBay server hardware listings, " +
-		"extracting structured attributes via LLM, scoring deals, and sending alerts."
-	humaConfig.Info.Contact = &huma.Contact{
-		Name: "Donald Gifford",
-		URL:  "https://github.com/donaldgifford/server-price-tracker",
+	if eng != nil {
+		eng.StartExtractionWorkers(workerCtx)
+		slogger.Info("extraction workers started", "count", cfg.LLM.Concurrency)
 	}
-	humaConfig.Info.License = &huma.License{
-		Name: "Apache 2.0",
-		URL:  "http://www.apache.org/licenses/LICENSE-2.0.html",
-	}
-	humaAPI := humaecho.New(e, humaConfig)
+
+	// --- Echo + Huma ---
+	e, humaAPI := buildHTTPServer(slogger)
 
 	// --- Routes ---
 	registerRoutes(humaAPI, pgStore, ebayClient, extractor, eng, rateLimiter)
@@ -103,7 +86,6 @@ func startServer(opts *Options) error {
 	// Start scheduler.
 	if scheduler != nil {
 		scheduler.Start()
-		scheduler.SyncNextRunTimestamps()
 		slogger.Info("scheduler started")
 	}
 
@@ -121,6 +103,9 @@ func startServer(opts *Options) error {
 
 	slogger.Info("shutting down server")
 
+	workerCancel()
+	slogger.Info("extraction workers stopped")
+
 	// Stop scheduler first.
 	if scheduler != nil {
 		schedCtx := scheduler.Stop()
@@ -137,6 +122,32 @@ func startServer(opts *Options) error {
 
 	slogger.Info("server stopped")
 	return nil
+}
+
+// buildHTTPServer creates the Echo server and Huma API with standard middleware and config.
+func buildHTTPServer(logger *slog.Logger) (*echo.Echo, huma.API) {
+	e := echo.New()
+	e.HideBanner = true
+	e.HidePort = true
+
+	// Recovery middleware must be first to catch panics from other middleware.
+	e.Use(apimw.Recovery(logger))
+	e.Use(apimw.RequestLog(logger))
+	e.Use(apimw.Metrics())
+
+	humaConfig := huma.DefaultConfig("Server Price Tracker API", "1.0.0")
+	humaConfig.Info.Description = "API for monitoring eBay server hardware listings, " +
+		"extracting structured attributes via LLM, scoring deals, and sending alerts."
+	humaConfig.Info.Contact = &huma.Contact{
+		Name: "Donald Gifford",
+		URL:  "https://github.com/donaldgifford/server-price-tracker",
+	}
+	humaConfig.Info.License = &huma.License{
+		Name: "Apache 2.0",
+		URL:  "http://www.apache.org/licenses/LICENSE-2.0.html",
+	}
+
+	return e, humaecho.New(e, humaConfig)
 }
 
 // registerRoutes sets up all HTTP routes on the Huma API.
@@ -172,6 +183,12 @@ func registerRoutes(
 
 		extractionStatsH := handlers.NewExtractionStatsHandler(s)
 		handlers.RegisterExtractionStatsRoutes(humaAPI, extractionStatsH)
+
+		systemStateH := handlers.NewSystemStateHandler(s)
+		handlers.RegisterSystemStateRoutes(humaAPI, systemStateH)
+
+		jobsH := handlers.NewJobsHandler(s)
+		handlers.RegisterJobRoutes(humaAPI, jobsH)
 	}
 
 	// Search (Huma).
@@ -283,6 +300,7 @@ func buildEngine(
 		engine.WithLogger(logger),
 		engine.WithBaselineWindowDays(cfg.Scoring.BaselineWindowDays),
 		engine.WithStaggerOffset(cfg.Schedule.StaggerOffset),
+		engine.WithAlertsConfig(cfg.Alerts),
 	}
 
 	if ac != nil {
@@ -302,9 +320,26 @@ func buildEngine(
 	if cfg.Ebay.MaxCallsPerCycle > 0 {
 		opts = append(opts, engine.WithMaxCallsPerCycle(cfg.Ebay.MaxCallsPerCycle))
 	}
+	opts = append(opts, engine.WithWorkerCount(cfg.LLM.Concurrency))
 
 	eng := engine.NewEngine(s, ebayClient, extractor, notifier, opts...)
 	logger.Info("engine created")
+
+	// Pre-warm rate limiter from persisted state (best-effort, before quota sync).
+	if rl != nil {
+		st, loadErr := s.LoadRateLimiterState(context.Background())
+		switch {
+		case loadErr == nil:
+			rl.Sync(int64(st.TokensUsed), int64(st.DailyLimit), st.ResetAt)
+			logger.Info("rate limiter pre-warmed from persisted state",
+				"tokens_used", st.TokensUsed,
+				"daily_limit", st.DailyLimit,
+				"reset_at", st.ResetAt,
+			)
+		case !errors.Is(loadErr, pgx.ErrNoRows):
+			logger.Warn("failed to load rate limiter state", "error", loadErr)
+		}
+	}
 
 	// Sync eBay quota on startup (best-effort, before scheduler starts).
 	eng.SyncQuota(context.Background())
@@ -314,6 +349,7 @@ func buildEngine(
 
 	sched, err := engine.NewScheduler(
 		eng,
+		s,
 		cfg.Schedule.IngestionInterval,
 		cfg.Schedule.BaselineInterval,
 		cfg.Schedule.ReExtractionInterval,
@@ -327,6 +363,10 @@ func buildEngine(
 		"ingestion_interval", cfg.Schedule.IngestionInterval,
 		"baseline_interval", cfg.Schedule.BaselineInterval,
 	)
+
+	// Recover any job runs that were left in 'running' state at last crash.
+	sched.RecoverStaleJobRuns(context.Background())
+
 	return eng, sched
 }
 

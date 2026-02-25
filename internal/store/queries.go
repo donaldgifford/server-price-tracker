@@ -96,9 +96,18 @@ const (
 		ORDER BY first_seen_at DESC
 		LIMIT $1`
 
-	queryCountListings            = `SELECT COUNT(*) FROM listings`
-	queryCountUnextractedListings = `SELECT COUNT(*) FROM listings WHERE component_type IS NULL`
-	queryCountUnscoredListings    = `SELECT COUNT(*) FROM listings WHERE component_type IS NOT NULL AND score IS NULL`
+	queryListListingsCursor = `
+		SELECT id, ebay_item_id, title, item_url, image_url,
+			price, currency, shipping_cost, listing_type,
+			seller_name, seller_feedback_score, seller_feedback_pct, seller_top_rated,
+			condition_raw, COALESCE(condition_norm, 'unknown'), COALESCE(component_type, ''), quantity,
+			COALESCE(attributes, '{}'), COALESCE(extraction_confidence, 0), COALESCE(product_key, ''),
+			score, score_breakdown,
+			listed_at, sold_at, sold_price, first_seen_at, updated_at
+		FROM listings
+		WHERE id > $1
+		ORDER BY id ASC
+		LIMIT $2`
 )
 
 // Watch queries.
@@ -115,19 +124,19 @@ const (
 
 	queryGetWatch = `
 		SELECT id, name, search_query, category_id, component_type,
-			filters, score_threshold, enabled, created_at, updated_at
+			filters, score_threshold, enabled, last_polled_at, created_at, updated_at
 		FROM watches
 		WHERE id = $1`
 
 	queryListWatchesAll = `
 		SELECT id, name, search_query, category_id, component_type,
-			filters, score_threshold, enabled, created_at, updated_at
+			filters, score_threshold, enabled, last_polled_at, created_at, updated_at
 		FROM watches
 		ORDER BY created_at DESC`
 
 	queryListWatchesEnabled = `
 		SELECT id, name, search_query, category_id, component_type,
-			filters, score_threshold, enabled, created_at, updated_at
+			filters, score_threshold, enabled, last_polled_at, created_at, updated_at
 		FROM watches
 		WHERE enabled = true
 		ORDER BY created_at DESC`
@@ -145,8 +154,6 @@ const (
 		WHERE id = @id`
 
 	queryDeleteWatch = `DELETE FROM watches WHERE id = $1`
-
-	queryCountWatches = `SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE enabled = true) AS enabled FROM watches`
 
 	querySetWatchEnabled = `
 		UPDATE watches SET
@@ -173,19 +180,6 @@ const (
 		SELECT DISTINCT product_key
 		FROM listings
 		WHERE product_key IS NOT NULL AND product_key != ''`
-
-	queryCountBaselinesByMaturity = `
-		SELECT
-			COUNT(*) FILTER (WHERE sample_count < 10) AS cold,
-			COUNT(*) FILTER (WHERE sample_count >= 10) AS warm
-		FROM price_baselines`
-
-	queryCountProductKeysWithoutBaseline = `
-		SELECT COUNT(DISTINCT l.product_key)
-		FROM listings l
-		LEFT JOIN price_baselines b ON l.product_key = b.product_key
-		WHERE l.product_key != '' AND l.product_key IS NOT NULL
-		  AND b.product_key IS NULL`
 )
 
 // Extraction quality queries.
@@ -219,23 +213,121 @@ const (
 		)
 		ORDER BY first_seen_at DESC
 		LIMIT $2`
+)
 
-	queryCountIncompleteExtractions = `
-		SELECT COUNT(*)
-		FROM listings
-		WHERE component_type IS NOT NULL AND (
-			(component_type = 'ram' AND (product_key LIKE '%:0' OR (attributes->>'speed_mhz') IS NULL))
-			OR (component_type = 'drive' AND (product_key LIKE '%:unknown%'))
-		)`
+// Scheduler queries.
+const (
+	queryInsertJobRun = `
+		INSERT INTO job_runs (job_name)
+		VALUES ($1)
+		RETURNING id`
 
-	queryCountIncompleteExtractionsByType = `
-		SELECT component_type, COUNT(*)
-		FROM listings
-		WHERE component_type IS NOT NULL AND (
-			(component_type = 'ram' AND (product_key LIKE '%:0' OR (attributes->>'speed_mhz') IS NULL))
-			OR (component_type = 'drive' AND (product_key LIKE '%:unknown%'))
+	queryCompleteJobRun = `
+		UPDATE job_runs SET
+			completed_at  = now(),
+			status        = $2,
+			error_text    = $3,
+			rows_affected = $4
+		WHERE id = $1`
+
+	queryListJobRuns = `
+		SELECT id, job_name, started_at, completed_at, status,
+			COALESCE(error_text, ''), rows_affected
+		FROM job_runs
+		WHERE job_name = $1
+		ORDER BY started_at DESC
+		LIMIT $2`
+
+	queryListLatestJobRuns = `
+		SELECT DISTINCT ON (job_name)
+			id, job_name, started_at, completed_at, status,
+			COALESCE(error_text, ''), rows_affected
+		FROM job_runs
+		ORDER BY job_name, started_at DESC`
+
+	queryUpdateWatchLastPolled = `
+		UPDATE watches SET last_polled_at = $2 WHERE id = $1`
+
+	queryMarkStaleJobRunsCrashed = `
+		UPDATE job_runs SET
+			status       = 'crashed',
+			completed_at = now()
+		WHERE status = 'running' AND started_at < $1`
+
+	queryDeleteOldJobRuns = `
+		DELETE FROM job_runs WHERE started_at < now() - interval '30 days'`
+
+	queryAcquireSchedulerLock = `
+		INSERT INTO scheduler_locks (job_name, lock_holder, expires_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (job_name) DO UPDATE
+			SET locked_at   = now(),
+				lock_holder = EXCLUDED.lock_holder,
+				expires_at  = EXCLUDED.expires_at
+			WHERE scheduler_locks.expires_at < now()
+		RETURNING job_name`
+
+	queryReleaseSchedulerLock = `
+		DELETE FROM scheduler_locks WHERE job_name = $1 AND lock_holder = $2`
+)
+
+// ExtractionQueue queries.
+const (
+	queryEnqueueExtraction = `
+		INSERT INTO extraction_queue (listing_id, priority)
+		VALUES ($1, $2)
+		ON CONFLICT (listing_id) WHERE completed_at IS NULL DO NOTHING`
+
+	queryDequeueExtractions = `
+		WITH claimed AS (
+			SELECT id FROM extraction_queue
+			WHERE completed_at IS NULL AND claimed_at IS NULL
+			ORDER BY priority DESC, enqueued_at ASC
+			LIMIT $2
+			FOR UPDATE SKIP LOCKED
 		)
-		GROUP BY component_type`
+		UPDATE extraction_queue
+		SET claimed_at = now(), claimed_by = $1, attempts = attempts + 1
+		FROM claimed
+		WHERE extraction_queue.id = claimed.id
+		RETURNING extraction_queue.id, extraction_queue.listing_id,
+		          extraction_queue.priority, extraction_queue.enqueued_at,
+		          extraction_queue.attempts`
+
+	queryCompleteExtractionJob = `
+		UPDATE extraction_queue
+		SET completed_at = now(), error_text = NULLIF($2, '')
+		WHERE id = $1`
+
+	queryCountPendingExtractionJobs = `
+		SELECT COUNT(*) FROM extraction_queue WHERE completed_at IS NULL`
+)
+
+// System state query.
+const queryGetSystemState = `SELECT
+    watches_total, watches_enabled,
+    listings_total, listings_unextracted, listings_unscored,
+    alerts_pending,
+    baselines_total, baselines_warm, baselines_cold,
+    product_keys_no_baseline, listings_incomplete_extraction,
+    extraction_queue_depth
+FROM system_state`
+
+// Rate limiter state queries.
+const (
+	queryPersistRateLimiterState = `
+		INSERT INTO rate_limiter_state (tokens_used, daily_limit, reset_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT ((true)) DO UPDATE SET
+			tokens_used = EXCLUDED.tokens_used,
+			daily_limit = EXCLUDED.daily_limit,
+			reset_at    = EXCLUDED.reset_at,
+			synced_at   = now()`
+
+	queryLoadRateLimiterState = `
+		SELECT tokens_used, daily_limit, reset_at, synced_at
+		FROM rate_limiter_state
+		LIMIT 1`
 )
 
 // Alert queries.
@@ -243,7 +335,7 @@ const (
 	queryCreateAlert = `
 		INSERT INTO alerts (watch_id, listing_id, score, created_at)
 		VALUES ($1, $2, $3, now())
-		ON CONFLICT (watch_id, listing_id) DO NOTHING
+		ON CONFLICT (watch_id, listing_id) WHERE notified = false DO NOTHING
 		RETURNING id, created_at`
 
 	queryListPendingAlerts = `
@@ -271,5 +363,23 @@ const (
 			notified_at = now()
 		WHERE id = ANY($1)`
 
-	queryCountPendingAlerts = `SELECT COUNT(*) FROM alerts WHERE notified = false`
+	queryHasRecentAlert = `
+		SELECT EXISTS (
+			SELECT 1 FROM alerts
+			WHERE watch_id = $1
+			  AND listing_id = $2
+			  AND notified = true
+			  AND notified_at > $3
+		)`
+
+	queryInsertNotificationAttempt = `
+		INSERT INTO notification_attempts (alert_id, succeeded, http_status, error_text)
+		VALUES ($1, $2, $3, NULLIF($4, ''))`
+
+	queryHasSuccessfulNotification = `
+		SELECT EXISTS (
+			SELECT 1 FROM notification_attempts
+			WHERE alert_id = $1
+			  AND succeeded = true
+		)`
 )

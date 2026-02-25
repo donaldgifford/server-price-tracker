@@ -4,15 +4,19 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	ptestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/donaldgifford/server-price-tracker/internal/config"
+	ebayMocks "github.com/donaldgifford/server-price-tracker/internal/ebay/mocks"
 	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	notifyMocks "github.com/donaldgifford/server-price-tracker/internal/notify/mocks"
 	storeMocks "github.com/donaldgifford/server-price-tracker/internal/store/mocks"
+	extractMocks "github.com/donaldgifford/server-price-tracker/pkg/extract/mocks"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
@@ -24,6 +28,16 @@ func testWatch() *domain.Watch {
 		ComponentType:  domain.ComponentRAM,
 		ScoreThreshold: 75,
 		Enabled:        true,
+	}
+}
+
+func testListingForAlert(id string) *domain.Listing {
+	return &domain.Listing{
+		ID:       id,
+		Title:    "Samsung 32GB DDR4",
+		ItemURL:  "https://ebay.com/itm/" + id,
+		Price:    45.99,
+		Quantity: 1,
 	}
 }
 
@@ -52,36 +66,15 @@ func TestProcessAlerts_SingleAlert(t *testing.T) {
 		{ID: "a1", WatchID: "w1", ListingID: "l1", Score: 85},
 	}
 
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+	ms.EXPECT().HasSuccessfulNotification(mock.Anything, "a1").Return(false, nil).Once()
+	ms.EXPECT().GetListingByID(mock.Anything, "l1").Return(testListingForAlert("l1"), nil).Once()
+	mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(nil).Once()
 	ms.EXPECT().
-		ListPendingAlerts(mock.Anything).
-		Return(alerts, nil).
-		Once()
-
-	ms.EXPECT().
-		GetWatch(mock.Anything, "w1").
-		Return(testWatch(), nil).
-		Once()
-
-	ms.EXPECT().
-		GetListingByID(mock.Anything, "l1").
-		Return(&domain.Listing{
-			ID:       "l1",
-			Title:    "Samsung 32GB DDR4",
-			ItemURL:  "https://ebay.com/itm/l1",
-			Price:    45.99,
-			Quantity: 1,
-		}, nil).
-		Once()
-
-	mn.EXPECT().
-		SendAlert(mock.Anything, mock.Anything).
-		Return(nil).
-		Once()
-
-	ms.EXPECT().
-		MarkAlertNotified(mock.Anything, "a1").
-		Return(nil).
-		Once()
+		InsertNotificationAttempt(mock.Anything, "a1", true, 0, "").
+		Return(nil).Once()
+	ms.EXPECT().MarkAlertNotified(mock.Anything, "a1").Return(nil).Once()
 
 	err := ProcessAlerts(context.Background(), ms, mn)
 	require.NoError(t, err)
@@ -97,31 +90,16 @@ func TestProcessAlerts_NotifyFails_NotMarked(t *testing.T) {
 		{ID: "a1", WatchID: "w1", ListingID: "l1", Score: 85},
 	}
 
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+	ms.EXPECT().HasSuccessfulNotification(mock.Anything, "a1").Return(false, nil).Once()
+	ms.EXPECT().GetListingByID(mock.Anything, "l1").Return(&domain.Listing{
+		ID: "l1", Title: "Test Listing", Price: 45.99, Quantity: 1,
+	}, nil).Once()
+	mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(errors.New("discord 429")).Once()
 	ms.EXPECT().
-		ListPendingAlerts(mock.Anything).
-		Return(alerts, nil).
-		Once()
-
-	ms.EXPECT().
-		GetWatch(mock.Anything, "w1").
-		Return(testWatch(), nil).
-		Once()
-
-	ms.EXPECT().
-		GetListingByID(mock.Anything, "l1").
-		Return(&domain.Listing{
-			ID:       "l1",
-			Title:    "Test Listing",
-			Price:    45.99,
-			Quantity: 1,
-		}, nil).
-		Once()
-
-	mn.EXPECT().
-		SendAlert(mock.Anything, mock.Anything).
-		Return(errors.New("discord 429")).
-		Once()
-
+		InsertNotificationAttempt(mock.Anything, "a1", false, 0, "discord 429").
+		Return(nil).Once()
 	// MarkAlertNotified should NOT be called when send fails.
 
 	err := ProcessAlerts(context.Background(), ms, mn)
@@ -145,18 +123,13 @@ func TestProcessAlerts_BatchAlert(t *testing.T) {
 		}
 	}
 
-	ms.EXPECT().
-		ListPendingAlerts(mock.Anything).
-		Return(alerts, nil).
-		Once()
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
 
-	ms.EXPECT().
-		GetWatch(mock.Anything, "w1").
-		Return(testWatch(), nil).
-		Once()
-
-	// 5 GetListingByID calls.
 	for i := range alerts {
+		ms.EXPECT().
+			HasSuccessfulNotification(mock.Anything, alerts[i].ID).
+			Return(false, nil).Once()
 		ms.EXPECT().
 			GetListingByID(mock.Anything, alerts[i].ListingID).
 			Return(&domain.Listing{
@@ -164,24 +137,22 @@ func TestProcessAlerts_BatchAlert(t *testing.T) {
 				Title:    "Listing " + string(rune('A'+i)),
 				Price:    float64(40 + i),
 				Quantity: 1,
-			}, nil).
-			Once()
+			}, nil).Once()
 	}
 
-	mn.EXPECT().
-		SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").
-		Return(nil).
-		Once()
+	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").Return(nil).Once()
+
+	for i := range alerts {
+		ms.EXPECT().
+			InsertNotificationAttempt(mock.Anything, alerts[i].ID, true, 0, "").
+			Return(nil).Once()
+	}
 
 	alertIDs := make([]string, 5)
 	for i := range alertIDs {
 		alertIDs[i] = alerts[i].ID
 	}
-
-	ms.EXPECT().
-		MarkAlertsNotified(mock.Anything, alertIDs).
-		Return(nil).
-		Once()
+	ms.EXPECT().MarkAlertsNotified(mock.Anything, alertIDs).Return(nil).Once()
 
 	err := ProcessAlerts(context.Background(), ms, mn)
 	require.NoError(t, err)
@@ -204,36 +175,23 @@ func TestProcessAlerts_IndividualAlerts(t *testing.T) {
 		}
 	}
 
-	ms.EXPECT().
-		ListPendingAlerts(mock.Anything).
-		Return(alerts, nil).
-		Once()
-
-	ms.EXPECT().
-		GetWatch(mock.Anything, "w1").
-		Return(testWatch(), nil).
-		Once()
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
 
 	for i := range alerts {
 		ms.EXPECT().
+			HasSuccessfulNotification(mock.Anything, alerts[i].ID).
+			Return(false, nil).Once()
+		ms.EXPECT().
 			GetListingByID(mock.Anything, alerts[i].ListingID).
 			Return(&domain.Listing{
-				ID:       alerts[i].ListingID,
-				Title:    "Listing",
-				Price:    45.0,
-				Quantity: 1,
-			}, nil).
-			Once()
-
-		mn.EXPECT().
-			SendAlert(mock.Anything, mock.Anything).
-			Return(nil).
-			Once()
-
+				ID: alerts[i].ListingID, Title: "Listing", Price: 45.0, Quantity: 1,
+			}, nil).Once()
+		mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(nil).Once()
 		ms.EXPECT().
-			MarkAlertNotified(mock.Anything, alerts[i].ID).
-			Return(nil).
-			Once()
+			InsertNotificationAttempt(mock.Anything, alerts[i].ID, true, 0, "").
+			Return(nil).Once()
+		ms.EXPECT().MarkAlertNotified(mock.Anything, alerts[i].ID).Return(nil).Once()
 	}
 
 	err := ProcessAlerts(context.Background(), ms, mn)
@@ -282,10 +240,12 @@ func TestProcessAlerts_SetsSuccessTimestamp(t *testing.T) {
 
 	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
 	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+	ms.EXPECT().HasSuccessfulNotification(mock.Anything, "a1").Return(false, nil).Once()
 	ms.EXPECT().GetListingByID(mock.Anything, "l1").Return(&domain.Listing{
 		ID: "l1", Title: "Test", Price: 45.99, Quantity: 1,
 	}, nil).Once()
 	mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(nil).Once()
+	ms.EXPECT().InsertNotificationAttempt(mock.Anything, "a1", true, 0, "").Return(nil).Once()
 	ms.EXPECT().MarkAlertNotified(mock.Anything, "a1").Return(nil).Once()
 
 	err := ProcessAlerts(context.Background(), ms, mn)
@@ -306,10 +266,14 @@ func TestProcessAlerts_SetsFailureTimestamp(t *testing.T) {
 
 	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
 	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+	ms.EXPECT().HasSuccessfulNotification(mock.Anything, "a1").Return(false, nil).Once()
 	ms.EXPECT().GetListingByID(mock.Anything, "l1").Return(&domain.Listing{
 		ID: "l1", Title: "Test", Price: 45.99, Quantity: 1,
 	}, nil).Once()
 	mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(errors.New("discord 429")).Once()
+	ms.EXPECT().
+		InsertNotificationAttempt(mock.Anything, "a1", false, 0, "discord 429").
+		Return(nil).Once()
 
 	err := ProcessAlerts(context.Background(), ms, mn)
 	require.NoError(t, err)
@@ -332,10 +296,12 @@ func TestProcessAlerts_IncrementsAlertsFiredByWatch(t *testing.T) {
 	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
 
 	for _, a := range alerts {
+		ms.EXPECT().HasSuccessfulNotification(mock.Anything, a.ID).Return(false, nil).Once()
 		ms.EXPECT().GetListingByID(mock.Anything, a.ListingID).Return(&domain.Listing{
 			ID: a.ListingID, Title: "Test", Price: 45.99, Quantity: 1,
 		}, nil).Once()
 		mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(nil).Once()
+		ms.EXPECT().InsertNotificationAttempt(mock.Anything, a.ID, true, 0, "").Return(nil).Once()
 		ms.EXPECT().MarkAlertNotified(mock.Anything, a.ID).Return(nil).Once()
 	}
 
@@ -346,4 +312,332 @@ func TestProcessAlerts_IncrementsAlertsFiredByWatch(t *testing.T) {
 
 	after := ptestutil.ToFloat64(metrics.AlertsFiredByWatch.WithLabelValues("DDR4 ECC REG"))
 	assert.InDelta(t, 2, after-before, 0.1, "AlertsFiredByWatch should increment by 2")
+}
+
+// --- New Phase 2 tests ---
+
+func TestProcessAlerts_SkipsAlreadyNotified(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	alerts := []domain.Alert{
+		{ID: "a1", WatchID: "w1", ListingID: "l1", Score: 85},
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+	// Already successfully notified — skip the send entirely.
+	ms.EXPECT().HasSuccessfulNotification(mock.Anything, "a1").Return(true, nil).Once()
+	// SendAlert, InsertNotificationAttempt, MarkAlertNotified should NOT be called.
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err)
+}
+
+func TestProcessAlerts_RecordsFailedAttempt(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	alerts := []domain.Alert{
+		{ID: "a1", WatchID: "w1", ListingID: "l1", Score: 85},
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+	ms.EXPECT().HasSuccessfulNotification(mock.Anything, "a1").Return(false, nil).Once()
+	ms.EXPECT().GetListingByID(mock.Anything, "l1").Return(testListingForAlert("l1"), nil).Once()
+	mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(errors.New("webhook timeout")).Once()
+	// Must record a failed attempt.
+	ms.EXPECT().
+		InsertNotificationAttempt(mock.Anything, "a1", false, 0, "webhook timeout").
+		Return(nil).Once()
+	// MarkAlertNotified is not expected when the send fails.
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err)
+}
+
+func TestProcessAlerts_RecordsSuccessfulAttempt(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	alerts := []domain.Alert{
+		{ID: "a1", WatchID: "w1", ListingID: "l1", Score: 85},
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+	ms.EXPECT().HasSuccessfulNotification(mock.Anything, "a1").Return(false, nil).Once()
+	ms.EXPECT().GetListingByID(mock.Anything, "l1").Return(testListingForAlert("l1"), nil).Once()
+	mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(nil).Once()
+	// Must record a successful attempt.
+	ms.EXPECT().
+		InsertNotificationAttempt(mock.Anything, "a1", true, 0, "").
+		Return(nil).Once()
+	ms.EXPECT().MarkAlertNotified(mock.Anything, "a1").Return(nil).Once()
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err)
+}
+
+func TestProcessAlerts_WatchDeletedSkipped(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	alerts := []domain.Alert{
+		{ID: "a1", WatchID: "deleted-watch", ListingID: "l1", Score: 85},
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	// Watch has been deleted — GetWatch returns error.
+	ms.EXPECT().GetWatch(mock.Anything, "deleted-watch").
+		Return(nil, errors.New("not found")).Once()
+	// sendAlerts must NOT be called when watch is missing.
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err)
+}
+
+func TestSendBatch_PartialListingsMissing(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	// 5 alerts (meets batch threshold); middle listing is missing.
+	alerts := make([]domain.Alert, 5)
+	for i := range alerts {
+		alerts[i] = domain.Alert{
+			ID:        "a" + string(rune('1'+i)),
+			WatchID:   "w1",
+			ListingID: "l" + string(rune('1'+i)),
+			Score:     80,
+		}
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+
+	for i := range alerts {
+		ms.EXPECT().
+			HasSuccessfulNotification(mock.Anything, alerts[i].ID).
+			Return(false, nil).Once()
+		if i == 2 {
+			// Middle listing is gone — skip from batch silently.
+			ms.EXPECT().
+				GetListingByID(mock.Anything, alerts[i].ListingID).
+				Return(nil, errors.New("listing removed")).Once()
+		} else {
+			ms.EXPECT().
+				GetListingByID(mock.Anything, alerts[i].ListingID).
+				Return(&domain.Listing{
+					ID:       alerts[i].ListingID,
+					Title:    "Listing",
+					Price:    45.0,
+					Quantity: 1,
+				}, nil).Once()
+		}
+	}
+
+	// Batch sent with 4 items (the missing one is excluded).
+	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").Return(nil).Once()
+
+	// InsertNotificationAttempt only for the 4 items that were included.
+	for i := range alerts {
+		if i != 2 {
+			ms.EXPECT().
+				InsertNotificationAttempt(mock.Anything, alerts[i].ID, true, 0, "").
+				Return(nil).Once()
+		}
+	}
+
+	includedIDs := []string{alerts[0].ID, alerts[1].ID, alerts[3].ID, alerts[4].ID}
+	ms.EXPECT().MarkAlertsNotified(mock.Anything, includedIDs).Return(nil).Once()
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err)
+}
+
+func TestSendBatch_SendFails_AttemptsRecorded(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	// 5 alerts for the same watch.
+	alerts := make([]domain.Alert, 5)
+	for i := range alerts {
+		alerts[i] = domain.Alert{
+			ID:        "a" + string(rune('1'+i)),
+			WatchID:   "w1",
+			ListingID: "l" + string(rune('1'+i)),
+			Score:     80,
+		}
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+
+	for i := range alerts {
+		ms.EXPECT().
+			HasSuccessfulNotification(mock.Anything, alerts[i].ID).
+			Return(false, nil).Once()
+		ms.EXPECT().
+			GetListingByID(mock.Anything, alerts[i].ListingID).
+			Return(&domain.Listing{
+				ID: alerts[i].ListingID, Title: "Listing", Price: 45.0, Quantity: 1,
+			}, nil).Once()
+	}
+
+	sendErr := errors.New("discord 429")
+	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").
+		Return(sendErr).Once()
+
+	// Attempts recorded as failed for all included alerts.
+	for i := range alerts {
+		ms.EXPECT().
+			InsertNotificationAttempt(mock.Anything, alerts[i].ID, false, 0, "discord 429").
+			Return(nil).Once()
+	}
+	// MarkAlertsNotified must NOT be called when send fails.
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err) // ProcessAlerts absorbs per-watch errors
+}
+
+func TestEvaluateAlert_ReAlertsDisabled_NoDuplicateWhilePending(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	score := 85
+	listing := &domain.Listing{ID: "l1", Score: &score}
+	watch := testWatch() // threshold is 75
+
+	// Re-alerts disabled (default): HasRecentAlert must NOT be called.
+	// CreateAlert is called (partial unique index prevents duplicate pending alerts).
+	ms.EXPECT().
+		CreateAlert(mock.Anything, mock.MatchedBy(func(a *domain.Alert) bool {
+			return a.WatchID == "w1" && a.ListingID == "l1"
+		})).
+		Return(nil).Once()
+
+	eng := newTestEngine(ms, me, mx, mn)
+	eng.evaluateAlert(context.Background(), watch, listing)
+}
+
+func TestEvaluateAlert_ReAlertsEnabled_SkipsCooldownListing(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	score := 85
+	listing := &domain.Listing{ID: "l1", Score: &score}
+	watch := testWatch()
+
+	// HasRecentAlert returns true — alert should be skipped.
+	ms.EXPECT().
+		HasRecentAlert(mock.Anything, "w1", "l1", 24*time.Hour).
+		Return(true, nil).Once()
+	// CreateAlert must NOT be called.
+
+	eng := newTestEngine(ms, me, mx, mn)
+	eng.alertsConfig = config.AlertsConfig{
+		ReAlertsEnabled:  true,
+		ReAlertsCooldown: 24 * time.Hour,
+	}
+	eng.evaluateAlert(context.Background(), watch, listing)
+}
+
+func TestProcessAlerts_HasSuccessfulNotificationError(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	alerts := []domain.Alert{
+		{ID: "a1", WatchID: "w1", ListingID: "l1", Score: 85},
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+	// HasSuccessfulNotification returns an error — sendSingle propagates it.
+	ms.EXPECT().
+		HasSuccessfulNotification(mock.Anything, "a1").
+		Return(false, errors.New("db error")).Once()
+	// sendSingle returns the error; ProcessAlerts increments failure metric and continues.
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err) // ProcessAlerts absorbs per-watch errors
+}
+
+func TestSendBatch_AllAlreadyNotified(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	// 5 alerts for same watch (meets batch threshold), but all already notified.
+	alerts := make([]domain.Alert, 5)
+	for i := range alerts {
+		alerts[i] = domain.Alert{
+			ID:        "a" + string(rune('1'+i)),
+			WatchID:   "w1",
+			ListingID: "l" + string(rune('1'+i)),
+			Score:     80,
+		}
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+
+	for i := range alerts {
+		ms.EXPECT().
+			HasSuccessfulNotification(mock.Anything, alerts[i].ID).
+			Return(true, nil).Once()
+	}
+	// SendBatchAlert must NOT be called — all payloads were filtered out.
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err)
+}
+
+func TestEvaluateAlert_ReAlertsEnabled_AllowsAfterCooldown(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	score := 85
+	listing := &domain.Listing{ID: "l1", Score: &score}
+	watch := testWatch()
+
+	// HasRecentAlert returns false — cooldown has expired, alert is allowed.
+	ms.EXPECT().
+		HasRecentAlert(mock.Anything, "w1", "l1", 24*time.Hour).
+		Return(false, nil).Once()
+	ms.EXPECT().CreateAlert(mock.Anything, mock.Anything).Return(nil).Once()
+
+	eng := newTestEngine(ms, me, mx, mn)
+	eng.alertsConfig = config.AlertsConfig{
+		ReAlertsEnabled:  true,
+		ReAlertsCooldown: 24 * time.Hour,
+	}
+	eng.evaluateAlert(context.Background(), watch, listing)
 }

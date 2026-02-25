@@ -6,6 +6,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
@@ -42,8 +43,7 @@ type Store interface {
 	ListUnextractedListings(ctx context.Context, limit int) ([]domain.Listing, error)
 	ListUnscoredListings(ctx context.Context, limit int) ([]domain.Listing, error)
 	ListIncompleteExtractions(ctx context.Context, componentType string, limit int) ([]domain.Listing, error)
-	CountIncompleteExtractions(ctx context.Context) (int, error)
-	CountIncompleteExtractionsByType(ctx context.Context) (map[string]int, error)
+	ListListingsCursor(ctx context.Context, afterID string, limit int) ([]domain.Listing, error)
 
 	// Watches
 	CreateWatch(ctx context.Context, w *domain.Watch) error
@@ -65,15 +65,31 @@ type Store interface {
 	ListAlertsByWatch(ctx context.Context, watchID string, limit int) ([]domain.Alert, error)
 	MarkAlertNotified(ctx context.Context, id string) error
 	MarkAlertsNotified(ctx context.Context, ids []string) error
+	HasRecentAlert(ctx context.Context, watchID, listingID string, cooldown time.Duration) (bool, error)
+	InsertNotificationAttempt(ctx context.Context, alertID string, succeeded bool, httpStatus int, errText string) error
+	HasSuccessfulNotification(ctx context.Context, alertID string) (bool, error)
 
-	// Counts
-	CountWatches(ctx context.Context) (total int, enabled int, err error)
-	CountListings(ctx context.Context) (int, error)
-	CountUnextractedListings(ctx context.Context) (int, error)
-	CountUnscoredListings(ctx context.Context) (int, error)
-	CountPendingAlerts(ctx context.Context) (int, error)
-	CountBaselinesByMaturity(ctx context.Context) (cold int, warm int, err error)
-	CountProductKeysWithoutBaseline(ctx context.Context) (int, error)
+	GetSystemState(ctx context.Context) (*domain.SystemState, error)
+
+	// RateLimiterState
+	PersistRateLimiterState(ctx context.Context, tokensUsed, dailyLimit int, resetAt time.Time) error
+	LoadRateLimiterState(ctx context.Context) (*domain.RateLimiterState, error)
+
+	// Scheduler
+	InsertJobRun(ctx context.Context, jobName string) (id string, err error)
+	CompleteJobRun(ctx context.Context, id string, status string, errText string, rowsAffected int) error
+	ListJobRuns(ctx context.Context, jobName string, limit int) ([]domain.JobRun, error)
+	ListLatestJobRuns(ctx context.Context) ([]domain.JobRun, error)
+	UpdateWatchLastPolled(ctx context.Context, watchID string, t time.Time) error
+	RecoverStaleJobRuns(ctx context.Context, olderThan time.Duration) (int, error)
+	AcquireSchedulerLock(ctx context.Context, jobName string, holder string, ttl time.Duration) (bool, error)
+	ReleaseSchedulerLock(ctx context.Context, jobName string, holder string) error
+
+	// ExtractionQueue
+	EnqueueExtraction(ctx context.Context, listingID string, priority int) error
+	DequeueExtractions(ctx context.Context, workerID string, batchSize int) ([]domain.ExtractionJob, error)
+	CompleteExtractionJob(ctx context.Context, id string, errText string) error
+	CountPendingExtractionJobs(ctx context.Context) (int, error)
 
 	// Migrations
 	Migrate(ctx context.Context) error

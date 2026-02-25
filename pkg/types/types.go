@@ -76,11 +76,12 @@ type Listing struct {
 	ScoreBreakdown json.RawMessage `json:"score_breakdown,omitempty" db:"score_breakdown"`
 
 	// Timestamps
-	ListedAt    *time.Time `json:"listed_at,omitempty"  db:"listed_at"`
-	SoldAt      *time.Time `json:"sold_at,omitempty"    db:"sold_at"`
-	SoldPrice   *float64   `json:"sold_price,omitempty" db:"sold_price"`
-	FirstSeenAt time.Time  `json:"first_seen_at"        db:"first_seen_at"`
-	UpdatedAt   time.Time  `json:"updated_at"           db:"updated_at"`
+	ListedAt     *time.Time `json:"listed_at,omitempty"      db:"listed_at"`
+	SoldAt       *time.Time `json:"sold_at,omitempty"        db:"sold_at"`
+	SoldPrice    *float64   `json:"sold_price,omitempty"     db:"sold_price"`
+	AuctionEndAt *time.Time `json:"auction_end_at,omitempty" db:"auction_end_at"`
+	FirstSeenAt  time.Time  `json:"first_seen_at"            db:"first_seen_at"`
+	UpdatedAt    time.Time  `json:"updated_at"               db:"updated_at"`
 }
 
 // UnitPrice returns the per-unit price including shipping.
@@ -97,16 +98,61 @@ func (l *Listing) UnitPrice() float64 {
 
 // Watch represents a saved search with alert configuration.
 type Watch struct {
-	ID             string        `json:"id"                    db:"id"`
-	Name           string        `json:"name"                  db:"name"`
-	SearchQuery    string        `json:"search_query"          db:"search_query"`
-	CategoryID     string        `json:"category_id,omitempty" db:"category_id"`
-	ComponentType  ComponentType `json:"component_type"        db:"component_type"`
-	Filters        WatchFilters  `json:"filters"               db:"filters"`
-	ScoreThreshold int           `json:"score_threshold"       db:"score_threshold"`
-	Enabled        bool          `json:"enabled"               db:"enabled"`
-	CreatedAt      time.Time     `json:"created_at"            db:"created_at"`
-	UpdatedAt      time.Time     `json:"updated_at"            db:"updated_at"`
+	ID             string        `json:"id"                       db:"id"`
+	Name           string        `json:"name"                     db:"name"`
+	SearchQuery    string        `json:"search_query"             db:"search_query"`
+	CategoryID     string        `json:"category_id,omitempty"    db:"category_id"`
+	ComponentType  ComponentType `json:"component_type"           db:"component_type"`
+	Filters        WatchFilters  `json:"filters"                  db:"filters"`
+	ScoreThreshold int           `json:"score_threshold"          db:"score_threshold"`
+	Enabled        bool          `json:"enabled"                  db:"enabled"`
+	LastPolledAt   *time.Time    `json:"last_polled_at,omitempty" db:"last_polled_at"`
+	CreatedAt      time.Time     `json:"created_at"               db:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"               db:"updated_at"`
+}
+
+// JobRun records a single execution of a scheduled job.
+type JobRun struct {
+	ID           string     `json:"id"                      db:"id"`
+	JobName      string     `json:"job_name"                db:"job_name"`
+	StartedAt    time.Time  `json:"started_at"              db:"started_at"`
+	CompletedAt  *time.Time `json:"completed_at,omitempty"  db:"completed_at"`
+	Status       string     `json:"status"                  db:"status"`
+	ErrorText    string     `json:"error_text,omitempty"    db:"error_text"`
+	RowsAffected *int       `json:"rows_affected,omitempty" db:"rows_affected"`
+}
+
+// ExtractionJob represents a pending LLM extraction task.
+type ExtractionJob struct {
+	ID         string    `json:"id"          db:"id"`
+	ListingID  string    `json:"listing_id"  db:"listing_id"`
+	Priority   int       `json:"priority"    db:"priority"`
+	EnqueuedAt time.Time `json:"enqueued_at" db:"enqueued_at"`
+	Attempts   int       `json:"attempts"    db:"attempts"`
+}
+
+// RateLimiterState records the persisted eBay API quota state across restarts.
+type RateLimiterState struct {
+	TokensUsed int       `json:"tokens_used" db:"tokens_used"`
+	DailyLimit int       `json:"daily_limit" db:"daily_limit"`
+	ResetAt    time.Time `json:"reset_at"    db:"reset_at"`
+	SyncedAt   time.Time `json:"synced_at"   db:"synced_at"`
+}
+
+// SystemState holds a precomputed snapshot of aggregate system metrics.
+type SystemState struct {
+	WatchesTotal                 int `json:"watches_total"                  db:"watches_total"`
+	WatchesEnabled               int `json:"watches_enabled"                db:"watches_enabled"`
+	ListingsTotal                int `json:"listings_total"                 db:"listings_total"`
+	ListingsUnextracted          int `json:"listings_unextracted"           db:"listings_unextracted"`
+	ListingsUnscored             int `json:"listings_unscored"              db:"listings_unscored"`
+	AlertsPending                int `json:"alerts_pending"                 db:"alerts_pending"`
+	BaselinesTotal               int `json:"baselines_total"                db:"baselines_total"`
+	BaselinesWarm                int `json:"baselines_warm"                 db:"baselines_warm"`
+	BaselinesCold                int `json:"baselines_cold"                 db:"baselines_cold"`
+	ProductKeysNoBaseline        int `json:"product_keys_no_baseline"       db:"product_keys_no_baseline"`
+	ListingsIncompleteExtraction int `json:"listings_incomplete_extraction" db:"listings_incomplete_extraction"`
+	ExtractionQueueDepth         int `json:"extraction_queue_depth"         db:"extraction_queue_depth"`
 }
 
 // WatchFilters defines the structured filtering criteria.
