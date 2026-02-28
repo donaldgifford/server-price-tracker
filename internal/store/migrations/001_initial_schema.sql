@@ -122,7 +122,11 @@ SELECT
 FROM listings l
 LEFT JOIN price_baselines b ON b.product_key = l.product_key;
 
--- Function to recompute baselines from sold listings
+-- Function to recompute baselines using active listing prices as a proxy.
+-- Uses updated_at as the window anchor (set by trigger on every upsert) so any
+-- listing seen within the window period contributes to the baseline regardless
+-- of whether it has sold. COALESCE(sold_price, price) prefers real sold data
+-- if it ever becomes available (e.g. Marketplace Insights API).
 CREATE OR REPLACE FUNCTION recompute_baseline(p_product_key TEXT, p_window_days INTEGER DEFAULT 90)
 RETURNS void AS $$
 BEGIN
@@ -145,8 +149,7 @@ BEGIN
             END AS unit_price
         FROM listings
         WHERE product_key = p_product_key
-          AND sold_at IS NOT NULL
-          AND sold_at >= now() - (p_window_days || ' days')::interval
+          AND updated_at >= now() - (p_window_days || ' days')::interval
           AND condition_norm != 'for_parts'
     ) sub
     HAVING count(*) >= 5
