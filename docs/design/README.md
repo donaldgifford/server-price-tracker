@@ -35,4 +35,5 @@ docz create design "Your Design Title"
 | DESIGN-0001 | Server Price Tracker Architecture | Implemented | 2026-03-14 | Donald Gifford | [0001-server-price-tracker-architecture.md](0001-server-price-tracker-architecture.md) |
 | DESIGN-0002 | LLM Extraction Pipeline | Implemented | 2026-03-14 | Donald Gifford | [0002-llm-extraction-pipeline.md](0002-llm-extraction-pipeline.md) |
 | DESIGN-0003 | Helm Chart Testing and Releasing CI-CD | Implemented | 2026-03-14 | Donald Gifford | [0003-helm-chart-testing-and-releasing-ci-cd.md](0003-helm-chart-testing-and-releasing-ci-cd.md) |
+| DESIGN-0004 | Inactive Listings Lifecycle | Draft | 2026-03-14 | Donald Gifford | [0004-inactive-listings-lifecycle.md](0004-inactive-listings-lifecycle.md) |
 <!-- END DOCZ AUTO-GENERATED -->
