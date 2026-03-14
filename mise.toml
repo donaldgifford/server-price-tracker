@@ -6,8 +6,8 @@
 "go:github.com/google/go-licenses" = "latest"
 
 # API testing tools
-"npm:@apideck/portman" = "latest"         # Postman collection + contract tests from OpenAPI
-"npm:newman" = "latest"                   # Postman CLI test runner
+"npm:@apideck/portman" = "latest" # Postman collection + contract tests from OpenAPI
+"npm:newman" = "latest"           # Postman CLI test runner
 
 go = "1.25.7"
 markdownlint-cli2 = "0.18.1"
@@ -25,3 +25,6 @@ helm-cr = "latest"
 helm-ct = "latest"
 helm-diff = "latest"
 helm-docs = "latest"
+
+# repo tools
+"github:donaldgifford/docz" = "0.0.6"

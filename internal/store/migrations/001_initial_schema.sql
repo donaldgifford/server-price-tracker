@@ -53,6 +53,9 @@ CREATE TABLE listings (
     score                   INTEGER,
     score_breakdown         JSONB,
 
+    -- state
+    active                  BOOLEAN NOT NULL DEFAULT true,
+
     -- timestamps
     listed_at               TIMESTAMPTZ,
     auction_end_at          TIMESTAMPTZ,
@@ -69,6 +72,7 @@ CREATE INDEX idx_listings_product_key ON listings(product_key);
 CREATE INDEX idx_listings_score ON listings(score DESC) WHERE score IS NOT NULL;
 CREATE INDEX idx_listings_attrs ON listings USING GIN(attributes);
 CREATE INDEX idx_listings_first_seen ON listings(first_seen_at DESC);
+CREATE INDEX idx_listings_active ON listings(active) WHERE active = true;
 CREATE INDEX idx_listings_seller_feedback ON listings(seller_feedback_score);
 CREATE INDEX idx_listings_sold ON listings(sold_at DESC) WHERE sold_at IS NOT NULL;
 
@@ -120,9 +124,14 @@ SELECT
         ELSE l.price + COALESCE(l.shipping_cost, 0)
     END AS unit_price
 FROM listings l
-LEFT JOIN price_baselines b ON b.product_key = l.product_key;
+LEFT JOIN price_baselines b ON b.product_key = l.product_key
+WHERE l.active = true;
 
--- Function to recompute baselines from sold listings
+-- Function to recompute baselines using active listing prices as a proxy.
+-- Uses updated_at as the window anchor (set by trigger on every upsert) so any
+-- listing seen within the window period contributes to the baseline regardless
+-- of whether it has sold. COALESCE(sold_price, price) prefers real sold data
+-- if it ever becomes available (e.g. Marketplace Insights API).
 CREATE OR REPLACE FUNCTION recompute_baseline(p_product_key TEXT, p_window_days INTEGER DEFAULT 90)
 RETURNS void AS $$
 BEGIN
@@ -145,8 +154,8 @@ BEGIN
             END AS unit_price
         FROM listings
         WHERE product_key = p_product_key
-          AND sold_at IS NOT NULL
-          AND sold_at >= now() - (p_window_days || ' days')::interval
+          AND active = true
+          AND updated_at >= now() - (p_window_days || ' days')::interval
           AND condition_norm != 'for_parts'
     ) sub
     HAVING count(*) >= 5

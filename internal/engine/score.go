@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -91,17 +92,31 @@ func RescoreByProductKey(
 	return scoreAll(ctx, s, listings)
 }
 
-// RescoreAll re-scores all active listings.
+// RescoreAll re-scores all active listings using cursor-based pagination to
+// avoid loading the entire table into memory.
 func RescoreAll(ctx context.Context, s store.Store) (int, error) {
-	q := &store.ListingQuery{
-		Limit: 500,
-	}
-	listings, _, err := s.ListListings(ctx, q)
-	if err != nil {
-		return 0, fmt.Errorf("listing all: %w", err)
+	const batchSize = 200
+	var cursor string
+	total := 0
+	var errs []error
+
+	for {
+		batch, err := s.ListListingsCursor(ctx, cursor, batchSize)
+		if err != nil {
+			return total, fmt.Errorf("listing by cursor: %w", err)
+		}
+		if len(batch) == 0 {
+			break
+		}
+		scored, batchErr := scoreAll(ctx, s, batch)
+		total += scored
+		if batchErr != nil {
+			errs = append(errs, batchErr)
+		}
+		cursor = batch[len(batch)-1].ID
 	}
 
-	return scoreAll(ctx, s, listings)
+	return total, errors.Join(errs...)
 }
 
 func scoreAll(ctx context.Context, s store.Store, listings []domain.Listing) (int, error) {
@@ -120,6 +135,7 @@ func scoreAll(ctx context.Context, s store.Store, listings []domain.Listing) (in
 }
 
 func buildListingData(l *domain.Listing) *score.ListingData {
+	isAuction := l.ListingType == domain.ListingAuction
 	return &score.ListingData{
 		UnitPrice:         l.UnitPrice(),
 		SellerFeedback:    l.SellerFeedback,
@@ -129,6 +145,8 @@ func buildListingData(l *domain.Listing) *score.ListingData {
 		Quantity:          l.Quantity,
 		HasImages:         l.ImageURL != "",
 		HasItemSpecifics:  len(l.Attributes) > 0,
-		IsAuction:         l.ListingType == domain.ListingAuction,
+		IsAuction:         isAuction,
+		AuctionEndingSoon: isAuction && l.AuctionEndAt != nil && time.Until(*l.AuctionEndAt) < 4*time.Hour,
+		IsNewListing:      time.Since(l.FirstSeenAt) < 24*time.Hour,
 	}
 }

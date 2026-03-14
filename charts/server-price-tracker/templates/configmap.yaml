@@ -70,6 +70,9 @@ data:
       ingestion_interval: {{ .Values.config.schedule.ingestion_interval }}
       baseline_interval: {{ .Values.config.schedule.baseline_interval }}
       stagger_offset: {{ .Values.config.schedule.stagger_offset }}
+      {{- if .Values.config.schedule.re_extraction_interval }}
+      re_extraction_interval: {{ .Values.config.schedule.re_extraction_interval }}
+      {{- end }}
 
     notifications:
       discord:

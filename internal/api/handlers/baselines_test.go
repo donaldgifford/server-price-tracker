@@ -84,3 +84,17 @@ func TestGetBaseline_NotFound(t *testing.T) {
 	resp := api.Get("/api/v1/baselines/nonexistent")
 	require.Equal(t, http.StatusNotFound, resp.Code)
 }
+
+func TestListBaselines_StoreError(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	ms.On("ListBaselines", mock.Anything).Return(nil, assert.AnError)
+
+	h := handlers.NewBaselinesHandler(ms)
+	_, api := humatest.New(t)
+	handlers.RegisterBaselineRoutes(api, h)
+
+	resp := api.Get("/api/v1/baselines")
+	require.Equal(t, http.StatusInternalServerError, resp.Code)
+}

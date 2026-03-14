@@ -3,6 +3,7 @@ package ebay
 import (
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/donaldgifford/server-price-tracker/pkg/extract"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
@@ -51,6 +52,13 @@ func toListing(item *ItemSummary) domain.Listing {
 
 	// Top-rated seller
 	l.SellerTopRated = item.TopRatedBuyingExperience
+
+	// Auction end time (only present for auction listings).
+	if item.ItemEndDate != "" {
+		if t, err := time.Parse(time.RFC3339, item.ItemEndDate); err == nil {
+			l.AuctionEndAt = &t
+		}
+	}
 
 	// Condition
 	l.ConditionRaw = item.Condition

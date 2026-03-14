@@ -95,6 +95,9 @@ config:
     ingestion_interval: 30m
     baseline_interval: 6h
     stagger_offset: 30s
+    # re_extraction_interval: 0 means disabled. Set to e.g. "6h" to enable
+    # scheduled re-extraction of listings with incomplete extraction data.
+    re_extraction_interval: ""
 
   notifications:
     discord:
