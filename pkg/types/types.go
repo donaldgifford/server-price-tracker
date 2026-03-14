@@ -75,6 +75,9 @@ type Listing struct {
 	Score          *int            `json:"score,omitempty"           db:"score"`
 	ScoreBreakdown json.RawMessage `json:"score_breakdown,omitempty" db:"score_breakdown"`
 
+	// State
+	Active bool `json:"active" db:"active"`
+
 	// Timestamps
 	ListedAt     *time.Time `json:"listed_at,omitempty"      db:"listed_at"`
 	SoldAt       *time.Time `json:"sold_at,omitempty"        db:"sold_at"`

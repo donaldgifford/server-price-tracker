@@ -775,7 +775,7 @@ func scanListing(row scannable, l *domain.Listing) error {
 		&l.SellerName, &l.SellerFeedback, &l.SellerFeedbackPct, &l.SellerTopRated,
 		&l.ConditionRaw, &l.ConditionNorm, &l.ComponentType, &l.Quantity, &l.Attributes,
 		&l.ExtractionConfidence, &l.ProductKey, &l.Score, &l.ScoreBreakdown,
-		&l.ListedAt, &l.SoldAt, &l.SoldPrice, &l.FirstSeenAt, &l.UpdatedAt,
+		&l.Active, &l.ListedAt, &l.SoldAt, &l.SoldPrice, &l.FirstSeenAt, &l.UpdatedAt,
 	)
 }
 
@@ -787,7 +787,7 @@ func scanListingRow(rows pgx.Rows, l *domain.Listing) error {
 		&l.SellerName, &l.SellerFeedback, &l.SellerFeedbackPct, &l.SellerTopRated,
 		&l.ConditionRaw, &l.ConditionNorm, &l.ComponentType, &l.Quantity, &l.Attributes,
 		&l.ExtractionConfidence, &l.ProductKey, &l.Score, &l.ScoreBreakdown,
-		&l.ListedAt, &l.SoldAt, &l.SoldPrice, &l.FirstSeenAt, &l.UpdatedAt,
+		&l.Active, &l.ListedAt, &l.SoldAt, &l.SoldPrice, &l.FirstSeenAt, &l.UpdatedAt,
 	)
 }
 

@@ -33,6 +33,7 @@ const (
 			condition_norm = EXCLUDED.condition_norm,
 			quantity = EXCLUDED.quantity,
 			listed_at = EXCLUDED.listed_at,
+			active = true,
 			updated_at = now()
 		RETURNING id, first_seen_at, updated_at`
 
@@ -42,7 +43,7 @@ const (
 			seller_name, seller_feedback_score, seller_feedback_pct, seller_top_rated,
 			condition_raw, COALESCE(condition_norm, 'unknown'), COALESCE(component_type, ''), quantity, COALESCE(attributes, '{}'),
 			COALESCE(extraction_confidence, 0), COALESCE(product_key, ''), score, score_breakdown,
-			listed_at, sold_at, sold_price, first_seen_at, updated_at
+			active, listed_at, sold_at, sold_price, first_seen_at, updated_at
 		FROM listings
 		WHERE ebay_item_id = $1`
 
@@ -52,7 +53,7 @@ const (
 			seller_name, seller_feedback_score, seller_feedback_pct, seller_top_rated,
 			condition_raw, COALESCE(condition_norm, 'unknown'), COALESCE(component_type, ''), quantity, COALESCE(attributes, '{}'),
 			COALESCE(extraction_confidence, 0), COALESCE(product_key, ''), score, score_breakdown,
-			listed_at, sold_at, sold_price, first_seen_at, updated_at
+			active, listed_at, sold_at, sold_price, first_seen_at, updated_at
 		FROM listings
 		WHERE id = $1`
 
@@ -78,9 +79,9 @@ const (
 			seller_name, seller_feedback_score, seller_feedback_pct, seller_top_rated,
 			condition_raw, COALESCE(condition_norm, 'unknown'), COALESCE(component_type, ''), quantity, COALESCE(attributes, '{}'),
 			COALESCE(extraction_confidence, 0), COALESCE(product_key, ''), score, score_breakdown,
-			listed_at, sold_at, sold_price, first_seen_at, updated_at
+			active, listed_at, sold_at, sold_price, first_seen_at, updated_at
 		FROM listings
-		WHERE component_type IS NULL
+		WHERE active = true AND component_type IS NULL
 		ORDER BY first_seen_at DESC
 		LIMIT $1`
 
@@ -90,9 +91,9 @@ const (
 			seller_name, seller_feedback_score, seller_feedback_pct, seller_top_rated,
 			condition_raw, COALESCE(condition_norm, 'unknown'), COALESCE(component_type, ''), quantity, COALESCE(attributes, '{}'),
 			COALESCE(extraction_confidence, 0), COALESCE(product_key, ''), score, score_breakdown,
-			listed_at, sold_at, sold_price, first_seen_at, updated_at
+			active, listed_at, sold_at, sold_price, first_seen_at, updated_at
 		FROM listings
-		WHERE component_type IS NOT NULL AND score IS NULL
+		WHERE active = true AND component_type IS NOT NULL AND score IS NULL
 		ORDER BY first_seen_at DESC
 		LIMIT $1`
 
@@ -103,9 +104,9 @@ const (
 			condition_raw, COALESCE(condition_norm, 'unknown'), COALESCE(component_type, ''), quantity,
 			COALESCE(attributes, '{}'), COALESCE(extraction_confidence, 0), COALESCE(product_key, ''),
 			score, score_breakdown,
-			listed_at, sold_at, sold_price, first_seen_at, updated_at
+			active, listed_at, sold_at, sold_price, first_seen_at, updated_at
 		FROM listings
-		WHERE id > $1
+		WHERE active = true AND id > $1
 		ORDER BY id ASC
 		LIMIT $2`
 )
@@ -179,7 +180,7 @@ const (
 	queryListDistinctProductKeys = `
 		SELECT DISTINCT product_key
 		FROM listings
-		WHERE product_key IS NOT NULL AND product_key != ''`
+		WHERE active = true AND product_key IS NOT NULL AND product_key != ''`
 )
 
 // Extraction quality queries.
@@ -190,9 +191,9 @@ const (
 			seller_name, seller_feedback_score, seller_feedback_pct, seller_top_rated,
 			condition_raw, COALESCE(condition_norm, 'unknown'), COALESCE(component_type, ''), quantity, COALESCE(attributes, '{}'),
 			COALESCE(extraction_confidence, 0), COALESCE(product_key, ''), score, score_breakdown,
-			listed_at, sold_at, sold_price, first_seen_at, updated_at
+			active, listed_at, sold_at, sold_price, first_seen_at, updated_at
 		FROM listings
-		WHERE component_type IS NOT NULL AND (
+		WHERE active = true AND component_type IS NOT NULL AND (
 			(component_type = 'ram' AND (product_key LIKE '%:0' OR (attributes->>'speed_mhz') IS NULL))
 			OR (component_type = 'drive' AND (product_key LIKE '%:unknown%'))
 		)
@@ -205,9 +206,9 @@ const (
 			seller_name, seller_feedback_score, seller_feedback_pct, seller_top_rated,
 			condition_raw, COALESCE(condition_norm, 'unknown'), COALESCE(component_type, ''), quantity, COALESCE(attributes, '{}'),
 			COALESCE(extraction_confidence, 0), COALESCE(product_key, ''), score, score_breakdown,
-			listed_at, sold_at, sold_price, first_seen_at, updated_at
+			active, listed_at, sold_at, sold_price, first_seen_at, updated_at
 		FROM listings
-		WHERE component_type = $1 AND (
+		WHERE active = true AND component_type = $1 AND (
 			(component_type = 'ram' AND (product_key LIKE '%:0' OR (attributes->>'speed_mhz') IS NULL))
 			OR (component_type = 'drive' AND (product_key LIKE '%:unknown%'))
 		)
