@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Server Price Tracker is an API-first Go service that monitors eBay listings for server hardware deals (RAM, drives, servers, CPUs, NICs). It extracts structured attributes via LLM (Ollama default, Anthropic Claude API optional), scores listings against historical price baselines, and sends deal alerts via Discord webhooks. Two binaries: `server-price-tracker` (API server) and `spt` (CLI client).
 
-**Current state:** MVP implementation is complete. All handlers use Huma v2 typed input/output structs with runtime OpenAPI spec generation. The `spt` CLI client consumes the HTTP API via Cobra + Viper. See `docs/IMPLEMENTATION.md` for the MVP build plan and `docs/plans/huma-migration.md` for the Huma migration plan.
+**Current state:** MVP implementation is complete. All handlers use Huma v2 typed input/output structs with runtime OpenAPI spec generation. The `spt` CLI client consumes the HTTP API via Cobra + Viper. Scheduler state, extraction queue, and rate limiter state are DB-backed (migrations 002-006). Baselines use active listing prices as a proxy since the eBay Browse API only returns active listings (migration 007). Stale unextracted listings are soft-deactivated via an `active` flag (migration 008). Documentation is managed via `docz` CLI — see `docs/design/`, `docs/impl/`, `docs/rfc/`.
 
 ## Git Workflow
 
@@ -141,7 +141,7 @@ Every external dependency is abstracted behind a Go interface. Mockery generates
 2. **Ingestion** polls eBay per watch on a 15-min schedule (staggered), with rate limiting (token bucket + rolling 24-hour daily quota) and per-cycle budget enforcement
 3. **LLM Extraction** (two-pass): classify component type from title, then extract component-specific attributes using the configured backend. RAM extraction includes post-LLM normalization that recovers speed from PC module numbers (e.g., PC4-21300 → 2666 MHz) when the LLM returns null.
 4. **Product Key** generation normalizes attributes for baseline grouping (e.g., `ram:ddr4:ecc_reg:32gb:2666`)
-5. **Scoring** computes a weighted 0–100 composite score (price 40%, seller 20%, condition 15%, quantity 10%, quality 10%, time 5%). Price factor defaults to neutral 50 when baseline has insufficient samples (cold start).
+5. **Scoring** computes a weighted 0–100 composite score (price 40%, seller 20%, condition 15%, quantity 10%, quality 10%, time 5%). Baselines are computed from active listing prices within a 90-day window (`updated_at`-based). Price factor defaults to neutral 50 when baseline has insufficient samples (cold start).
 6. **Alerts** fire when score >= watch threshold and filters match; sent as Discord webhook rich embeds
 
 ### Project Layout
@@ -171,8 +171,12 @@ deploy/                       Kubernetes manifests (Kustomize base + overlays)
   overlays/prod/              Prod overlay (info logging, higher resources)
 charts/server-price-tracker/  Helm chart (alternative to Kustomize deploy/)
 docker-bake.hcl               Docker Bake build definitions (dev, ci, release targets)
-docs/                         Design and implementation documentation
-  plans/                      Migration and feature plans
+docs/                         Design and implementation documentation (managed via docz CLI)
+  design/                     Architecture and design docs (DESIGN-NNNN)
+  impl/                       Implementation plans with tasks (IMPL-NNNN)
+  rfc/                        Proposals and plans (RFC-NNNN)
+  adr/                        Architecture decision records (ADR-NNNN)
+  plans/                      Legacy migration and feature plans (pre-docz)
 ```
 
 **Exported (`pkg/`)** — importable by external tools:
@@ -211,6 +215,9 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 - `POST /api/v1/reextract` — re-extract listings with incomplete data (optional type/limit)
 - `GET /api/v1/extraction/stats` — extraction quality statistics (incomplete counts by type)
 - `GET /api/v1/quota` — eBay API quota status (daily usage, remaining, reset time)
+- `GET /api/v1/system/state` — system health metrics (listing/baseline/alert counts)
+- `GET /api/v1/jobs` — scheduler job run history
+- `GET /api/v1/jobs/{job_name}` — job runs for a specific job
 
 ## Testing Strategy
 
@@ -256,11 +263,19 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 
 ## Design Documentation
 
-- `docs/DESIGN.md` — Full architecture, interface catalog, testing strategy, API endpoints, data model, scoring formula, product key strategy, deployment architecture
-- `docs/IMPLEMENTATION.md` — 10-phase MVP plan with TDD workflow, detailed task checkboxes, table-driven test specifications, and success criteria per phase
-- `docs/EXTRACTION.md` — LLM backend options (Ollama, Claude API, OpenAI-compat), prompts for all 5 component types, GBNF grammars, validation rules, product key generation
-- `docs/DEPLOYMENT_STRATEGY.md` — Helm chart testing and releasing CI/CD strategy, tool descriptions, version strategy
-- `docs/DEPLOYMENT_IMPLEMENTATION.md` — Phased implementation plan with task checklists and success criteria
-- `docs/helm-chore.md` — Plan for chart docs, helm-unittest, and CI linting
-- `docs/helm-chore-impl.md` — Phased implementation guide for helm-chore work
-- `docs/plans/huma-migration.md` — 8-phase migration from swaggo to Huma v2 typed handlers, Portman pipeline, and spt CLI client
+Documentation is managed via `docz` CLI (`.docz.yaml` config at repo root). Run `docz list` to see all tracked documents, `docz create <type> <title>` to create new ones. Original pre-docz docs remain in place; docz versions live in `docs/design/`, `docs/impl/`, `docs/rfc/`.
+
+Key documents (docz-tracked):
+- `DESIGN-0001` — Server Price Tracker Architecture (full architecture, interfaces, data model)
+- `DESIGN-0002` — LLM Extraction Pipeline (prompts, grammars, validation, product keys)
+- `DESIGN-0003` — Helm Chart Testing and Releasing CI/CD
+- `DESIGN-0004` — Inactive Listings Lifecycle (active flag, soft-deactivation)
+- `IMPL-0001` — MVP Build Plan (10-phase implementation)
+- `IMPL-0005` — Codebase Refactoring (in progress)
+- `RFC-0001` — Migrate from Swaggo to Huma v2
+
+Key documents (legacy, pre-docz):
+- `docs/DESIGN.md` — Original architecture document
+- `docs/IMPLEMENTATION.md` — Original MVP implementation plan
+- `docs/EXTRACTION.md` — LLM backend options, prompts, grammars
+- `docs/OPERATIONS.md` — Operations guide for setup and running
