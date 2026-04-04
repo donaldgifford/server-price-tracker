@@ -196,36 +196,36 @@ test patterns in `tests/cnpg-cluster_test.yaml` and `tests/ingress_test.yaml`.
 
 #### Tasks
 
-- [ ] Create `charts/server-price-tracker/tests/cnpg-pooler_test.yaml` with
+- [x] Create `charts/server-price-tracker/tests/cnpg-pooler_test.yaml` with
       Pooler tests:
-  - [ ] Test: does not render when `cnpg.pooler.enabled: false` (default)
-  - [ ] Test: does not render when `cnpg.enabled: false` even if
+  - [x] Test: does not render when `cnpg.pooler.enabled: false` (default)
+  - [x] Test: does not render when `cnpg.enabled: false` even if
         `cnpg.pooler.enabled: true`
-  - [ ] Test: renders Pooler kind with correct apiVersion
+  - [x] Test: renders Pooler kind with correct apiVersion
         (`postgresql.cnpg.io/v1`)
-  - [ ] Test: correct pooler name
+  - [x] Test: correct pooler name
         (`RELEASE-NAME-server-price-tracker-db-pooler`)
-  - [ ] Test: references CNPG cluster name
+  - [x] Test: references CNPG cluster name
         (`RELEASE-NAME-server-price-tracker-db`)
-  - [ ] Test: default values (type: rw, instances: 1, poolMode: transaction)
-  - [ ] Test: configurable instances count
-  - [ ] Test: configurable poolMode, defaultPoolSize, maxClientConnections
-  - [ ] Test: extra pgbouncer parameters rendered when provided
-  - [ ] Test: monitoring.enablePodMonitor toggle
-  - [ ] Test: standard labels present (isSubset check)
-- [ ] Add TCPRoute tests to the same `cnpg-pooler_test.yaml` file (follows
+  - [x] Test: default values (type: rw, instances: 1, poolMode: transaction)
+  - [x] Test: configurable instances count
+  - [x] Test: configurable poolMode, defaultPoolSize, maxClientConnections
+  - [x] Test: extra pgbouncer parameters rendered when provided
+  - [x] Test: monitoring.enablePodMonitor toggle
+  - [x] Test: standard labels present (isSubset check)
+- [x] Add TCPRoute tests to the same `cnpg-pooler_test.yaml` file (follows
       `ingress_test.yaml` pattern of grouping related networking resources):
-  - [ ] Test: TCPRoute does not render when `cnpg.pooler.tcpRoute.enabled: false`
-  - [ ] Test: TCPRoute does not render when `cnpg.pooler.enabled: false` even if
+  - [x] Test: TCPRoute does not render when `cnpg.pooler.tcpRoute.enabled: false`
+  - [x] Test: TCPRoute does not render when `cnpg.pooler.enabled: false` even if
         `cnpg.pooler.tcpRoute.enabled: true`
-  - [ ] Test: TCPRoute does not render when `cnpg.enabled: false`
-  - [ ] Test: renders TCPRoute kind with correct apiVersion
+  - [x] Test: TCPRoute does not render when `cnpg.enabled: false`
+  - [x] Test: renders TCPRoute kind with correct apiVersion
         (`gateway.networking.k8s.io/v1alpha2`)
-  - [ ] Test: correct parentRefs from values
-  - [ ] Test: backendRef points to pooler service on port 5432
-  - [ ] Test: annotations rendered when provided
-  - [ ] Test: standard labels present
-- [ ] Verify: `make helm-unittest` passes with all new tests
+  - [x] Test: correct parentRefs from values
+  - [x] Test: backendRef points to pooler service on port 5432
+  - [x] Test: annotations rendered when provided
+  - [x] Test: standard labels present
+- [x] Verify: `make helm-unittest` passes with all new tests
 
 #### Success Criteria
 
