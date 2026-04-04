@@ -244,6 +244,31 @@ cnpg:
     limits:
       cpu: "1"
       memory: 1Gi
+  # -- CNPG Pooler (PgBouncer connection pooling)
+  pooler:
+    enabled: false
+    # -- Pooler type: rw (read-write primary) or ro (read-only replicas)
+    type: rw
+    instances: 1
+    pgbouncer:
+      # -- PgBouncer pool mode: session, transaction, or statement
+      poolMode: transaction
+      defaultPoolSize: 25
+      maxClientConnections: 100
+      # -- Extra pgbouncer.ini parameters (key-value pairs)
+      parameters: {}
+    monitoring:
+      enablePodMonitor: false
+    # -- Gateway API TCPRoute for external database access
+    tcpRoute:
+      enabled: false
+      annotations: {}
+      parentRefs:
+        - group: gateway.networking.k8s.io
+          kind: Gateway
+          name: internal
+          namespace: gateway
+          # sectionName: postgres
 
 # -- Ollama LLM backend (StatefulSet)
 ollama:
