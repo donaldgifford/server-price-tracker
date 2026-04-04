@@ -78,15 +78,12 @@ jobs:
           go-version-file: go.mod
           go-package: ./...
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.35.0
+      - name: Run Grype vulnerability scanner
+        uses: anchore/scan-action@v6
         with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-
+          path: .
+          severity-cutoff: high
+          fail-build: true
   build:
     name: Build
     if: github.event_name == 'pull_request'

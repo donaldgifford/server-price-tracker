@@ -27,4 +27,4 @@ helm-diff = "latest"
 helm-docs = "latest"
 
 # repo tools
-"github:donaldgifford/docz" = "0.0.6"
+"github:donaldgifford/docz" = "latest"
