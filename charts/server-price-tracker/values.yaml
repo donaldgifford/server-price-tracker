@@ -259,16 +259,17 @@ cnpg:
       parameters: {}
     monitoring:
       enablePodMonitor: false
-    # -- Gateway API TCPRoute for external database access
-    tcpRoute:
+    # -- LoadBalancer Service for external database access
+    # Cilium does not support TCPRoute (github.com/cilium/cilium/issues/42016),
+    # so we use a LoadBalancer Service with BGP advertisement instead.
+    service:
       enabled: false
+      type: LoadBalancer
       annotations: {}
-      parentRefs:
-        - group: gateway.networking.k8s.io
-          kind: Gateway
-          name: internal
-          namespace: gateway
-          # sectionName: postgres
+      # -- Cilium BGP labels for IP advertisement
+      labels:
+        bgp.cilium.io/advertise-service: default
+        bgp.cilium.io/ip-pool: default
 
 # -- Ollama LLM backend (StatefulSet)
 ollama:

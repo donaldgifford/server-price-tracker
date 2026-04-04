@@ -2,7 +2,7 @@
 suite: cnpg-pooler
 templates:
   - templates/cnpg-pooler.yaml
-  - templates/cnpg-pooler-tcproute.yaml
+  - templates/cnpg-pooler-service.yaml
 tests:
   # --- Pooler tests ---
 
@@ -142,92 +142,95 @@ tests:
             app.kubernetes.io/instance: RELEASE-NAME
             app.kubernetes.io/managed-by: Helm
 
-  # --- TCPRoute tests ---
+  # --- Pooler LoadBalancer Service tests ---
 
-  - it: TCPRoute does not render when cnpg.pooler.tcpRoute.enabled is false
-    template: templates/cnpg-pooler-tcproute.yaml
+  - it: Service does not render when cnpg.pooler.service.enabled is false
+    template: templates/cnpg-pooler-service.yaml
     set:
       cnpg.enabled: true
       cnpg.pooler.enabled: true
-      cnpg.pooler.tcpRoute.enabled: false
+      cnpg.pooler.service.enabled: false
     asserts:
       - hasDocuments:
           count: 0
 
-  - it: TCPRoute does not render when cnpg.pooler.enabled is false
-    template: templates/cnpg-pooler-tcproute.yaml
+  - it: Service does not render when cnpg.pooler.enabled is false
+    template: templates/cnpg-pooler-service.yaml
     set:
       cnpg.enabled: true
       cnpg.pooler.enabled: false
-      cnpg.pooler.tcpRoute.enabled: true
+      cnpg.pooler.service.enabled: true
     asserts:
       - hasDocuments:
           count: 0
 
-  - it: TCPRoute does not render when cnpg.enabled is false
-    template: templates/cnpg-pooler-tcproute.yaml
+  - it: Service does not render when cnpg.enabled is false
+    template: templates/cnpg-pooler-service.yaml
     set:
       cnpg.enabled: false
       cnpg.pooler.enabled: true
-      cnpg.pooler.tcpRoute.enabled: true
+      cnpg.pooler.service.enabled: true
     asserts:
       - hasDocuments:
           count: 0
 
-  - it: TCPRoute renders with correct apiVersion and kind
-    template: templates/cnpg-pooler-tcproute.yaml
+  - it: Service renders as LoadBalancer with correct name
+    template: templates/cnpg-pooler-service.yaml
     set:
       cnpg.enabled: true
       cnpg.pooler.enabled: true
-      cnpg.pooler.tcpRoute.enabled: true
+      cnpg.pooler.service.enabled: true
     asserts:
       - isKind:
-          of: TCPRoute
+          of: Service
       - equal:
-          path: apiVersion
-          value: gateway.networking.k8s.io/v1alpha2
+          path: metadata.name
+          value: RELEASE-NAME-server-price-tracker-db-pooler-lb
+      - equal:
+          path: spec.type
+          value: LoadBalancer
 
-  - it: TCPRoute has correct parentRefs from values
-    template: templates/cnpg-pooler-tcproute.yaml
+  - it: Service targets port 5432 with CNPG pooler selector
+    template: templates/cnpg-pooler-service.yaml
     set:
       cnpg.enabled: true
       cnpg.pooler.enabled: true
-      cnpg.pooler.tcpRoute.enabled: true
+      cnpg.pooler.service.enabled: true
     asserts:
       - equal:
-          path: spec.parentRefs[0].kind
-          value: Gateway
-      - equal:
-          path: spec.parentRefs[0].name
-          value: internal
-      - equal:
-          path: spec.parentRefs[0].namespace
-          value: gateway
-
-  - it: TCPRoute backendRef points to pooler service on port 5432
-    template: templates/cnpg-pooler-tcproute.yaml
-    set:
-      cnpg.enabled: true
-      cnpg.pooler.enabled: true
-      cnpg.pooler.tcpRoute.enabled: true
-    asserts:
-      - equal:
-          path: spec.rules[0].backendRefs[0].kind
-          value: Service
-      - equal:
-          path: spec.rules[0].backendRefs[0].name
-          value: RELEASE-NAME-server-price-tracker-db-pooler
-      - equal:
-          path: spec.rules[0].backendRefs[0].port
+          path: spec.ports[0].port
           value: 5432
+      - equal:
+          path: spec.ports[0].targetPort
+          value: 5432
+      - equal:
+          path: spec.ports[0].protocol
+          value: TCP
+      - isSubset:
+          path: spec.selector
+          content:
+            cnpg.io/poolerName: RELEASE-NAME-server-price-tracker-db-pooler
 
-  - it: TCPRoute renders annotations when provided
-    template: templates/cnpg-pooler-tcproute.yaml
+  - it: Service includes Cilium BGP labels by default
+    template: templates/cnpg-pooler-service.yaml
     set:
       cnpg.enabled: true
       cnpg.pooler.enabled: true
-      cnpg.pooler.tcpRoute.enabled: true
-      cnpg.pooler.tcpRoute.annotations:
+      cnpg.pooler.service.enabled: true
+    asserts:
+      - isSubset:
+          path: metadata.labels
+          content:
+            bgp.cilium.io/advertise-service: default
+            bgp.cilium.io/ip-pool: default
+
+  - it: Service renders annotations when provided
+    template: templates/cnpg-pooler-service.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+      cnpg.pooler.service.enabled: true
+      cnpg.pooler.service.annotations:
         test-annotation: db.example.com
     asserts:
       - isSubset:
@@ -235,12 +238,12 @@ tests:
           content:
             test-annotation: db.example.com
 
-  - it: TCPRoute has standard labels
-    template: templates/cnpg-pooler-tcproute.yaml
+  - it: Service has standard labels
+    template: templates/cnpg-pooler-service.yaml
     set:
       cnpg.enabled: true
       cnpg.pooler.enabled: true
-      cnpg.pooler.tcpRoute.enabled: true
+      cnpg.pooler.service.enabled: true
     asserts:
       - isSubset:
           path: metadata.labels

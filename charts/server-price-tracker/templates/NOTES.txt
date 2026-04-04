@@ -30,8 +30,8 @@ Server Price Tracker has been deployed.
 {{ if .Values.cnpg.enabled }}4{{ else }}3{{ end }}. CNPG Pooler (PgBouncer):
   Service: {{ include "server-price-tracker.cnpgPoolerName" . }}:5432
   Port-forward: kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "server-price-tracker.cnpgPoolerName" . }} 5432:5432
-{{- if .Values.cnpg.pooler.tcpRoute.enabled }}
-  TCPRoute: {{ include "server-price-tracker.cnpgPoolerName" . }} (external access via Gateway)
+{{- if .Values.cnpg.pooler.service.enabled }}
+  External: {{ include "server-price-tracker.cnpgPoolerName" . }}-lb (LoadBalancer on port 5432)
 {{- end }}
 {{- end }}
 

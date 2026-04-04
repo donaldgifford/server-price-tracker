@@ -21,7 +21,7 @@ created: 2026-04-04
 - [Background](#background)
 - [Detailed Design](#detailed-design)
   - [CNPG Pooler CRD](#cnpg-pooler-crd)
-  - [Gateway API TCPRoute](#gateway-api-tcproute)
+  - [LoadBalancer Service](#loadbalancer-service)
   - [Helm Chart Integration](#helm-chart-integration)
 - [API / Interface Changes](#api--interface-changes)
   - [values.yaml Configuration](#valuesyaml-configuration)
@@ -109,33 +109,33 @@ The CNPG operator automatically:
 - Configures PgBouncer to authenticate against the CNPG cluster's credentials
 - Handles credential rotation when the cluster secrets change
 
-### Gateway API TCPRoute
+### LoadBalancer Service
 
-The TCPRoute forwards TCP traffic from a Gateway listener to the Pooler Service:
+> **Update:** Cilium does not support TCPRoute as of v1.18
+> ([cilium/cilium#42016](https://github.com/cilium/cilium/issues/42016)). The CRD installs
+> but the Gateway controller ignores it. We use a LoadBalancer Service with Cilium BGP
+> advertisement instead.
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TCPRoute
+apiVersion: v1
+kind: Service
 metadata:
-  name: {fullname}-db-pooler
+  name: {fullname}-db-pooler-lb
+  labels:
+    bgp.cilium.io/advertise-service: default
+    bgp.cilium.io/ip-pool: default
 spec:
-  parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: internal
-      namespace: gateway
-      sectionName: postgres      # optional: specific listener
-  rules:
-    - backendRefs:
-        - group: ""
-          kind: Service
-          name: {fullname}-db-pooler
-          port: 5432
-          weight: 1
+  type: LoadBalancer
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+  selector:
+    cnpg.io/poolerName: {fullname}-db-pooler
 ```
 
-The Gateway must have a listener configured for TCP on the desired port. This is outside the
-scope of this chart (the Gateway is managed separately).
+Cilium assigns an IP from the BGP pool and advertises it. Clients connect via that IP on
+port 5432.
 
 ### Helm Chart Integration
 
@@ -173,15 +173,13 @@ cnpg:
       parameters: {}                # extra pgbouncer.ini key-value pairs
     monitoring:
       enablePodMonitor: false
-    tcpRoute:
+    service:
       enabled: false
+      type: LoadBalancer
       annotations: {}
-      parentRefs:
-        - group: gateway.networking.k8s.io
-          kind: Gateway
-          name: internal
-          namespace: gateway
-        # sectionName: postgres     # optional: Gateway listener section
+      labels:
+        bgp.cilium.io/advertise-service: default
+        bgp.cilium.io/ip-pool: default
 ```
 
 ### Template Helpers
@@ -197,7 +195,7 @@ server-price-tracker.cnpgPoolerName  →  {fullname}-db-pooler
 | Template | Kind | Condition |
 |----------|------|-----------|
 | `cnpg-pooler.yaml` | `Pooler` (postgresql.cnpg.io/v1) | `cnpg.enabled && cnpg.pooler.enabled` |
-| `cnpg-pooler-tcproute.yaml` | `TCPRoute` (gateway.networking.k8s.io/v1alpha2) | `cnpg.enabled && cnpg.pooler.enabled && cnpg.pooler.tcpRoute.enabled` |
+| `cnpg-pooler-service.yaml` | `Service` (LoadBalancer) | `cnpg.enabled && cnpg.pooler.enabled && cnpg.pooler.service.enabled` |
 
 NOTES.txt updated with pooler connection instructions when enabled.
 
