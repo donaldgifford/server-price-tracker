@@ -1,0 +1,24 @@
+# TCPRoute is experimental (v1alpha2). Tested with Gateway API v1.4.1.
+{{- if and .Values.cnpg.enabled .Values.cnpg.pooler.enabled .Values.cnpg.pooler.tcpRoute.enabled }}
+{{- $poolerName := include "server-price-tracker.cnpgPoolerName" . -}}
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: {{ $poolerName }}
+  labels:
+    {{- include "server-price-tracker.labels" . | nindent 4 }}
+  {{- with .Values.cnpg.pooler.tcpRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    {{- toYaml .Values.cnpg.pooler.tcpRoute.parentRefs | nindent 4 }}
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ $poolerName }}
+          port: 5432
+          weight: 1
+{{- end }}

@@ -156,26 +156,26 @@ Create the TCPRoute template that renders when the pooler is enabled and
 
 #### Tasks
 
-- [ ] Create `charts/server-price-tracker/templates/cnpg-pooler-tcproute.yaml`:
-  - [ ] Add comment: `# TCPRoute is experimental (v1alpha2). Tested with Gateway API v1.4.1.`
-  - [ ] Guard:
+- [x] Create `charts/server-price-tracker/templates/cnpg-pooler-tcproute.yaml`:
+  - [x] Add comment: `# TCPRoute is experimental (v1alpha2). Tested with Gateway API v1.4.1.`
+  - [x] Guard:
         `{{- if and .Values.cnpg.enabled .Values.cnpg.pooler.enabled .Values.cnpg.pooler.tcpRoute.enabled }}`
-  - [ ] apiVersion: `gateway.networking.k8s.io/v1alpha2`
-  - [ ] kind: `TCPRoute`
-  - [ ] metadata.name: use `cnpgPoolerName` helper
-  - [ ] metadata.labels: use standard `server-price-tracker.labels`
-  - [ ] metadata.annotations: from `cnpg.pooler.tcpRoute.annotations` (optional)
-  - [ ] spec.parentRefs: from `cnpg.pooler.tcpRoute.parentRefs`
-  - [ ] spec.rules: single rule with backendRef pointing to the pooler service:
+  - [x] apiVersion: `gateway.networking.k8s.io/v1alpha2`
+  - [x] kind: `TCPRoute`
+  - [x] metadata.name: use `cnpgPoolerName` helper
+  - [x] metadata.labels: use standard `server-price-tracker.labels`
+  - [x] metadata.annotations: from `cnpg.pooler.tcpRoute.annotations` (optional)
+  - [x] spec.parentRefs: from `cnpg.pooler.tcpRoute.parentRefs`
+  - [x] spec.rules: single rule with backendRef pointing to the pooler service:
     - group: `""`
     - kind: `Service`
     - name: use `cnpgPoolerName` helper (CNPG auto-creates a Service matching
       the Pooler name)
     - port: `5432`
     - weight: `1`
-- [ ] Verify: `helm template test charts/server-price-tracker/ --set cnpg.enabled=true --set cnpg.pooler.enabled=true --set cnpg.pooler.tcpRoute.enabled=true`
+- [x] Verify: `helm template test charts/server-price-tracker/ --set cnpg.enabled=true --set cnpg.pooler.enabled=true --set cnpg.pooler.tcpRoute.enabled=true`
       renders both Pooler and TCPRoute
-- [ ] Verify: `helm lint` still passes
+- [x] Verify: `helm lint` still passes
 
 #### Success Criteria
 
