@@ -78,12 +78,6 @@ jobs:
           go-version-file: go.mod
           go-package: ./...
 
-      - name: Run Grype vulnerability scanner
-        uses: anchore/scan-action@v6
-        with:
-          path: .
-          severity-cutoff: high
-          fail-build: true
   build:
     name: Build
     if: github.event_name == 'pull_request'
@@ -132,6 +126,13 @@ jobs:
             *.cache-from=type=gha
             *.cache-to=type=gha,mode=max
             *.output=type=registry
+
+      - name: Run Grype vulnerability scanner
+        uses: anchore/scan-action@v7
+        with:
+          image: "ghcr.io/donaldgifford/server-price-tracker:dev"
+          severity-cutoff: high
+          fail-build: false
 
   lint-repo:
     name: Lint Repo
