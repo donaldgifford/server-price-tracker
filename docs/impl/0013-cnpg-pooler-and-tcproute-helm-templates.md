@@ -119,23 +119,23 @@ Create the Pooler CR template that renders when both `cnpg.enabled` and
 
 #### Tasks
 
-- [ ] Create `charts/server-price-tracker/templates/cnpg-pooler.yaml`:
-  - [ ] Guard: `{{- if and .Values.cnpg.enabled .Values.cnpg.pooler.enabled }}`
-  - [ ] apiVersion: `postgresql.cnpg.io/v1`
-  - [ ] kind: `Pooler`
-  - [ ] metadata.name: use `cnpgPoolerName` helper
-  - [ ] metadata.labels: use standard `server-price-tracker.labels`
-  - [ ] spec.cluster.name: use existing `cnpgClusterName` helper
-  - [ ] spec.type: from `cnpg.pooler.type`
-  - [ ] spec.instances: from `cnpg.pooler.instances`
-  - [ ] spec.pgbouncer.poolMode: from `cnpg.pooler.pgbouncer.poolMode`
-  - [ ] spec.pgbouncer.parameters: render `default_pool_size` and
+- [x] Create `charts/server-price-tracker/templates/cnpg-pooler.yaml`:
+  - [x] Guard: `{{- if and .Values.cnpg.enabled .Values.cnpg.pooler.enabled }}`
+  - [x] apiVersion: `postgresql.cnpg.io/v1`
+  - [x] kind: `Pooler`
+  - [x] metadata.name: use `cnpgPoolerName` helper
+  - [x] metadata.labels: use standard `server-price-tracker.labels`
+  - [x] spec.cluster.name: use existing `cnpgClusterName` helper
+  - [x] spec.type: from `cnpg.pooler.type`
+  - [x] spec.instances: from `cnpg.pooler.instances`
+  - [x] spec.pgbouncer.poolMode: from `cnpg.pooler.pgbouncer.poolMode`
+  - [x] spec.pgbouncer.parameters: render `default_pool_size` and
         `max_client_conn` from values, plus any extra `parameters` map entries
-  - [ ] spec.monitoring.enablePodMonitor: from
+  - [x] spec.monitoring.enablePodMonitor: from
         `cnpg.pooler.monitoring.enablePodMonitor`
-- [ ] Verify: `helm template test charts/server-price-tracker/ --set cnpg.enabled=true --set cnpg.pooler.enabled=true`
+- [x] Verify: `helm template test charts/server-price-tracker/ --set cnpg.enabled=true --set cnpg.pooler.enabled=true`
       renders a valid Pooler CR
-- [ ] Verify: `helm lint` still passes
+- [x] Verify: `helm lint` still passes
 
 #### Success Criteria
 
