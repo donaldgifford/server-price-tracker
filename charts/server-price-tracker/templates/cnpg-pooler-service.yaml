@@ -1,0 +1,24 @@
+{{- if and .Values.cnpg.enabled .Values.cnpg.pooler.enabled .Values.cnpg.pooler.service.enabled }}
+{{- $poolerName := include "server-price-tracker.cnpgPoolerName" . }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $poolerName }}-lb
+  labels:
+    {{- include "server-price-tracker.labels" . | nindent 4 }}
+    {{- with .Values.cnpg.pooler.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.cnpg.pooler.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.cnpg.pooler.service.type }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+  selector:
+    cnpg.io/poolerName: {{ $poolerName }}
+{{- end }}
