@@ -1,170 +1,76 @@
 # server-price-tracker
 
-![Version: 0.1.2](https://img.shields.io/badge/Version-0.1.2-informational?style=flat-square)
-![AppVersion: 0.1.2](https://img.shields.io/badge/AppVersion-0.1.2-informational?style=flat-square)
-![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 0.1.18](https://img.shields.io/badge/Version-0.1.18-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.7.0](https://img.shields.io/badge/AppVersion-0.7.0-informational?style=flat-square)
 
-eBay server hardware deal tracker with LLM extraction, scoring, and Discord
-alerts.
+eBay server hardware deal tracker with LLM extraction, scoring, and Discord alerts
 
-## Prerequisites
+## Values
 
-- Kubernetes 1.27+
-- Helm 3.x
-- **Optional:** [CloudNativePG operator](https://cloudnative-pg.io/) -- required
-  when `cnpg.enabled=true`
-- **Optional:** GPU node with NVIDIA device plugin -- required when
-  `ollama.enabled=true`
-- **Optional:** [Prometheus Operator](https://prometheus-operator.dev/) --
-  required when `serviceMonitor.enabled=true`
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| affinity | object | `{}` |  |
+| autoscaling.enabled | bool | `false` |  |
+| autoscaling.maxReplicas | int | `100` |  |
+| autoscaling.minReplicas | int | `1` |  |
+| autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
+| cnpg | object | `{"bootstrap":{"database":"spt","owner":"spt"},"enabled":false,"imageName":"ghcr.io/cloudnative-pg/postgresql:17.2","instances":1,"managed":{"services":{"disabledDefaultServices":["ro","r"]}},"monitoring":{"customQueriesConfigMap":[],"enablePodMonitor":false},"pooler":{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"tcpRoute":{"annotations":{},"enabled":false,"parentRefs":[{"group":"gateway.networking.k8s.io","kind":"Gateway","name":"internal","namespace":"gateway"}]},"type":"rw"},"postgresql":{"parameters":{"max_connections":"200","shared_buffers":"256MB","timezone":"UTC"}},"resources":{"limits":{"cpu":"1","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}},"storage":{"size":"10Gi","storageClass":""}}` | CloudNativePG PostgreSQL cluster |
+| cnpg.pooler | object | `{"enabled":false,"instances":1,"monitoring":{"enablePodMonitor":false},"pgbouncer":{"defaultPoolSize":25,"maxClientConnections":100,"parameters":{},"poolMode":"transaction"},"tcpRoute":{"annotations":{},"enabled":false,"parentRefs":[{"group":"gateway.networking.k8s.io","kind":"Gateway","name":"internal","namespace":"gateway"}]},"type":"rw"}` | CNPG Pooler (PgBouncer connection pooling) |
+| cnpg.pooler.pgbouncer.parameters | object | `{}` | Extra pgbouncer.ini parameters (key-value pairs) |
+| cnpg.pooler.pgbouncer.poolMode | string | `"transaction"` | PgBouncer pool mode: session, transaction, or statement |
+| cnpg.pooler.tcpRoute | object | `{"annotations":{},"enabled":false,"parentRefs":[{"group":"gateway.networking.k8s.io","kind":"Gateway","name":"internal","namespace":"gateway"}]}` | Gateway API TCPRoute for external database access |
+| cnpg.pooler.type | string | `"rw"` | Pooler type: rw (read-write primary) or ro (read-only replicas) |
+| config | object | `{"database":{"host":"${DB_HOST}","name":"${DB_NAME}","password":"${DB_PASSWORD}","pool_size":10,"port":5432,"sslmode":"require","user":"${DB_USER}"},"ebay":{"app_id":"${EBAY_APP_ID}","browse_url":"${EBAY_BROWSE_URL}","cert_id":"${EBAY_CERT_ID}","marketplace":"EBAY_US","max_calls_per_cycle":50,"rate_limit":{"burst":10,"daily_limit":5000,"per_second":5},"token_url":"${EBAY_TOKEN_URL}"},"llm":{"anthropic":{"model":""},"backend":"ollama","concurrency":4,"ollama":{"endpoint":"http://ollama.ollama.svc:11434","model":"mistral:7b-instruct-v0.3-q5_K_M"},"openai_compat":{"endpoint":"","model":""},"timeout":"30s","use_grammar":true},"logging":{"format":"json","level":"info"},"notifications":{"discord":{"enabled":true,"webhook_url":"${DISCORD_WEBHOOK_URL}"}},"schedule":{"baseline_interval":"6h","ingestion_interval":"30m","re_extraction_interval":"","stagger_offset":"30s"},"scoring":{"baseline_window_days":90,"min_baseline_samples":10,"weights":{"condition":0.15,"price":0.4,"quality":0.1,"quantity":0.1,"seller":0.2,"time":0.05}},"server":{"host":"0.0.0.0","port":8080,"read_timeout":"30s","write_timeout":"30s"}}` | Application configuration (mirrors Go Config struct). Non-secret values are rendered as literals. Secret values use ${ENV_VAR} placeholders resolved at runtime by os.ExpandEnv(). |
+| fullnameOverride | string | `""` |  |
+| httpRoute.annotations | object | `{}` |  |
+| httpRoute.enabled | bool | `false` |  |
+| httpRoute.hostnames[0] | string | `"chart-example.local"` |  |
+| httpRoute.parentRefs[0].group | string | `"gateway.networking.k8s.io"` |  |
+| httpRoute.parentRefs[0].kind | string | `"Gateway"` |  |
+| httpRoute.parentRefs[0].name | string | `"internal"` |  |
+| httpRoute.parentRefs[0].namespace | string | `"gateway"` |  |
+| httpRoute.rules[0].matches[0].path.type | string | `"PathPrefix"` |  |
+| httpRoute.rules[0].matches[0].path.value | string | `"/"` |  |
+| image.pullPolicy | string | `"IfNotPresent"` |  |
+| image.repository | string | `"ghcr.io/donaldgifford/server-price-tracker"` |  |
+| image.tag | string | `""` |  |
+| imagePullSecrets | list | `[]` |  |
+| ingress.annotations | object | `{}` |  |
+| ingress.className | string | `""` |  |
+| ingress.enabled | bool | `false` |  |
+| ingress.hosts[0].host | string | `"chart-example.local"` |  |
+| ingress.hosts[0].paths[0].path | string | `"/"` |  |
+| ingress.hosts[0].paths[0].pathType | string | `"ImplementationSpecific"` |  |
+| ingress.tls | list | `[]` |  |
+| livenessProbe.httpGet.path | string | `"/healthz"` |  |
+| livenessProbe.httpGet.port | string | `"http"` |  |
+| livenessProbe.initialDelaySeconds | int | `5` |  |
+| livenessProbe.periodSeconds | int | `15` |  |
+| migration | object | `{"enabled":true,"resources":{"limits":{"cpu":"200m","memory":"128Mi"},"requests":{"cpu":"50m","memory":"64Mi"}}}` | Migration init container |
+| nameOverride | string | `""` |  |
+| nodeSelector | object | `{}` |  |
+| ollama | object | `{"enabled":false,"gpu":{"count":1,"enabled":true},"image":{"pullPolicy":"IfNotPresent","repository":"ollama/ollama","tag":"latest"},"model":"mistral:7b-instruct-v0.3-q5_K_M","nodeSelector":{"nvidia.com/gpu.present":"true"},"persistence":{"enabled":true,"size":"30Gi","storageClass":""},"resources":{"limits":{"cpu":"4","memory":"8Gi"},"requests":{"cpu":"1","memory":"4Gi"}}}` | Ollama LLM backend (StatefulSet) |
+| podAnnotations | object | `{}` |  |
+| podLabels | object | `{}` |  |
+| podSecurityContext | object | `{}` |  |
+| readinessProbe.httpGet.path | string | `"/readyz"` |  |
+| readinessProbe.httpGet.port | string | `"http"` |  |
+| readinessProbe.initialDelaySeconds | int | `3` |  |
+| readinessProbe.periodSeconds | int | `10` |  |
+| replicaCount | int | `1` |  |
+| resources | object | `{}` |  |
+| secret | object | `{"create":true,"existingSecret":"","values":{"ANTHROPIC_API_KEY":"","DB_HOST":"localhost","DB_NAME":"spt","DB_PASSWORD":"","DB_USER":"spt","DISCORD_WEBHOOK_URL":"","EBAY_APP_ID":"","EBAY_BROWSE_URL":"","EBAY_CERT_ID":"","EBAY_TOKEN_URL":""}}` | Secret management. Set create=true to render a Secret from values below. Set create=false and existingSecret to reference a user-managed Secret. |
+| securityContext | object | `{}` |  |
+| service.port | int | `8080` |  |
+| service.type | string | `"ClusterIP"` |  |
+| serviceAccount.annotations | object | `{}` |  |
+| serviceAccount.automount | bool | `true` |  |
+| serviceAccount.create | bool | `true` |  |
+| serviceAccount.name | string | `""` |  |
+| serviceMonitor | object | `{"enabled":false,"interval":"30s","labels":{},"path":"/metrics"}` | Prometheus ServiceMonitor |
+| tests | object | `{"connection":{"enabled":true}}` | Helm test hooks |
+| tolerations | list | `[]` |  |
+| volumeMounts | list | `[]` |  |
+| volumes | list | `[]` | Extra volumes and volumeMounts for user additions |
 
-## Usage
-
-### Add the Helm repo
-
-```bash
-helm repo add spt https://donaldgifford.github.io/server-price-tracker/
-helm repo update
-```
-
-### Install the chart
-
-```bash
-helm install spt spt/server-price-tracker -f values.yaml
-```
-
-### Dependencies
-
-The chart can optionally deploy or integrate with:
-
-| Dependency | Enabled by | Notes |
-|------------|------------|-------|
-| CNPG PostgreSQL cluster | `cnpg.enabled=true` | Requires the CNPG operator to be installed first |
-| Ollama LLM backend | `ollama.enabled=true` | Deploys a StatefulSet with GPU support |
-| Prometheus ServiceMonitor | `serviceMonitor.enabled=true` | Requires the Prometheus Operator CRDs |
-
-### Uninstall
-
-```bash
-helm uninstall spt
-```
-
-### Upgrade
-
-```bash
-helm upgrade spt spt/server-price-tracker -f values.yaml
-```
-
-## Configuration
-
-Key `values.yaml` parameters grouped by section. See
-[values.yaml](values.yaml) for the full reference.
-
-### Image
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `image.repository` | Container image repository | `ghcr.io/donaldgifford/server-price-tracker` |
-| `image.tag` | Image tag (defaults to chart appVersion) | `""` |
-| `image.pullPolicy` | Image pull policy | `IfNotPresent` |
-
-### Application Config
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `config.server.port` | API server listen port | `8080` |
-| `config.llm.backend` | LLM backend (`ollama`, `anthropic`, `openai_compat`) | `ollama` |
-| `config.llm.ollama.model` | Ollama model name | `mistral:7b-instruct-v0.3-q5_K_M` |
-| `config.scoring.weights.*` | Composite score weights (must sum to 1.0) | see values.yaml |
-| `config.schedule.ingestion_interval` | eBay polling interval | `30m` |
-| `config.logging.level` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
-
-### Secrets
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `secret.create` | Create a Secret from `secret.values` | `true` |
-| `secret.existingSecret` | Use an existing Secret instead | `""` |
-| `secret.values.*` | Secret key-value pairs (DB creds, API keys, etc.) | see values.yaml |
-
-### Migration
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `migration.enabled` | Run database migration as init container | `true` |
-| `migration.resources` | Resource requests/limits for migration container | see values.yaml |
-
-### Probes
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `livenessProbe` | Liveness probe config (set to `null` to disable) | httpGet `/healthz` |
-| `readinessProbe` | Readiness probe config (set to `null` to disable) | httpGet `/readyz` |
-
-### Ingress / HTTPRoute
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `ingress.enabled` | Enable Kubernetes Ingress | `false` |
-| `httpRoute.enabled` | Enable Gateway API HTTPRoute | `false` |
-| `httpRoute.parentRefs` | Gateway parent references | see values.yaml |
-
-### CNPG (CloudNativePG)
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `cnpg.enabled` | Deploy a CNPG PostgreSQL Cluster | `false` |
-| `cnpg.instances` | Number of PostgreSQL instances | `1` |
-| `cnpg.imageName` | PostgreSQL container image | `ghcr.io/cloudnative-pg/postgresql:17.2` |
-| `cnpg.storage.size` | PVC storage size | `10Gi` |
-| `cnpg.storage.storageClass` | Storage class (empty = default) | `""` |
-
-### Ollama
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `ollama.enabled` | Deploy an Ollama StatefulSet | `false` |
-| `ollama.model` | Model to pull on startup | `mistral:7b-instruct-v0.3-q5_K_M` |
-| `ollama.gpu.enabled` | Request GPU resources | `true` |
-| `ollama.persistence.size` | PVC storage size for model data | `30Gi` |
-
-### ServiceMonitor
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `serviceMonitor.enabled` | Create a Prometheus ServiceMonitor | `false` |
-| `serviceMonitor.interval` | Scrape interval | `30s` |
-| `serviceMonitor.path` | Metrics endpoint path | `/metrics` |
-
-### Autoscaling
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `autoscaling.enabled` | Enable HPA | `false` |
-| `autoscaling.minReplicas` | Minimum replicas | `1` |
-| `autoscaling.maxReplicas` | Maximum replicas | `100` |
-
-### Tests
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `tests.connection.enabled` | Enable Helm test hook for connectivity | `true` |
-
-## Workarounds & Known Issues
-
-- **CNPG operator must be pre-installed** -- The CNPG CRDs must exist in the
-  cluster before setting `cnpg.enabled=true`. Install the operator first:
-  `helm install cnpg cloudnative-pg/cloudnative-pg`.
-- **Disable connection test with stub images** -- When using CI stub images
-  (e.g., `nginx:alpine`), set `tests.connection.enabled=false` since the stub
-  won't expose `/healthz`.
-- **chart-releaser + checkout@v6** -- The `chart-releaser-action` requires
-  `persist-credentials: true` on `actions/checkout@v6` (see
-  [helm/chart-releaser-action#231](https://github.com/helm/chart-releaser-action/issues/231)).
-
-## Further Information
-
-- [Project README](../../README.md)
-- [Design Document](../../docs/DESIGN.md)
-- [Deployment Strategy](../../docs/DEPLOYMENT_STRATEGY.md)
-- [GitHub Repository](https://github.com/donaldgifford/server-price-tracker)
+----------------------------------------------
+Autogenerated from chart metadata using [helm-docs v1.14.2](https://github.com/norwoodj/helm-docs/releases/v1.14.2)

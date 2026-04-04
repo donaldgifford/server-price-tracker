@@ -1,0 +1,250 @@
+---
+suite: cnpg-pooler
+templates:
+  - templates/cnpg-pooler.yaml
+  - templates/cnpg-pooler-tcproute.yaml
+tests:
+  # --- Pooler tests ---
+
+  - it: Pooler does not render when cnpg.pooler.enabled is false
+    template: templates/cnpg-pooler.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: Pooler does not render when cnpg.enabled is false
+    template: templates/cnpg-pooler.yaml
+    set:
+      cnpg.enabled: false
+      cnpg.pooler.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: Pooler renders with correct apiVersion and kind
+    template: templates/cnpg-pooler.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+    asserts:
+      - isKind:
+          of: Pooler
+      - equal:
+          path: apiVersion
+          value: postgresql.cnpg.io/v1
+
+  - it: Pooler has correct name
+    template: templates/cnpg-pooler.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-server-price-tracker-db-pooler
+
+  - it: Pooler references CNPG cluster name
+    template: templates/cnpg-pooler.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+    asserts:
+      - equal:
+          path: spec.cluster.name
+          value: RELEASE-NAME-server-price-tracker-db
+
+  - it: Pooler has correct default values
+    template: templates/cnpg-pooler.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+    asserts:
+      - equal:
+          path: spec.type
+          value: rw
+      - equal:
+          path: spec.instances
+          value: 1
+      - equal:
+          path: spec.pgbouncer.poolMode
+          value: transaction
+
+  - it: Pooler instances are configurable
+    template: templates/cnpg-pooler.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+      cnpg.pooler.instances: 3
+    asserts:
+      - equal:
+          path: spec.instances
+          value: 3
+
+  - it: PgBouncer parameters are configurable
+    template: templates/cnpg-pooler.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+      cnpg.pooler.pgbouncer.poolMode: session
+      cnpg.pooler.pgbouncer.defaultPoolSize: 50
+      cnpg.pooler.pgbouncer.maxClientConnections: 200
+    asserts:
+      - equal:
+          path: spec.pgbouncer.poolMode
+          value: session
+      - equal:
+          path: spec.pgbouncer.parameters.default_pool_size
+          value: "50"
+      - equal:
+          path: spec.pgbouncer.parameters.max_client_conn
+          value: "200"
+
+  - it: extra pgbouncer parameters are rendered
+    template: templates/cnpg-pooler.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+      cnpg.pooler.pgbouncer.parameters:
+        log_connections: "1"
+        log_disconnections: "1"
+    asserts:
+      - equal:
+          path: spec.pgbouncer.parameters.log_connections
+          value: "1"
+      - equal:
+          path: spec.pgbouncer.parameters.log_disconnections
+          value: "1"
+
+  - it: monitoring enablePodMonitor is configurable
+    template: templates/cnpg-pooler.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+      cnpg.pooler.monitoring.enablePodMonitor: true
+    asserts:
+      - equal:
+          path: spec.monitoring.enablePodMonitor
+          value: true
+
+  - it: Pooler has standard labels
+    template: templates/cnpg-pooler.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+    asserts:
+      - isSubset:
+          path: metadata.labels
+          content:
+            app.kubernetes.io/name: server-price-tracker
+            app.kubernetes.io/instance: RELEASE-NAME
+            app.kubernetes.io/managed-by: Helm
+
+  # --- TCPRoute tests ---
+
+  - it: TCPRoute does not render when cnpg.pooler.tcpRoute.enabled is false
+    template: templates/cnpg-pooler-tcproute.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+      cnpg.pooler.tcpRoute.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: TCPRoute does not render when cnpg.pooler.enabled is false
+    template: templates/cnpg-pooler-tcproute.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: false
+      cnpg.pooler.tcpRoute.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: TCPRoute does not render when cnpg.enabled is false
+    template: templates/cnpg-pooler-tcproute.yaml
+    set:
+      cnpg.enabled: false
+      cnpg.pooler.enabled: true
+      cnpg.pooler.tcpRoute.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: TCPRoute renders with correct apiVersion and kind
+    template: templates/cnpg-pooler-tcproute.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+      cnpg.pooler.tcpRoute.enabled: true
+    asserts:
+      - isKind:
+          of: TCPRoute
+      - equal:
+          path: apiVersion
+          value: gateway.networking.k8s.io/v1alpha2
+
+  - it: TCPRoute has correct parentRefs from values
+    template: templates/cnpg-pooler-tcproute.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+      cnpg.pooler.tcpRoute.enabled: true
+    asserts:
+      - equal:
+          path: spec.parentRefs[0].kind
+          value: Gateway
+      - equal:
+          path: spec.parentRefs[0].name
+          value: internal
+      - equal:
+          path: spec.parentRefs[0].namespace
+          value: gateway
+
+  - it: TCPRoute backendRef points to pooler service on port 5432
+    template: templates/cnpg-pooler-tcproute.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+      cnpg.pooler.tcpRoute.enabled: true
+    asserts:
+      - equal:
+          path: spec.rules[0].backendRefs[0].kind
+          value: Service
+      - equal:
+          path: spec.rules[0].backendRefs[0].name
+          value: RELEASE-NAME-server-price-tracker-db-pooler
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 5432
+
+  - it: TCPRoute renders annotations when provided
+    template: templates/cnpg-pooler-tcproute.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+      cnpg.pooler.tcpRoute.enabled: true
+      cnpg.pooler.tcpRoute.annotations:
+        test-annotation: db.example.com
+    asserts:
+      - isSubset:
+          path: metadata.annotations
+          content:
+            test-annotation: db.example.com
+
+  - it: TCPRoute has standard labels
+    template: templates/cnpg-pooler-tcproute.yaml
+    set:
+      cnpg.enabled: true
+      cnpg.pooler.enabled: true
+      cnpg.pooler.tcpRoute.enabled: true
+    asserts:
+      - isSubset:
+          path: metadata.labels
+          content:
+            app.kubernetes.io/name: server-price-tracker
+            app.kubernetes.io/instance: RELEASE-NAME
+            app.kubernetes.io/managed-by: Helm

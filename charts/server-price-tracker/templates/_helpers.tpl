@@ -98,6 +98,13 @@ CNPG cluster name
 {{- end }}
 
 {{/*
+CNPG Pooler resource name
+*/}}
+{{- define "server-price-tracker.cnpgPoolerName" -}}
+{{- printf "%s-db-pooler" (include "server-price-tracker.fullname" .) }}
+{{- end }}
+
+{{/*
 CNPG auto-generated app secret name (<cluster>-app)
 */}}
 {{- define "server-price-tracker.cnpgSecretName" -}}
