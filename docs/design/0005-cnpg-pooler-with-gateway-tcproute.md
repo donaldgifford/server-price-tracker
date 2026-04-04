@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0005
 title: "CNPG Pooler with Gateway TCPRoute"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-04-04
 ---
@@ -9,7 +9,7 @@ created: 2026-04-04
 
 # DESIGN 0005: CNPG Pooler with Gateway TCPRoute
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-04-04
 

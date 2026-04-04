@@ -19,6 +19,8 @@ tests:
 
 cnpg:
   enabled: false
+  pooler:
+    enabled: false
 
 ollama:
   enabled: false

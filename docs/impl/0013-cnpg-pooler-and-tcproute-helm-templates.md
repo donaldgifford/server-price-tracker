@@ -1,7 +1,7 @@
 ---
 id: IMPL-0013
 title: "CNPG Pooler and TCPRoute Helm Templates"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-04-04
 ---
@@ -9,7 +9,7 @@ created: 2026-04-04
 
 # IMPL 0013: CNPG Pooler and TCPRoute Helm Templates
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-04-04
 
@@ -243,23 +243,23 @@ Update post-install notes, regenerate chart docs, and run full verification.
 
 #### Tasks
 
-- [ ] Update `templates/NOTES.txt`:
-  - [ ] Add pooler section when `cnpg.pooler.enabled` is true
-  - [ ] Show pooler service name and port-forward command
-  - [ ] Show TCPRoute info when `cnpg.pooler.tcpRoute.enabled` is true
-  - [ ] Maintain correct numbering with existing conditional sections (CNPG,
+- [x] Update `templates/NOTES.txt`:
+  - [x] Add pooler section when `cnpg.pooler.enabled` is true
+  - [x] Show pooler service name and port-forward command
+  - [x] Show TCPRoute info when `cnpg.pooler.tcpRoute.enabled` is true
+  - [x] Maintain correct numbering with existing conditional sections (CNPG,
         Ollama)
-- [ ] Add explicit `cnpg.pooler.enabled: false` to `ci/ci-values.yaml` for
+- [x] Add explicit `cnpg.pooler.enabled: false` to `ci/ci-values.yaml` for
       documentation clarity
-- [ ] Run `make helm-docs` to regenerate chart README with new values
-- [ ] Run full verification:
-  - [ ] `make helm-lint`
-  - [ ] `make helm-unittest`
-  - [ ] `make helm-template` (default values)
-  - [ ] `make helm-template-ci` (CI values)
-  - [ ] `helm template test charts/server-price-tracker/ --set cnpg.enabled=true --set cnpg.pooler.enabled=true --set cnpg.pooler.tcpRoute.enabled=true`
-  - [ ] `make lint-yaml-charts`
-- [ ] Update DESIGN-0005 status from `Draft` to `Implemented`
+- [x] Run `make helm-docs` to regenerate chart README with new values
+- [x] Run full verification:
+  - [x] `make helm-lint`
+  - [x] `make helm-unittest`
+  - [x] `make helm-template` (default values)
+  - [x] `make helm-template-ci` (CI values)
+  - [x] `helm template test charts/server-price-tracker/ --set cnpg.enabled=true --set cnpg.pooler.enabled=true --set cnpg.pooler.tcpRoute.enabled=true`
+  - [x] `make lint-yaml-charts`
+- [x] Update DESIGN-0005 status from `Draft` to `Implemented`
 
 #### Success Criteria
 
