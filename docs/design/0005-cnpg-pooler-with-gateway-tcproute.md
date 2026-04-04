@@ -21,7 +21,7 @@ created: 2026-04-04
 - [Background](#background)
 - [Detailed Design](#detailed-design)
   - [CNPG Pooler CRD](#cnpg-pooler-crd)
-  - [Gateway API TCPRoute](#gateway-api-tcproute)
+  - [LoadBalancer Service](#loadbalancer-service)
   - [Helm Chart Integration](#helm-chart-integration)
 - [API / Interface Changes](#api--interface-changes)
   - [values.yaml Configuration](#valuesyaml-configuration)
@@ -109,7 +109,7 @@ The CNPG operator automatically:
 - Configures PgBouncer to authenticate against the CNPG cluster's credentials
 - Handles credential rotation when the cluster secrets change
 
-### ~~Gateway API TCPRoute~~ LoadBalancer Service
+### LoadBalancer Service
 
 > **Update:** Cilium does not support TCPRoute as of v1.18
 > ([cilium/cilium#42016](https://github.com/cilium/cilium/issues/42016)). The CRD installs
