@@ -68,7 +68,7 @@ spec:
   volumeClaimTemplates:
     - apiVersion: v1
       kind: PersistentVolumeClaim
-    - metadata:
+      metadata:
         name: ollama-data
       spec:
         accessModes: ["ReadWriteOnce"]
