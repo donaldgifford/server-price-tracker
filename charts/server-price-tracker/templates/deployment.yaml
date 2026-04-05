@@ -87,7 +87,16 @@ spec:
           {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.args }}
+          args:
+            {{- toYaml .Values.args | nindent 12 }}
+          {{- else if not .Values.command }}
           args: ["--config", "/etc/spt/config.yaml"]
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.config.server.port }}

@@ -7,6 +7,10 @@ image:
   tag: alpine
   pullPolicy: IfNotPresent
 
+# Override args so nginx doesn't receive "--config" flags it can't handle
+command: ["nginx", "-g", "daemon off;"]
+args: []
+
 migration:
   enabled: false
 
