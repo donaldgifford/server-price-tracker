@@ -66,6 +66,8 @@ spec:
               mountPath: /root/.ollama
   {{- if .Values.ollama.persistence.enabled }}
   volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
     - metadata:
         name: ollama-data
       spec:
