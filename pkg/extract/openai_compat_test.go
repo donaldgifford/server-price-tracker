@@ -28,6 +28,12 @@ func TestOpenAICompatBackend_Generate(t *testing.T) {
 		"usage": {"prompt_tokens": 10, "completion_tokens": 1, "total_tokens": 11}
 	}`
 
+	successUsage := extract.TokenUsage{
+		PromptTokens:     10,
+		CompletionTokens: 1,
+		TotalTokens:      11,
+	}
+
 	tests := []struct {
 		name       string
 		handler    http.HandlerFunc
@@ -36,7 +42,7 @@ func TestOpenAICompatBackend_Generate(t *testing.T) {
 		wantErr    bool
 		wantErrMsg string
 		wantResp   string
-		wantUsage  int
+		wantUsage  extract.TokenUsage
 	}{
 		{
 			name: "successful generation",
@@ -52,7 +58,7 @@ func TestOpenAICompatBackend_Generate(t *testing.T) {
 				MaxTokens:   50,
 			},
 			wantResp:  "ram",
-			wantUsage: 11,
+			wantUsage: successUsage,
 		},
 		{
 			name: "system message prepended",
@@ -70,7 +76,8 @@ func TestOpenAICompatBackend_Generate(t *testing.T) {
 				Prompt:    "extract",
 				SystemMsg: "You are a helpful assistant",
 			},
-			wantResp: "ram",
+			wantResp:  "ram",
+			wantUsage: successUsage,
 		},
 		{
 			name: "json format sets response_format",
@@ -86,7 +93,8 @@ func TestOpenAICompatBackend_Generate(t *testing.T) {
 				Prompt: "extract",
 				Format: "json",
 			},
-			wantResp: "ram",
+			wantResp:  "ram",
+			wantUsage: successUsage,
 		},
 		{
 			name:   "auth header sent when key provided",
@@ -96,8 +104,9 @@ func TestOpenAICompatBackend_Generate(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte(successResponse))
 			},
-			req:      extract.GenerateRequest{Prompt: "test"},
-			wantResp: "ram",
+			req:       extract.GenerateRequest{Prompt: "test"},
+			wantResp:  "ram",
+			wantUsage: successUsage,
 		},
 		{
 			name: "server error",
@@ -156,9 +165,7 @@ func TestOpenAICompatBackend_Generate(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantResp, resp.Content)
-			if tt.wantUsage > 0 {
-				assert.Equal(t, tt.wantUsage, resp.Usage.TotalTokens)
-			}
+			assert.Equal(t, tt.wantUsage, resp.Usage)
 		})
 	}
 }

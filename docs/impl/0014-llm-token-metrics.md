@@ -131,17 +131,17 @@ All tests use existing `httptest.NewServer` fixtures (verified — see e.g.
 
 **OpenAI-compat (parity assertion):**
 
-- [ ] In `pkg/extract/openai_compat_test.go`, locate the existing
+- [x] In `pkg/extract/openai_compat_test.go`, locate the existing
       successful-call test that uses the fixture with
       `"usage": {"prompt_tokens": 10, "completion_tokens": 1, "total_tokens": 11}`
       (around line 28) and add the equivalent assertions on the parsed
       `GenerateResponse.Usage`.
-- [ ] No fixture changes; no new test cases.
+- [x] No fixture changes; no new test cases.
 
 **Verification:**
 
-- [ ] Verify `make test ./pkg/extract/...` passes.
-- [ ] Verify `make lint` passes (no new warnings on the modified files).
+- [x] Verify `make test ./pkg/extract/...` passes.
+- [x] Verify `make lint` passes (no new warnings on the modified files).
 
 #### Success Criteria
 
