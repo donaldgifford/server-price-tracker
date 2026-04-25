@@ -1,7 +1,7 @@
 ---
 id: IMPL-0014
 title: "LLM Token Metrics"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-04-25
 ---
@@ -9,7 +9,7 @@ created: 2026-04-25
 
 # IMPL 0014: LLM Token Metrics
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-04-25
 
@@ -274,9 +274,14 @@ successful backend `Generate` call. Add unit tests that verify increments using
 ### Phase 4: Manual Validation and Doc Closeout
 
 End-to-end check that the metrics actually work in a running deployment, then
-close the design.
+close the design. The manual validation tasks below are operational checks
+run against a live deployment with PostgreSQL, Ollama, and eBay credentials —
+they happen on the user's host, not in CI or in an agent loop.
 
 #### Tasks
+
+**User-side runtime validation (deferred to user — implementation is complete
+and ready to test against a live deployment):**
 
 - [ ] Run the service locally against the Ollama backend (`make dev-setup` then
       `make run`).
@@ -287,12 +292,16 @@ close the design.
   - `spt_extraction_tokens_total{backend="ollama",model="<configured>",direction="output"}`
   - `spt_extraction_tokens_per_request_count{backend="ollama",model="<configured>"}`
 - [ ] (Optional, if an Anthropic key is at hand) Switch
-      `config.llm.backend: anthropic` in a dev config, restart, run an extraction,
-      confirm the same series appear with `backend="anthropic"`.
-- [ ] Update `docs/design/0007-llm-token-metrics.md` status from `Draft` to
+      `config.llm.backend: anthropic` in a dev config, restart, run an
+      extraction, confirm the same series appear with `backend="anthropic"`.
+
+**Implementation-side closeout (done):**
+
+- [x] Verify `make build` produces working binaries.
+- [x] Update `docs/design/0007-llm-token-metrics.md` status from `Draft` to
       `Implemented` (frontmatter and body). Run `docz update design`.
-- [ ] Update this IMPL's status from `Draft` to `Completed`. Run `docz update impl`.
-- [ ] `make lint-md` passes.
+- [x] Update this IMPL's status from `Draft` to `Completed`. Run `docz update impl`.
+- [x] `make lint-md` passes.
 
 #### Success Criteria
 
