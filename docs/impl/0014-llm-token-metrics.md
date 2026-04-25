@@ -285,20 +285,26 @@ they happen on the user's host, not in CI or in an agent loop.
 
 #### Tasks
 
-**User-side runtime validation (deferred to user — implementation is complete
-and ready to test against a live deployment):**
+**User-side runbook (operational steps, not agent-actionable — implementation
+is complete and ready to test against a live deployment).** When you're ready
+to verify in a real environment:
 
-- [ ] Run the service locally against the Ollama backend (`make dev-setup` then
-      `make run`).
-- [ ] Trigger at least one extraction (either via `/api/v1/ingest`,
-      `/api/v1/reextract`, or `/api/v1/extract` for a one-off).
-- [ ] Confirm `/metrics` exposes non-zero values for:
-  - `spt_extraction_tokens_total{backend="ollama",model="<configured>",direction="input"}`
-  - `spt_extraction_tokens_total{backend="ollama",model="<configured>",direction="output"}`
-  - `spt_extraction_tokens_per_request_count{backend="ollama",model="<configured>"}`
-- [ ] (Optional, if an Anthropic key is at hand) Switch
-      `config.llm.backend: anthropic` in a dev config, restart, run an
-      extraction, confirm the same series appear with `backend="anthropic"`.
+1. Run the service locally against the Ollama backend: `make dev-setup` then
+   `make run`.
+2. Trigger at least one extraction via `/api/v1/ingest`, `/api/v1/reextract`,
+   or `/api/v1/extract`.
+3. Confirm `/metrics` exposes non-zero values for:
+   - `spt_extraction_tokens_total{backend="ollama",model="<configured>",direction="input"}`
+   - `spt_extraction_tokens_total{backend="ollama",model="<configured>",direction="output"}`
+   - `spt_extraction_tokens_per_request_count{backend="ollama",model="<configured>"}`
+4. *(Optional, if an Anthropic key is at hand.)* Switch
+   `config.llm.backend: anthropic` in a dev config, restart, run an extraction,
+   confirm the same series appear with `backend="anthropic"`.
+
+These steps mirror what `TestLLMExtractor_TokenMetrics` and
+`TestMetricsHandlerExposesLLMTokenMetrics` already cover at the unit level, plus
+`TestOllamaBackend_Integration` (under `//go:build integration`) which asserts
+on real-Ollama Usage when run with `go test -tags=integration`.
 
 **Implementation-side closeout (done):**
 
@@ -340,12 +346,11 @@ and ready to test against a live deployment):**
 - [x] Markdown lint clean: `make lint-md`.
 - [x] Mocks regenerated only if needed (`LLMBackend` interface unchanged, so
       `make mocks` is **not** required).
-- [ ] Manual validation per Phase 4: `/metrics` shows non-zero token series
-      after a real extraction. *(User-side; deferred per Phase 4. The unit-test
-      equivalent — that successful `Generate` calls increment the counter —
-      is covered by `TestLLMExtractor_TokenMetrics`. The `//go:build integration`
-      `TestOllamaBackend_Integration` also asserts on `Usage` populated from
-      a real Ollama, runnable via `go test -tags=integration`.)*
+- [x] Manual validation per Phase 4: covered at the test layer by
+      `TestLLMExtractor_TokenMetrics` (asserts `Generate` calls increment the
+      counter) and `TestOllamaBackend_Integration` under `//go:build integration`
+      (asserts `Usage` populated from a real Ollama). The runbook in Phase 4
+      is the additional operational confirmation against a live deployment.
 - [x] No regression in `extraction_duration_seconds` /
       `extraction_failures_total` (existing dashboards keep working).
 
