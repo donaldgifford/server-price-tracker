@@ -7,12 +7,20 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
+)
+
+// Direction label values for ExtractionTokensTotal.
+const (
+	directionInput  = "input"
+	directionOutput = "output"
 )
 
 // LLMExtractor implements the Extractor interface using an LLM backend.
 type LLMExtractor struct {
 	backend     LLMBackend
+	backendName string // cached at construction; backend identity is stable
 	log         *slog.Logger
 	temperature float64
 	maxTokens   int
@@ -46,6 +54,7 @@ func WithLogger(l *slog.Logger) LLMExtractorOption {
 func NewLLMExtractor(backend LLMBackend, opts ...LLMExtractorOption) *LLMExtractor {
 	e := &LLMExtractor{
 		backend:     backend,
+		backendName: backend.Name(),
 		log:         slog.Default(),
 		temperature: 0.1,
 		maxTokens:   512,
@@ -54,6 +63,21 @@ func NewLLMExtractor(backend LLMBackend, opts ...LLMExtractorOption) *LLMExtract
 		opt(e)
 	}
 	return e
+}
+
+// recordTokens emits LLM token telemetry for a successful Generate response.
+// Called before JSON parse / validation so the metric reflects billed tokens,
+// not just tokens that produced useful output.
+func (e *LLMExtractor) recordTokens(resp GenerateResponse) {
+	metrics.ExtractionTokensTotal.
+		WithLabelValues(e.backendName, resp.Model, directionInput).
+		Add(float64(resp.Usage.PromptTokens))
+	metrics.ExtractionTokensTotal.
+		WithLabelValues(e.backendName, resp.Model, directionOutput).
+		Add(float64(resp.Usage.CompletionTokens))
+	metrics.ExtractionTokensPerRequest.
+		WithLabelValues(e.backendName, resp.Model).
+		Observe(float64(resp.Usage.TotalTokens))
 }
 
 var validComponentTypes = map[string]domain.ComponentType{
@@ -83,6 +107,7 @@ func (e *LLMExtractor) Classify(
 	if err != nil {
 		return "", fmt.Errorf("calling LLM for classification: %w", err)
 	}
+	e.recordTokens(resp)
 
 	raw := strings.TrimSpace(strings.ToLower(resp.Content))
 	e.log.Debug("classify LLM response", "title", title, "raw_response", resp.Content, "parsed", raw)
@@ -117,6 +142,7 @@ func (e *LLMExtractor) Extract(
 	if err != nil {
 		return nil, fmt.Errorf("calling LLM for extraction: %w", err)
 	}
+	e.recordTokens(resp)
 
 	e.log.Debug("extract LLM response", "component_type", componentType, "title", title, "raw_response", resp.Content)
 

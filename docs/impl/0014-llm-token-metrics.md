@@ -209,11 +209,11 @@ successful backend `Generate` call. Add unit tests that verify increments using
 
 #### Tasks
 
-- [ ] In `pkg/extract/extractor.go`, **cache the backend name at construction
+- [x] In `pkg/extract/extractor.go`, **cache the backend name at construction
       time** so we don't call `Name()` on every `Generate`:
-  - [ ] Add `backendName string` field to `LLMExtractor`.
-  - [ ] In `NewLLMExtractor`, set `e.backendName = backend.Name()` once.
-- [ ] In `pkg/extract/extractor.go`, immediately after each successful
+  - [x] Add `backendName string` field to `LLMExtractor`.
+  - [x] In `NewLLMExtractor`, set `e.backendName = backend.Name()` once.
+- [x] In `pkg/extract/extractor.go`, immediately after each successful
       `e.backend.Generate(...)` call (one in `Classify`, one in `Extract`),
       emit:
 
@@ -223,36 +223,39 @@ successful backend `Generate` call. Add unit tests that verify increments using
   metrics.ExtractionTokensPerRequest.WithLabelValues(e.backendName, resp.Model).Observe(float64(resp.Usage.TotalTokens))
   ```
 
-  Place the emission *before* the JSON parse / validation steps so that even
-  when the response payload is unusable, we still record the tokens we paid for
-  (decision recorded in resolved open question #2 — spend-tracking semantics).
-- [ ] Failures (i.e., `e.backend.Generate` returned a non-nil error) must NOT
+  Implemented as `(e *LLMExtractor) recordTokens(resp)` so the call site is
+  one line in each method. Placed *before* JSON parse / validation per the
+  spend-tracking decision in resolved open question #2.
+- [x] Failures (i.e., `e.backend.Generate` returned a non-nil error) must NOT
       emit token metrics — `extraction_failures_total` already covers that case.
-- [ ] **Update every existing test in `pkg/extract/extractor_test.go`** that
+      Verified by `Backend error does not increment token counters` subtest.
+- [x] **Update every existing test in `pkg/extract/extractor_test.go`** that
       constructs an `LLMExtractor` from a `MockLLMBackend` to add a single
       `m.EXPECT().Name().Return("...").Once()` expectation. (Mockery's strict
       mode panics on unexpected calls, and `NewLLMExtractor` now invokes
-      `Name()` once at construction.)
-- [ ] Add new metric-assertion test cases (extend the existing table tests or
-      add a dedicated `TestLLMExtractor_TokenMetrics` test):
-  - [ ] Use **unique label values per test case** — e.g.,
+      `Name()` once at construction.) Wrapped in an `expectName` helper for
+      one-line ergonomics.
+- [x] Add new metric-assertion test cases (`TestLLMExtractor_TokenMetrics`
+      with four subtests: Classify success, Extract success, backend error
+      no-op, bad-JSON-still-records-tokens):
+  - [x] Use **unique label values per test case** — e.g.,
         `backend := "test-" + t.Name()` and
         `model := "model-" + t.Name()` — so each test reads its own corner of
         the metric vec without colliding with other parallel tests.
-  - [ ] Configure
+  - [x] Configure
         `m.EXPECT().Name().Return(backend).Once()` and
         `m.EXPECT().Generate(...)` returning a `GenerateResponse` with
         `Model: model` and a known
         `Usage{PromptTokens: 250, CompletionTokens: 5, TotalTokens: 255}`.
-  - [ ] After invoking the method under test, assert via
+  - [x] After invoking the method under test, assert via
         `testutil.ToFloat64(metrics.ExtractionTokensTotal.WithLabelValues(backend, model, "input"))`
         that it equals the expected value (e.g., 250 after one call).
-  - [ ] **Do NOT call `Reset()` and DO keep `t.Parallel()`** — per-test unique
+  - [x] **Do NOT call `Reset()` and DO keep `t.Parallel()`** — per-test unique
         labels avoid the cross-test pollution that `Reset()` was meant to
         guard against.
-- [ ] Verify `make test ./pkg/extract/...` passes (including all existing test
+- [x] Verify `make test ./pkg/extract/...` passes (including all existing test
       cases now updated with `Name()` expectations).
-- [ ] Verify `make lint` passes.
+- [x] Verify `make lint` passes.
 
 #### Success Criteria
 
