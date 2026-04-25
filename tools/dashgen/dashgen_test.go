@@ -63,7 +63,7 @@ func TestBuildOverviewDashboard(t *testing.T) {
 			totalPanels += len(p.RowPanel.Panels)
 		}
 	}
-	assert.Equal(t, 29, totalPanels)
+	assert.Equal(t, 32, totalPanels)
 
 	// Validate PromQL and metrics.
 	result := validate.Dashboard(dash, KnownMetrics)
@@ -82,7 +82,7 @@ func TestRecordingRules(t *testing.T) {
 	require.Len(t, cr.Spec.Groups, 1)
 	group := cr.Spec.Groups[0]
 	assert.Equal(t, "spt-recording", group.Name)
-	require.Len(t, group.Rules, 7)
+	require.Len(t, group.Rules, 11)
 
 	expectedRecords := []string{
 		"spt:http_requests:rate5m",
@@ -90,6 +90,10 @@ func TestRecordingRules(t *testing.T) {
 		"spt:ingestion_listings:rate5m",
 		"spt:ingestion_errors:rate5m",
 		"spt:extraction_failures:rate5m",
+		"spt:extraction_tokens_input:rate5m",
+		"spt:extraction_tokens_output:rate5m",
+		"spt:extraction_tokens_total:rate5m",
+		"spt:extraction_tokens_per_request:p95",
 		"spt:ebay_api_calls:rate5m",
 		"spt:notification_duration:p95_5m",
 	}

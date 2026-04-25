@@ -20,6 +20,14 @@ spec:
           expr: sum(rate(spt_ingestion_errors_total[5m]))
         - record: spt:extraction_failures:rate5m
           expr: sum(rate(spt_extraction_failures_total[5m]))
+        - record: spt:extraction_tokens_input:rate5m
+          expr: sum by (backend, model) (rate(spt_extraction_tokens_total{direction="input"}[5m]))
+        - record: spt:extraction_tokens_output:rate5m
+          expr: sum by (backend, model) (rate(spt_extraction_tokens_total{direction="output"}[5m]))
+        - record: spt:extraction_tokens_total:rate5m
+          expr: sum by (backend, model) (rate(spt_extraction_tokens_total[5m]))
+        - record: spt:extraction_tokens_per_request:p95
+          expr: histogram_quantile(0.95, sum by (backend, model, le) (rate(spt_extraction_tokens_per_request_bucket[5m])))
         - record: spt:ebay_api_calls:rate5m
           expr: sum(rate(spt_ebay_api_calls_total[5m]))
         - record: spt:notification_duration:p95_5m

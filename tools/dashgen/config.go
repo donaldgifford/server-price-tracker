@@ -19,8 +19,10 @@ var KnownMetrics = map[string]bool{
 	"spt_ingestion_duration_seconds": true,
 
 	// Extraction metrics.
-	"spt_extraction_duration_seconds": true,
-	"spt_extraction_failures_total":   true,
+	"spt_extraction_duration_seconds":   true,
+	"spt_extraction_failures_total":     true,
+	"spt_extraction_tokens_total":       true,
+	"spt_extraction_tokens_per_request": true,
 
 	// Scoring metrics.
 	"spt_scoring_distribution":        true,
@@ -67,13 +69,17 @@ var KnownMetrics = map[string]bool{
 	"spt_product_keys_no_baseline": true,
 
 	// Recording rules.
-	"spt:http_requests:rate5m":         true,
-	"spt:http_errors:rate5m":           true,
-	"spt:ingestion_listings:rate5m":    true,
-	"spt:ingestion_errors:rate5m":      true,
-	"spt:extraction_failures:rate5m":   true,
-	"spt:ebay_api_calls:rate5m":        true,
-	"spt:notification_duration:p95_5m": true,
+	"spt:http_requests:rate5m":              true,
+	"spt:http_errors:rate5m":                true,
+	"spt:ingestion_listings:rate5m":         true,
+	"spt:ingestion_errors:rate5m":           true,
+	"spt:extraction_failures:rate5m":        true,
+	"spt:extraction_tokens_input:rate5m":    true,
+	"spt:extraction_tokens_output:rate5m":   true,
+	"spt:extraction_tokens_total:rate5m":    true,
+	"spt:extraction_tokens_per_request:p95": true,
+	"spt:ebay_api_calls:rate5m":             true,
+	"spt:notification_duration:p95_5m":      true,
 
 	// Standard Prometheus metrics referenced in dashboards.
 	"up":                         true,

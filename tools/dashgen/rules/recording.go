@@ -38,6 +38,22 @@ func RecordingRules() PrometheusRule {
 							Expr:   `sum(rate(spt_extraction_failures_total[5m]))`,
 						},
 						{
+							Record: "spt:extraction_tokens_input:rate5m",
+							Expr:   `sum by (backend, model) (rate(spt_extraction_tokens_total{direction="input"}[5m]))`,
+						},
+						{
+							Record: "spt:extraction_tokens_output:rate5m",
+							Expr:   `sum by (backend, model) (rate(spt_extraction_tokens_total{direction="output"}[5m]))`,
+						},
+						{
+							Record: "spt:extraction_tokens_total:rate5m",
+							Expr:   `sum by (backend, model) (rate(spt_extraction_tokens_total[5m]))`,
+						},
+						{
+							Record: "spt:extraction_tokens_per_request:p95",
+							Expr:   `histogram_quantile(0.95, sum by (backend, model, le) (rate(spt_extraction_tokens_per_request_bucket[5m])))`,
+						},
+						{
 							Record: "spt:ebay_api_calls:rate5m",
 							Expr:   `sum(rate(spt_ebay_api_calls_total[5m]))`,
 						},
