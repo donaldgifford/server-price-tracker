@@ -185,10 +185,15 @@ them first means the rest of the codebase compiles even before emission lands.
 
 - [x] Verify `go build ./...` succeeds.
 - [x] Verify `make lint` passes.
-- [ ] Confirm the metrics appear in `/metrics` (with no series until they are
+- [x] Confirm the metrics appear in `/metrics` (with no series until they are
       written to) by running the server briefly and grepping the endpoint —
       `curl -s localhost:8080/metrics | grep spt_extraction_tokens` should print
-      the `# HELP` and `# TYPE` lines. *(Deferred to Phase 4 manual validation.)*
+      the `# HELP` and `# TYPE` lines. **Automated** by
+      `TestMetricsHandlerExposesLLMTokenMetrics` in
+      `internal/metrics/metrics_test.go` — scrapes the standard
+      `promhttp.Handler()` (same one wired into `/metrics` in
+      `cmd/server-price-tracker/cmd/serve.go`) and asserts the HELP/TYPE
+      lines render after one zero-valued seed observation.
 
 #### Success Criteria
 
@@ -328,16 +333,20 @@ and ready to test against a live deployment):**
 
 ## Testing Plan
 
-- [ ] Unit tests pass: `make test ./pkg/extract/...` and
+- [x] Unit tests pass: `make test ./pkg/extract/...` and
       `make test ./internal/metrics/...`.
-- [ ] Full unit suite passes: `make test`.
-- [ ] Lint clean: `make lint`.
-- [ ] Markdown lint clean: `make lint-md`.
-- [ ] Mocks regenerated only if needed (`LLMBackend` interface unchanged, so
+- [x] Full unit suite passes: `make test`.
+- [x] Lint clean: `make lint`.
+- [x] Markdown lint clean: `make lint-md`.
+- [x] Mocks regenerated only if needed (`LLMBackend` interface unchanged, so
       `make mocks` is **not** required).
-- [ ] Manual validation per Phase 4: `/metrics` shows non-zero token series after
-      a real extraction.
-- [ ] No regression in `extraction_duration_seconds` /
+- [ ] Manual validation per Phase 4: `/metrics` shows non-zero token series
+      after a real extraction. *(User-side; deferred per Phase 4. The unit-test
+      equivalent — that successful `Generate` calls increment the counter —
+      is covered by `TestLLMExtractor_TokenMetrics`. The `//go:build integration`
+      `TestOllamaBackend_Integration` also asserts on `Usage` populated from
+      a real Ollama, runnable via `go test -tags=integration`.)*
+- [x] No regression in `extraction_duration_seconds` /
       `extraction_failures_total` (existing dashboards keep working).
 
 ## Dependencies

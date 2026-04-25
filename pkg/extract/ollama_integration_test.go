@@ -41,4 +41,10 @@ func TestOllamaBackend_Integration(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp.Content)
 	assert.NotEmpty(t, resp.Model)
+
+	// Real Ollama responses include prompt_eval_count and eval_count; verify
+	// our parser surfaces them as TokenUsage so /metrics emits non-zero values.
+	assert.Positive(t, resp.Usage.PromptTokens, "real Ollama response must populate PromptTokens")
+	assert.Positive(t, resp.Usage.CompletionTokens, "real Ollama response must populate CompletionTokens")
+	assert.Equal(t, resp.Usage.PromptTokens+resp.Usage.CompletionTokens, resp.Usage.TotalTokens)
 }
