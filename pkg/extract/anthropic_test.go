@@ -35,7 +35,7 @@ func TestAnthropicBackend_Generate(t *testing.T) {
 		wantErr    bool
 		wantErrMsg string
 		wantResp   string
-		wantUsage  int
+		wantUsage  extract.TokenUsage
 	}{
 		{
 			name:   "successful generation",
@@ -51,8 +51,12 @@ func TestAnthropicBackend_Generate(t *testing.T) {
 				Temperature: 0.1,
 				MaxTokens:   50,
 			},
-			wantResp:  "ram",
-			wantUsage: 11,
+			wantResp: "ram",
+			wantUsage: extract.TokenUsage{
+				PromptTokens:     10,
+				CompletionTokens: 1,
+				TotalTokens:      11,
+			},
 		},
 		{
 			name:       "missing API key",
@@ -135,9 +139,7 @@ func TestAnthropicBackend_Generate(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantResp, resp.Content)
-			if tt.wantUsage > 0 {
-				assert.Equal(t, tt.wantUsage, resp.Usage.TotalTokens)
-			}
+			assert.Equal(t, tt.wantUsage, resp.Usage)
 		})
 	}
 }

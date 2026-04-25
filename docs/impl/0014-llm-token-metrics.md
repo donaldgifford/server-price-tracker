@@ -120,14 +120,14 @@ All tests use existing `httptest.NewServer` fixtures (verified — see e.g.
 
 **Anthropic (parity assertion):**
 
-- [ ] In `pkg/extract/anthropic_test.go`, locate the existing successful-call
+- [x] In `pkg/extract/anthropic_test.go`, locate the existing successful-call
       test that uses the fixture with
       `"usage": {"input_tokens": 10, "output_tokens": 1}` (around line 27) and
       add assertions on the parsed `GenerateResponse`:
   - `assert.Equal(t, 10, resp.Usage.PromptTokens)`
   - `assert.Equal(t, 1, resp.Usage.CompletionTokens)`
   - `assert.Equal(t, 11, resp.Usage.TotalTokens)`
-- [ ] No fixture changes; no new test cases.
+- [x] No fixture changes; no new test cases.
 
 **OpenAI-compat (parity assertion):**
 
