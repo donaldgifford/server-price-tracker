@@ -17,6 +17,8 @@ func TestMetricsRegistered(t *testing.T) {
 	assert.NotNil(t, IngestionDuration)
 	assert.NotNil(t, ExtractionDuration)
 	assert.NotNil(t, ExtractionFailuresTotal)
+	assert.NotNil(t, ExtractionTokensTotal)
+	assert.NotNil(t, ExtractionTokensPerRequest)
 	assert.NotNil(t, ScoringDistribution)
 	assert.NotNil(t, AlertsFiredTotal)
 	assert.NotNil(t, NotificationFailuresTotal)

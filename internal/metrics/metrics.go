@@ -77,6 +77,29 @@ var (
 	})
 )
 
+// LLM token metrics.
+//
+// Records billed tokens (input + output) for every successful Generate call,
+// including calls whose response later failed parse or validation — the
+// metric reflects what was billed, not what produced useful work. Use
+// extraction_failures_total for the failed-call view.
+var (
+	ExtractionTokensTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "extraction_tokens_total",
+		Help: "Total LLM tokens billed by extraction calls, " +
+			"labeled by backend, model, and direction (input/output). " +
+			"Includes tokens from calls whose response failed parse or validation.",
+	}, []string{"backend", "model", "direction"})
+
+	ExtractionTokensPerRequest = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Name:      "extraction_tokens_per_request",
+		Help:      "Distribution of total tokens (input+output) per LLM call, by backend and model.",
+		Buckets:   []float64{50, 100, 250, 500, 1000, 2000, 5000, 10000, 20000},
+	}, []string{"backend", "model"})
+)
+
 // Extraction quality metrics.
 var (
 	ListingsIncompleteExtraction = promauto.NewGauge(prometheus.GaugeOpts{

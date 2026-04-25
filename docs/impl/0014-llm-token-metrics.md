@@ -165,7 +165,7 @@ them first means the rest of the codebase compiles even before emission lands.
 
 #### Tasks
 
-- [ ] In `internal/metrics/metrics.go`, in the `// Extraction metrics.` block (or
+- [x] In `internal/metrics/metrics.go`, in the `// Extraction metrics.` block (or
       a new `// LLM token metrics.` block immediately after it), add:
 
   ```go
@@ -183,12 +183,12 @@ them first means the rest of the codebase compiles even before emission lands.
   }, []string{"backend", "model"})
   ```
 
-- [ ] Verify `go build ./...` succeeds.
-- [ ] Verify `make lint` passes.
+- [x] Verify `go build ./...` succeeds.
+- [x] Verify `make lint` passes.
 - [ ] Confirm the metrics appear in `/metrics` (with no series until they are
       written to) by running the server briefly and grepping the endpoint —
       `curl -s localhost:8080/metrics | grep spt_extraction_tokens` should print
-      the `# HELP` and `# TYPE` lines.
+      the `# HELP` and `# TYPE` lines. *(Deferred to Phase 4 manual validation.)*
 
 #### Success Criteria
 
