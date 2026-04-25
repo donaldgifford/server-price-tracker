@@ -249,7 +249,7 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 - **Manifests:** Kustomize (base + overlays for dev/prod) in `deploy/`, or Helm chart in `charts/server-price-tracker/`
 - **Helm chart:** Production-ready with optional CNPG PostgreSQL (`cnpg.enabled`), Ollama StatefulSet (`ollama.enabled`), Prometheus ServiceMonitor (`serviceMonitor.enabled`), create-or-reference secret pattern, and migration init container
 - **Ingress:** Cilium API Gateway (Gateway API HTTPRoute)
-- **Observability:** Prometheus ServiceMonitor scraping `/metrics`, Grafana dashboards
+- **Observability:** Prometheus ServiceMonitor scraping `/metrics`, Grafana dashboards. LLM token usage is emitted per-backend at `spt_extraction_tokens_total{backend, model, direction}` and `spt_extraction_tokens_per_request{backend, model}` — counters reflect billed tokens (including unparseable responses); dollar conversion is a PromQL concern. See `docs/OPERATIONS.md` ("LLM Token Metrics") for the metric reference and PromQL examples.
 - **Secrets:** Kubernetes Secrets (sealed-secrets or external-secrets-operator), not in manifests
 
 ## Docker & CI

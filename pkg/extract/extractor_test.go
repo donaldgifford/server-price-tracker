@@ -5,14 +5,24 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	"github.com/donaldgifford/server-price-tracker/pkg/extract"
 	extractMocks "github.com/donaldgifford/server-price-tracker/pkg/extract/mocks"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
+
+// expectName configures the mock to satisfy the single Name() call that
+// NewLLMExtractor makes at construction. The returned value becomes the
+// backend label on emitted token metrics; tests that don't assert on
+// metrics can ignore it.
+func expectName(m *extractMocks.MockLLMBackend, name string) {
+	m.EXPECT().Name().Return(name).Once()
+}
 
 func TestLLMExtractor_Classify(t *testing.T) {
 	t.Parallel()
@@ -89,6 +99,7 @@ func TestLLMExtractor_Classify(t *testing.T) {
 			t.Parallel()
 
 			mockBackend := extractMocks.NewMockLLMBackend(t)
+			expectName(mockBackend, "test-backend")
 			tt.setupMock(mockBackend)
 
 			extractor := extract.NewLLMExtractor(mockBackend)
@@ -111,6 +122,7 @@ func TestLLMExtractor_Classify_NonLatinTitle(t *testing.T) {
 
 	// Edge case: Title in non-Latin script should classify as "other".
 	mockBackend := extractMocks.NewMockLLMBackend(t)
+	expectName(mockBackend, "test-backend")
 	mockBackend.EXPECT().
 		Generate(mock.Anything, mock.Anything).
 		Return(extract.GenerateResponse{Content: "other"}, nil).
@@ -128,6 +140,7 @@ func TestLLMExtractor_Extract_LOTTitle(t *testing.T) {
 	// Edge case: Title says "LOT OF 4" but eBay quantity=1.
 	// LLM extraction should override with quantity=4.
 	mockBackend := extractMocks.NewMockLLMBackend(t)
+	expectName(mockBackend, "test-backend")
 	mockBackend.EXPECT().
 		Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
 			return r.Format == "json"
@@ -339,6 +352,7 @@ func TestLLMExtractor_Extract(t *testing.T) {
 			t.Parallel()
 
 			mockBackend := extractMocks.NewMockLLMBackend(t)
+			expectName(mockBackend, "test-backend")
 			tt.setupMock(mockBackend)
 
 			extractor := extract.NewLLMExtractor(mockBackend)
@@ -476,6 +490,7 @@ func TestLLMExtractor_ClassifyAndExtract(t *testing.T) {
 			t.Parallel()
 
 			mockBackend := extractMocks.NewMockLLMBackend(t)
+			expectName(mockBackend, "test-backend")
 			tt.setupMock(mockBackend)
 
 			extractor := extract.NewLLMExtractor(mockBackend)
@@ -498,12 +513,185 @@ func TestLLMExtractor_ClassifyAndExtract(t *testing.T) {
 	}
 }
 
+func TestLLMExtractor_TokenMetrics(t *testing.T) {
+	t.Parallel()
+
+	// Each subtest uses unique label values derived from its name so parallel
+	// tests cannot collide on the global metric vec. No Reset() needed.
+	const (
+		promptTokens     = 250
+		completionTokens = 5
+		totalTokens      = promptTokens + completionTokens
+	)
+
+	classifyResp := extract.GenerateResponse{
+		Content: "ram",
+		Model:   "model-a",
+		Usage: extract.TokenUsage{
+			PromptTokens:     promptTokens,
+			CompletionTokens: completionTokens,
+			TotalTokens:      totalTokens,
+		},
+	}
+
+	t.Run("Classify success increments token counters", func(t *testing.T) {
+		t.Parallel()
+
+		backend := "test-" + t.Name()
+		model := "model-" + t.Name()
+
+		mockBackend := extractMocks.NewMockLLMBackend(t)
+		expectName(mockBackend, backend)
+		resp := classifyResp
+		resp.Model = model
+		mockBackend.EXPECT().
+			Generate(mock.Anything, mock.Anything).
+			Return(resp, nil).
+			Once()
+
+		extractor := extract.NewLLMExtractor(mockBackend)
+		_, err := extractor.Classify(context.Background(), "Samsung 32GB DDR4")
+		require.NoError(t, err)
+
+		gotInput := testutil.ToFloat64(
+			metrics.ExtractionTokensTotal.WithLabelValues(backend, model, "input"),
+		)
+		gotOutput := testutil.ToFloat64(
+			metrics.ExtractionTokensTotal.WithLabelValues(backend, model, "output"),
+		)
+		assert.InDelta(t, float64(promptTokens), gotInput, 0)
+		assert.InDelta(t, float64(completionTokens), gotOutput, 0)
+
+		histCount := testutil.CollectAndCount(metrics.ExtractionTokensPerRequest)
+		assert.Positive(t, histCount, "histogram should have at least one observation")
+	})
+
+	t.Run("Extract success increments token counters", func(t *testing.T) {
+		t.Parallel()
+
+		backend := "test-" + t.Name()
+		model := "model-" + t.Name()
+
+		mockBackend := extractMocks.NewMockLLMBackend(t)
+		expectName(mockBackend, backend)
+		mockBackend.EXPECT().
+			Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+				return r.Format == "json"
+			})).
+			Return(extract.GenerateResponse{
+				Content: `{
+					"manufacturer": "Samsung",
+					"capacity_gb": 32,
+					"generation": "DDR4",
+					"speed_mhz": 2666,
+					"ecc": true,
+					"registered": true,
+					"condition": "used_working",
+					"quantity": 1,
+					"confidence": 0.95
+				}`,
+				Model: model,
+				Usage: extract.TokenUsage{
+					PromptTokens:     promptTokens,
+					CompletionTokens: completionTokens,
+					TotalTokens:      totalTokens,
+				},
+			}, nil).
+			Once()
+
+		extractor := extract.NewLLMExtractor(mockBackend)
+		_, err := extractor.Extract(
+			context.Background(),
+			domain.ComponentRAM,
+			"Samsung 32GB DDR4",
+			nil,
+		)
+		require.NoError(t, err)
+
+		gotInput := testutil.ToFloat64(
+			metrics.ExtractionTokensTotal.WithLabelValues(backend, model, "input"),
+		)
+		gotOutput := testutil.ToFloat64(
+			metrics.ExtractionTokensTotal.WithLabelValues(backend, model, "output"),
+		)
+		assert.InDelta(t, float64(promptTokens), gotInput, 0)
+		assert.InDelta(t, float64(completionTokens), gotOutput, 0)
+	})
+
+	t.Run("Backend error does not increment token counters", func(t *testing.T) {
+		t.Parallel()
+
+		backend := "test-" + t.Name()
+		model := "model-" + t.Name()
+
+		mockBackend := extractMocks.NewMockLLMBackend(t)
+		expectName(mockBackend, backend)
+		mockBackend.EXPECT().
+			Generate(mock.Anything, mock.Anything).
+			Return(extract.GenerateResponse{}, errors.New("connection refused")).
+			Once()
+
+		extractor := extract.NewLLMExtractor(mockBackend)
+		_, err := extractor.Classify(context.Background(), "Samsung 32GB DDR4")
+		require.Error(t, err)
+
+		gotInput := testutil.ToFloat64(
+			metrics.ExtractionTokensTotal.WithLabelValues(backend, model, "input"),
+		)
+		gotOutput := testutil.ToFloat64(
+			metrics.ExtractionTokensTotal.WithLabelValues(backend, model, "output"),
+		)
+		assert.Zero(t, gotInput, "failed Generate must not increment input counter")
+		assert.Zero(t, gotOutput, "failed Generate must not increment output counter")
+	})
+
+	t.Run("Bad JSON still records tokens (spend tracking)", func(t *testing.T) {
+		t.Parallel()
+
+		// The extract path emits metrics BEFORE json.Unmarshal so tokens-paid-for
+		// are recorded even when the response was unparseable.
+		backend := "test-" + t.Name()
+		model := "model-" + t.Name()
+
+		mockBackend := extractMocks.NewMockLLMBackend(t)
+		expectName(mockBackend, backend)
+		mockBackend.EXPECT().
+			Generate(mock.Anything, mock.Anything).
+			Return(extract.GenerateResponse{
+				Content: "not json at all",
+				Model:   model,
+				Usage: extract.TokenUsage{
+					PromptTokens:     promptTokens,
+					CompletionTokens: completionTokens,
+					TotalTokens:      totalTokens,
+				},
+			}, nil).
+			Once()
+
+		extractor := extract.NewLLMExtractor(mockBackend)
+		_, err := extractor.Extract(
+			context.Background(),
+			domain.ComponentRAM,
+			"Samsung 32GB DDR4",
+			nil,
+		)
+		require.Error(t, err)
+
+		gotInput := testutil.ToFloat64(
+			metrics.ExtractionTokensTotal.WithLabelValues(backend, model, "input"),
+		)
+		assert.InDelta(t, float64(promptTokens), gotInput, 0,
+			"tokens are billed even when response fails parse — emit before parse")
+	})
+}
+
 func TestExtract_RAMNormalizesSpeed(t *testing.T) {
 	t.Parallel()
 
 	// LLM returns null for speed_mhz, but the title contains PC4-21300.
 	// NormalizeRAMSpeed should fill in 2666.
 	mockBackend := extractMocks.NewMockLLMBackend(t)
+	expectName(mockBackend, "test-backend")
 	mockBackend.EXPECT().
 		Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
 			return r.Format == "json"

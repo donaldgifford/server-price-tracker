@@ -36,5 +36,6 @@ docz create design "Your Design Title"
 | DESIGN-0002 | LLM Extraction Pipeline | Implemented | 2026-03-14 | Donald Gifford | [0002-llm-extraction-pipeline.md](0002-llm-extraction-pipeline.md) |
 | DESIGN-0003 | Helm Chart Testing and Releasing CI-CD | Implemented | 2026-03-14 | Donald Gifford | [0003-helm-chart-testing-and-releasing-ci-cd.md](0003-helm-chart-testing-and-releasing-ci-cd.md) |
 | DESIGN-0004 | Inactive Listings Lifecycle | Implemented | 2026-03-14 | Donald Gifford | [0004-inactive-listings-lifecycle.md](0004-inactive-listings-lifecycle.md) |
-| DESIGN-0005 | CNPG Pooler with Gateway TCPRoute | Draft | 2026-04-04 | Donald Gifford | [0005-cnpg-pooler-with-gateway-tcproute.md](0005-cnpg-pooler-with-gateway-tcproute.md) |
+| DESIGN-0005 | CNPG Pooler with Gateway TCPRoute | Implemented | 2026-04-04 | Donald Gifford | [0005-cnpg-pooler-with-gateway-tcproute.md](0005-cnpg-pooler-with-gateway-tcproute.md) |
+| DESIGN-0007 | LLM Token Metrics | Implemented | 2026-04-25 | Donald Gifford | [0007-llm-token-metrics.md](0007-llm-token-metrics.md) |
 <!-- END DOCZ AUTO-GENERATED -->

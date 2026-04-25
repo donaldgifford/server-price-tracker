@@ -44,5 +44,6 @@ docz create impl "Your Implementation Title"
 | IMPL-0010 | PC4 Speed Normalization and Re-Extract | Completed | 2026-03-14 | Donald Gifford | [0010-pc4-speed-normalization-and-re-extract.md](0010-pc4-speed-normalization-and-re-extract.md) |
 | IMPL-0011 | eBay Rate Limiter and Quota Tracking | Completed | 2026-03-14 | Donald Gifford | [0011-ebay-rate-limiter-and-quota-tracking.md](0011-ebay-rate-limiter-and-quota-tracking.md) |
 | IMPL-0012 | Refactor Implementation Plan | In Progress | 2026-03-14 | Donald Gifford | [0012-refactor-implementation-plan.md](0012-refactor-implementation-plan.md) |
-| IMPL-0013 | CNPG Pooler and TCPRoute Helm Templates | Draft | 2026-04-04 | Donald Gifford | [0013-cnpg-pooler-and-tcproute-helm-templates.md](0013-cnpg-pooler-and-tcproute-helm-templates.md) |
+| IMPL-0013 | CNPG Pooler and TCPRoute Helm Templates | Completed | 2026-04-04 | Donald Gifford | [0013-cnpg-pooler-and-tcproute-helm-templates.md](0013-cnpg-pooler-and-tcproute-helm-templates.md) |
+| IMPL-0014 | LLM Token Metrics | Completed | 2026-04-25 | Donald Gifford | [0014-llm-token-metrics.md](0014-llm-token-metrics.md) |
 <!-- END DOCZ AUTO-GENERATED -->

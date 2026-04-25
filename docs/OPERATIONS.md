@@ -437,6 +437,58 @@ The following eBay API metrics are exposed at `/metrics`:
 - **Budget anomaly:** At the 12-hour mark, if daily usage is on pace to
   exceed the budget before the window resets
 
+### LLM Token Metrics
+
+Per-backend, per-model LLM token telemetry is exposed at `/metrics`. The
+metrics record **billed tokens** — they include calls whose response failed
+JSON parse or schema validation, since those calls were paid for. Use
+`spt_extraction_failures_total` for the failed-call view.
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `spt_extraction_tokens_total` | Counter | `backend`, `model`, `direction` | Total tokens billed. `direction` is `input` or `output`. |
+| `spt_extraction_tokens_per_request` | Histogram | `backend`, `model` | Distribution of total tokens per LLM call (buckets 50–20000). |
+
+`backend` matches the configured `config.llm.backend` value: `ollama`,
+`anthropic`, or `openai_compat`. `model` echoes the active model
+(`mistral:7b-instruct-v0.3-q5_K_M`, `claude-haiku-4-5-20251001`, etc.).
+
+#### Useful PromQL
+
+```promql
+# Tokens per second by backend (stacked area panel)
+sum by (backend) (rate(spt_extraction_tokens_total[5m]))
+
+# Input vs output split by backend
+sum by (backend, direction) (rate(spt_extraction_tokens_total[5m]))
+
+# Estimated $/hour, Anthropic Haiku 4.5 pricing inlined
+# ($1/MTok input, $5/MTok output)
+(
+  sum(rate(spt_extraction_tokens_total{backend="anthropic",direction="input"}[5m])) * 1.0  +
+  sum(rate(spt_extraction_tokens_total{backend="anthropic",direction="output"}[5m])) * 5.0
+) * 3600 / 1e6
+
+# p95 prompt size per backend (catch prompt regressions)
+histogram_quantile(0.95,
+  sum by (le, backend) (rate(spt_extraction_tokens_per_request_bucket[5m]))
+)
+```
+
+#### Backend Switching Verification
+
+When switching `config.llm.backend` (e.g., Ollama → Anthropic for a
+re-extraction pass), confirm the new series appears in `/metrics` after
+the first successful extraction:
+
+```bash
+curl -s https://spt.yourdomain.dev/metrics | grep '^spt_extraction_tokens_total'
+```
+
+You should see series for the active backend value populating with
+non-zero counts. This is the headline visualization for cost-comparing
+local Ollama vs cloud backends in Grafana.
+
 ### Generate Postman Collection
 
 Generate a Postman collection from the live server for API testing:
