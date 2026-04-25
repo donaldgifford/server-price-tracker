@@ -60,8 +60,10 @@ type ollamaOptions struct {
 }
 
 type ollamaResponse struct {
-	Model    string `json:"model"`
-	Response string `json:"response"`
+	Model           string `json:"model"`
+	Response        string `json:"response"`
+	PromptEvalCount int    `json:"prompt_eval_count"`
+	EvalCount       int    `json:"eval_count"`
 }
 
 // Generate calls the Ollama /api/generate endpoint.
@@ -131,5 +133,10 @@ func (b *OllamaBackend) Generate(
 	return GenerateResponse{
 		Content: ollamaResp.Response,
 		Model:   ollamaResp.Model,
+		Usage: TokenUsage{
+			PromptTokens:     ollamaResp.PromptEvalCount,
+			CompletionTokens: ollamaResp.EvalCount,
+			TotalTokens:      ollamaResp.PromptEvalCount + ollamaResp.EvalCount,
+		},
 	}, nil
 }

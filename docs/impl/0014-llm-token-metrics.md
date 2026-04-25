@@ -103,18 +103,18 @@ All tests use existing `httptest.NewServer` fixtures (verified — see e.g.
 
 **Ollama (parser fix):**
 
-- [ ] In `pkg/extract/ollama.go`, extend `ollamaResponse` struct to include:
+- [x] In `pkg/extract/ollama.go`, extend `ollamaResponse` struct to include:
   - `PromptEvalCount int  \`json:"prompt_eval_count"\``
   - `EvalCount       int  \`json:"eval_count"\``
-- [ ] In `pkg/extract/ollama.go`, populate `Usage` in the returned
+- [x] In `pkg/extract/ollama.go`, populate `Usage` in the returned
       `GenerateResponse`:
   - `PromptTokens:     ollamaResp.PromptEvalCount`
   - `CompletionTokens: ollamaResp.EvalCount`
   - `TotalTokens:      ollamaResp.PromptEvalCount + ollamaResp.EvalCount`
-- [ ] In `pkg/extract/ollama_test.go`, update one or more existing fixtures to
+- [x] In `pkg/extract/ollama_test.go`, update one or more existing fixtures to
       include `"prompt_eval_count": 250, "eval_count": 30` (or similar
       plausible values) in the mock JSON body.
-- [ ] Add at least one explicit assertion that
+- [x] Add at least one explicit assertion that
       `resp.Usage.PromptTokens == <fixture value>` and
       `resp.Usage.CompletionTokens == <fixture value>`.
 

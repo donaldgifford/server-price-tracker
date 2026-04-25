@@ -29,12 +29,15 @@ func TestOllamaBackend_Generate(t *testing.T) {
 		wantErr    bool
 		wantErrMsg string
 		wantResp   string
+		wantUsage  extract.TokenUsage
 	}{
 		{
 			name: "successful generation",
 			handler: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(`{"model":"mistral","response":"ram"}`))
+				_, _ = w.Write([]byte(
+					`{"model":"mistral","response":"ram","prompt_eval_count":250,"eval_count":30}`,
+				))
 			},
 			req: extract.GenerateRequest{
 				Prompt:      "classify this",
@@ -42,6 +45,11 @@ func TestOllamaBackend_Generate(t *testing.T) {
 				MaxTokens:   50,
 			},
 			wantResp: "ram",
+			wantUsage: extract.TokenUsage{
+				PromptTokens:     250,
+				CompletionTokens: 30,
+				TotalTokens:      280,
+			},
 		},
 		{
 			name: "json format passed through",
@@ -119,6 +127,7 @@ func TestOllamaBackend_Generate(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantResp, resp.Content)
 			assert.Equal(t, "mistral", resp.Model)
+			assert.Equal(t, tt.wantUsage, resp.Usage)
 		})
 	}
 }
