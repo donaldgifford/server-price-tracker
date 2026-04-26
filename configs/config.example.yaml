@@ -96,6 +96,11 @@ notifications:
     # repeatedly trips global limits despite header-driven waits.
     # Default 0s (no extra delay).
     inter_chunk_delay: 0s
+    # Collapse each scheduler tick into a single summary embed instead
+    # of per-alert messages. The /alerts page becomes the work surface
+    # — operators triage there and Discord becomes a "you have N new
+    # things" tap. Default false (rich per-alert embeds).
+    summary_only: false
 
   # Optional: generic webhook
   webhook:

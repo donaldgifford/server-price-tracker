@@ -344,6 +344,10 @@ func buildEngine(
 		engine.WithBaselineWindowDays(cfg.Scoring.BaselineWindowDays),
 		engine.WithStaggerOffset(cfg.Schedule.StaggerOffset),
 		engine.WithAlertsConfig(cfg.Alerts),
+		engine.WithAlertProcessing(engine.AlertProcessingConfig{
+			SummaryOnly:   cfg.Notifications.Discord.SummaryOnly,
+			AlertsURLBase: cfg.Web.AlertsURLBase,
+		}),
 	}
 
 	if ac != nil {

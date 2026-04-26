@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
+	"strconv"
 	"time"
 
 	"github.com/donaldgifford/server-price-tracker/internal/metrics"
@@ -14,13 +16,30 @@ import (
 
 const batchThreshold = 5
 
+// AlertProcessingConfig controls how ProcessAlerts surfaces pending
+// alerts. SummaryOnly collapses every tick into one Discord embed —
+// see DESIGN-0010 / IMPL-0015 Phase 6. AlertsURLBase, when non-empty,
+// is used as the dashboard hyperlink in the summary embed.
+type AlertProcessingConfig struct {
+	SummaryOnly   bool
+	AlertsURLBase string
+}
+
 // ProcessAlerts sends notifications for pending alerts, then marks them as notified.
-// Alerts are grouped by watch — if a watch has 5+ pending alerts, they are sent as
-// a batch. Failed notifications are not marked as notified.
+//
+// Default mode (cfg.SummaryOnly=false): alerts are grouped by watch.
+// Watches with 5+ pending alerts are sent as a chunked batch; smaller
+// groups send per-alert embeds. Failed notifications are not marked.
+//
+// Summary mode (cfg.SummaryOnly=true): the entire pending pool collapses
+// into a single Discord embed regardless of count or watch grouping.
+// On success every pending alert is marked notified — operators triage
+// via the /alerts page from there. On failure no alerts are marked.
 func ProcessAlerts(
 	ctx context.Context,
 	s store.Store,
 	n notify.Notifier,
+	cfg AlertProcessingConfig,
 ) error {
 	pending, err := s.ListPendingAlerts(ctx)
 	if err != nil {
@@ -29,6 +48,10 @@ func ProcessAlerts(
 
 	if len(pending) == 0 {
 		return nil
+	}
+
+	if cfg.SummaryOnly {
+		return processSummary(ctx, s, n, pending, cfg.AlertsURLBase)
 	}
 
 	// Group alerts by watch ID.
@@ -48,6 +71,110 @@ func ProcessAlerts(
 	}
 
 	return nil
+}
+
+// processSummary delivers one synthesized summary embed for the entire
+// pending alert pool. On success: mark every pending alert notified
+// and emit per-ID succeeded=true attempts. On failure: emit
+// per-ID succeeded=false attempts; do not mark any notified.
+func processSummary(
+	ctx context.Context,
+	s store.Store,
+	n notify.Notifier,
+	pending []domain.Alert,
+	alertsURLBase string,
+) error {
+	listings := make(map[string]*domain.Listing, len(pending))
+	for i := range pending {
+		listing, err := s.GetListingByID(ctx, pending[i].ListingID)
+		if err != nil {
+			continue // skip alerts whose listings have been removed
+		}
+		listings[pending[i].ID] = listing
+	}
+
+	payload := BuildSummaryPayload(pending, listings, alertsURLBase)
+	sendErr := n.SendAlert(ctx, payload)
+
+	errText := ""
+	if sendErr != nil {
+		errText = sendErr.Error()
+	}
+	ids := make([]string, 0, len(pending))
+	for i := range pending {
+		recordAttempt(ctx, s, pending[i].ID, sendErr == nil, errText)
+		ids = append(ids, pending[i].ID)
+	}
+
+	if sendErr != nil {
+		metrics.NotificationFailuresTotal.Inc()
+		metrics.NotificationLastFailureTimestamp.Set(float64(time.Now().Unix()))
+		return fmt.Errorf("sending summary alert: %w", sendErr)
+	}
+
+	metrics.AlertsFiredTotal.Add(float64(len(ids)))
+	metrics.NotificationLastSuccessTimestamp.Set(float64(time.Now().Unix()))
+	if markErr := s.MarkAlertsNotified(ctx, ids); markErr != nil {
+		slog.Default().Warn("failed to mark summary alerts notified",
+			"count", len(ids), "error", markErr,
+		)
+	}
+	return nil
+}
+
+// BuildSummaryPayload synthesizes a single AlertPayload from a pool of
+// pending alerts. The listings map (alert ID → listing) is best-effort:
+// missing listings just don't contribute their component_type to the
+// breakdown. alertsURLBase is the absolute dashboard URL prefix; empty
+// means no hyperlink.
+//
+// SummaryFields are sorted alphabetically so the embed reads
+// deterministically — important for tests and for operators
+// pattern-matching the same fields across days.
+func BuildSummaryPayload(
+	pending []domain.Alert,
+	listings map[string]*domain.Listing,
+	alertsURLBase string,
+) *notify.AlertPayload {
+	topScore := 0
+	counts := make(map[string]int)
+	for i := range pending {
+		if pending[i].Score > topScore {
+			topScore = pending[i].Score
+		}
+		if l, ok := listings[pending[i].ID]; ok && l != nil {
+			counts[string(l.ComponentType)]++
+		}
+	}
+
+	title := fmt.Sprintf("%d new alerts (top score %d)", len(pending), topScore)
+
+	url := ""
+	if alertsURLBase != "" {
+		url = alertsURLBase + "/alerts"
+	}
+
+	keys := make([]string, 0, len(counts))
+	for k := range counts {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	fields := make([]notify.SummaryField, 0, len(keys))
+	for _, k := range keys {
+		fields = append(fields, notify.SummaryField{
+			Name:  k,
+			Value: strconv.Itoa(counts[k]),
+		})
+	}
+
+	return &notify.AlertPayload{
+		WatchName:     "Summary",
+		ListingTitle:  title,
+		EbayURL:       url,
+		Score:         topScore,
+		SummaryFields: fields,
+	}
 }
 
 func groupByWatch(alerts []domain.Alert) map[string][]domain.Alert {

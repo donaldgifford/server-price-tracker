@@ -455,6 +455,70 @@ exclusive in a single invocation. `--add-filter` only merges the
 use `--filter` if you also want to change standard fields like
 `price_max` or `seller_min_feedback`.
 
+### Alert Review UI
+
+The embedded `/alerts` page (DESIGN-0010) is a server-rendered table of
+pending alerts with search, filter, dismiss/restore, and per-alert
+detail views. Toggle with `config.web.enabled` (Helm value default
+`true`).
+
+```yaml
+config:
+  web:
+    enabled: true
+    # Absolute URL prefix used to deep-link from Discord summary
+    # embeds back to /alerts. Empty = link omitted from embeds.
+    alerts_url_base: "https://spt.yourdomain.dev"
+```
+
+**No built-in auth.** The page is unauthenticated. For production
+expose it through one of:
+
+- a Cilium HTTPRoute filter that requires a header / token,
+- an oauth2-proxy sidecar in front of the deployment,
+- network policy restricting the route to a private namespace.
+
+`web.enabled: false` removes the entire `/alerts` route group (404
+from the Echo router).
+
+#### Summary mode (`notify.discord.summary_only`)
+
+Phase 6 of IMPL-0015 added a `summary_only` flag on the Discord
+config. When `true`:
+
+- Each scheduler tick produces **one** Discord embed regardless of
+  pending alert count (count + top score + per-component breakdown).
+- The embed hyperlinks back to `<alerts_url_base>/alerts` if
+  configured.
+- Every pending alert is marked notified; the `/alerts` page becomes
+  the queue.
+
+When summary mode is on, bookmark `/alerts?status=undismissed` so your
+queue view persists — the URL stays honest regardless of server
+config (per IMPL-0015 Q7 resolution).
+
+```yaml
+config:
+  notifications:
+    discord:
+      enabled: true
+      webhook_url: "${DISCORD_WEBHOOK_URL}"
+      summary_only: true
+```
+
+#### Discord rate-limit observability
+
+The Discord notifier now parses `X-RateLimit-*` headers on every
+response and chunks batches into ≤10-embed POSTs. Operational signals:
+
+- `spt_discord_rate_limit_remaining` — last observed remaining capacity
+- `spt_discord_rate_limit_waits_total` — bucket-driven sleeps
+- `spt_discord_429_total{global=…}` — 429s split by global flag
+- `spt_discord_chunks_sent_total` — total POSTs sent
+- `notifications.discord.inter_chunk_delay` — defensive sleep beyond
+  bucket waits (default `0s`, set to e.g. `100ms` if a busy webhook
+  trips global limits)
+
 ### Quota Monitoring
 
 Check the current eBay API quota status:

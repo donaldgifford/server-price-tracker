@@ -9,6 +9,12 @@ import (
 )
 
 // AlertPayload contains the data needed to send a deal alert notification.
+//
+// SummaryFields, when non-empty, switches the Discord embed into the
+// summary-mode shape: a single embed with Title + each SummaryField as
+// a labeled row, no per-listing Price/Seller/Condition table. The
+// notifier infers summary mode from this field's presence — callers
+// don't need to flip a separate flag.
 type AlertPayload struct {
 	WatchName     string
 	ListingTitle  string
@@ -22,6 +28,14 @@ type AlertPayload struct {
 	Seller        string
 	Condition     string
 	ComponentType string
+	SummaryFields []SummaryField
+}
+
+// SummaryField is one labeled count in a summary embed (e.g.,
+// {Name: "ram", Value: "12"}).
+type SummaryField struct {
+	Name  string
+	Value string
 }
 
 // Notifier defines the interface for sending deal alert notifications.

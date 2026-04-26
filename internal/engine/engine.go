@@ -33,6 +33,7 @@ type Engine struct {
 	baselineWindowDays int
 	staggerOffset      time.Duration
 	alertsConfig       config.AlertsConfig
+	alertProcessing    AlertProcessingConfig
 	workerCount        int
 }
 
@@ -116,6 +117,15 @@ func WithRateLimiter(rl *ebay.RateLimiter) EngineOption {
 func WithAlertsConfig(cfg config.AlertsConfig) EngineOption {
 	return func(e *Engine) {
 		e.alertsConfig = cfg
+	}
+}
+
+// WithAlertProcessing sets the alert processing config used by
+// ProcessAlerts (SummaryOnly + AlertsURLBase). Default zero value is
+// the per-watch chunked path with no dashboard hyperlink.
+func WithAlertProcessing(cfg AlertProcessingConfig) EngineOption {
+	return func(e *Engine) {
+		e.alertProcessing = cfg
 	}
 }
 
@@ -356,7 +366,7 @@ func (eng *Engine) RunIngestion(ctx context.Context) error {
 	}
 
 	// Always process alerts, even if budget/daily limit was hit.
-	if err := ProcessAlerts(ctx, eng.store, eng.notifier); err != nil {
+	if err := ProcessAlerts(ctx, eng.store, eng.notifier, eng.alertProcessing); err != nil {
 		eng.log.Error("alert processing failed", "error", err)
 	}
 

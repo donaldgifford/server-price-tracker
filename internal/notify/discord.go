@@ -145,6 +145,10 @@ func (d *DiscordNotifier) SendBatchAlert(
 }
 
 func buildEmbed(alert *AlertPayload) discordEmbed {
+	if len(alert.SummaryFields) > 0 {
+		return buildSummaryEmbed(alert)
+	}
+
 	embed := discordEmbed{
 		Title: fmt.Sprintf("Deal Alert: %s", alert.ListingTitle),
 		URL:   alert.EbayURL,
@@ -164,6 +168,25 @@ func buildEmbed(alert *AlertPayload) discordEmbed {
 	}
 
 	return embed
+}
+
+// buildSummaryEmbed renders a Phase 6 summary payload as one embed:
+// Title + each SummaryField as an inline row + optional dashboard URL.
+// No price/seller/condition rows since those don't apply across a pool
+// of listings.
+func buildSummaryEmbed(alert *AlertPayload) discordEmbed {
+	fields := make([]discordEmbedField, 0, len(alert.SummaryFields))
+	for _, f := range alert.SummaryFields {
+		fields = append(fields, discordEmbedField{
+			Name: f.Name, Value: f.Value, Inline: true,
+		})
+	}
+	return discordEmbed{
+		Title:  alert.ListingTitle,
+		URL:    alert.EbayURL,
+		Color:  scoreColor(alert.Score),
+		Fields: fields,
+	}
 }
 
 func scoreColor(score int) int {

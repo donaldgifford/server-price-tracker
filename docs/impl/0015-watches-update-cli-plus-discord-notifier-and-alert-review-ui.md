@@ -834,10 +834,10 @@ full queue.
 
 #### Tasks
 
-- [ ] Add config field `notify.discord.summary_only` (bool, default
+- [x] Add config field `notify.discord.summary_only` (bool, default
       `false`) in `internal/config/config.go` and the example config
       `configs/config.example.yaml`.
-- [ ] Add `BuildSummaryPayload(alerts []domain.Alert,
+- [x] Add `BuildSummaryPayload(alerts []domain.Alert,
       alertsURLBase string) *notify.AlertPayload` helper in
       `internal/engine/alert.go`. Synthesizes a single payload with:
   - `WatchName: "Summary"`
@@ -845,7 +845,7 @@ full queue.
   - `EbayURL: alertsURLBase + "/alerts"` (when non-empty)
   - One field per component-type with the count
   - Color from the top alert's score
-- [ ] In `internal/engine/alert.go`'s `ProcessAlerts`, branch on
+- [x] In `internal/engine/alert.go`'s `ProcessAlerts`, branch on
       `cfg.SummaryOnly`:
   - **False**: existing per-watch grouped path (with Phase 5
     chunking behavior).
@@ -854,7 +854,7 @@ full queue.
     success, `MarkAlertsNotified(ctx, allIDs)` and emit one
     `InsertNotificationAttempt(true, ...)` per ID. On failure,
     record failed attempt for each ID and do NOT mark any notified.
-- [ ] Update `docs/OPERATIONS.md` "Alert Review UI" section to:
+- [x] Update `docs/OPERATIONS.md` "Alert Review UI" section to:
   - Document the `summary_only` flag and what changes when it flips
     (Discord becomes one embed/tick, page becomes the queue).
   - Recommend defaulting the bookmarked `/alerts` URL to
@@ -863,20 +863,20 @@ full queue.
   - Document the `web.enabled` flag and the page's lack of built-in
     auth — recommend a Cilium HTTPRoute filter or oauth2-proxy
     sidecar for production.
-- [ ] Tests:
-  - [ ] `TestProcessAlerts_SummaryMode_SingleEmbed` — 50 pending
+- [x] Tests:
+  - [x] `TestProcessAlerts_SummaryMode_SingleEmbed` — 50 pending
         alerts, `cfg.SummaryOnly = true`; assert one `SendAlert`
         call with a synthesized payload, `MarkAlertsNotified` called
         with all 50 IDs.
-  - [ ] `TestProcessAlerts_SummaryMode_NoNewAlerts` — 0 pending;
+  - [x] `TestProcessAlerts_SummaryMode_NoNewAlerts` — 0 pending;
         assert no `SendAlert` call.
-  - [ ] `TestProcessAlerts_SummaryMode_SendFailure` — `SendAlert`
+  - [x] `TestProcessAlerts_SummaryMode_SendFailure` — `SendAlert`
         returns error; assert no IDs marked notified, all attempts
         recorded as failures.
-  - [ ] `TestBuildSummaryPayload` — table-driven: counts by type,
+  - [x] `TestBuildSummaryPayload` — table-driven: counts by type,
         top-score selection, URL construction with and without
         `alertsURLBase`.
-- [ ] Run `make lint`, `make fmt`,
+- [x] Run `make lint`, `make fmt`,
       `make test ./internal/engine/...`.
 
 #### Success Criteria

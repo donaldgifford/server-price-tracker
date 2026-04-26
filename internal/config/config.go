@@ -150,6 +150,10 @@ type DiscordConfig struct {
 	// the response headers require. Zero (the default) means no extra
 	// delay; bucket-driven waits still apply.
 	InterChunkDelay time.Duration `yaml:"inter_chunk_delay"`
+	// SummaryOnly collapses each scheduler tick into a single summary
+	// embed regardless of pending alert count. Operators rely on the
+	// /alerts page as the work surface when this is on.
+	SummaryOnly bool `yaml:"summary_only"`
 }
 
 // WebhookConfig defines generic webhook settings.
