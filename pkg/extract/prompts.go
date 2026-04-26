@@ -16,6 +16,12 @@ Title: {{.Title}}
 
 Types: ram, drive, server, cpu, nic, other
 
+Rules:
+- Pick the type of the actual item being sold, not what it is for or compatible with.
+- Accessories and parts that are not themselves the component go to "other". Examples: drive caddies/trays, rack rails, bezels, brackets, mounting kits, cables, fans, heatsinks, risers, backplanes (when sold alone), power supplies (when sold alone).
+- Only pick "drive" for actual storage drives (HDD/SSD/NVMe), not drive accessories.
+- Only pick "server" for complete or barebones server chassis, not individual server parts.
+
 Respond with ONLY a single word from the list above. No explanation, no parentheses, no extra text.`
 
 // ramTmpl is the RAM extraction prompt template.

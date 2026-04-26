@@ -39,6 +39,14 @@ func TestRenderClassifyPrompt(t *testing.T) {
 			title:    "",
 			wantSubs: []string{"Title: \n"},
 		},
+		{
+			name:  "accessory guidance present",
+			title: "Drive Tray Caddy for Dell R740",
+			wantSubs: []string{
+				"drive caddies/trays",
+				`go to "other"`,
+			},
+		},
 	}
 
 	for _, tt := range tests {
