@@ -224,6 +224,20 @@ func TestNormalizeRAMSpeed(t *testing.T) {
 			wantSpeed: 2666,
 			wantOK:    true,
 		},
+		{
+			name:      "out-of-range existing speed recovered from PC4 marker",
+			title:     "Samsung 32GB DDR4 PC4-19200 ECC",
+			attrs:     map[string]any{"speed_mhz": 19200},
+			wantSpeed: 2400,
+			wantOK:    true,
+		},
+		{
+			name:      "out-of-range float64 speed recovered from PC4 marker",
+			title:     "Samsung 32GB DDR4 PC4-21300 ECC",
+			attrs:     map[string]any{"speed_mhz": float64(21300)},
+			wantSpeed: 2666,
+			wantOK:    true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -248,4 +262,18 @@ func TestNormalizeRAMSpeed(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestNormalizeRAMSpeed_DeletesUnrecoverable verifies that an
+// out-of-range speed_mhz value is removed from attrs when the title
+// offers no fallback, so the optional field can pass validation as null.
+func TestNormalizeRAMSpeed_DeletesUnrecoverable(t *testing.T) {
+	t.Parallel()
+
+	attrs := map[string]any{"speed_mhz": 19200, "capacity_gb": 32}
+	ok := extract.NormalizeRAMSpeed("Generic 32GB Server RAM", attrs)
+
+	assert.False(t, ok)
+	_, exists := attrs["speed_mhz"]
+	assert.False(t, exists, "speed_mhz should be deleted when invalid and unrecoverable")
 }

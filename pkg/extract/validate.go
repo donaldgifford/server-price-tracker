@@ -144,7 +144,7 @@ func validateDrive(attrs map[string]any) error {
 	return nil
 }
 
-var validServerFormFactors = []string{"1U", "2U", "4U", "tower"}
+var validServerFormFactors = []string{"1U", "2U", "3U", "4U", "5U", "6U", "7U", "8U", "10U", "tower"}
 
 func validateServer(attrs map[string]any) error {
 	// manufacturer: non-empty (required)

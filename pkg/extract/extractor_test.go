@@ -239,8 +239,10 @@ func TestLLMExtractor_Extract(t *testing.T) {
 				m.EXPECT().
 					Generate(mock.Anything, mock.Anything).
 					Return(extract.GenerateResponse{
+						// 1500 is not divisible by 1024 or 1000, so the
+						// MB/MiB normalizer cannot rescue it.
 						Content: `{
-							"capacity_gb": 2048,
+							"capacity_gb": 1500,
 							"generation": "DDR4",
 							"condition": "used_working",
 							"confidence": 0.9,

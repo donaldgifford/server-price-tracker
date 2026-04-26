@@ -111,7 +111,7 @@ Schema:
   "manufacturer": string,
   "model": string,
   "generation": string | null,
-  "form_factor": "1U" | "2U" | "4U" | "tower" | null,
+  "form_factor": "1U" | "2U" | "3U" | "4U" | "5U" | "6U" | "7U" | "8U" | "10U" | "tower" | null,
   "drive_bays": string | null,
   "drive_form_factor": string | null,
   "cpu_count": integer | null,

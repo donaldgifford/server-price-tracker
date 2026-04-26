@@ -153,15 +153,12 @@ func (e *LLMExtractor) Extract(
 		return nil, fmt.Errorf("parsing LLM JSON response: %w", err)
 	}
 
+	NormalizeExtraction(componentType, title, attrs)
+
 	if err := ValidateExtraction(componentType, attrs); err != nil {
 		e.log.Warn("extract validation failed",
 			"component_type", componentType, "title", title, "raw_response", resp.Content, "error", err)
 		return nil, fmt.Errorf("validating extraction: %w", err)
-	}
-
-	// Normalize RAM speed from PC module numbers in title when LLM missed it.
-	if componentType == domain.ComponentRAM {
-		NormalizeRAMSpeed(title, attrs)
 	}
 
 	return attrs, nil

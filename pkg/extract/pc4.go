@@ -92,29 +92,59 @@ func ExtractSpeedFromTitle(title string) (int, bool) {
 	return 0, false
 }
 
-// NormalizeRAMSpeed fills in speed_mhz from PC module numbers in the title
-// when the LLM returned null or 0. Modifies attrs in place.
-// Returns true if speed_mhz is set (was already present or was recovered).
+// validRAMSpeedMHzMin and Max bracket the speeds the validator accepts.
+// Kept here so NormalizeRAMSpeed can decide whether the LLM-supplied value
+// is plausible without importing the validator.
+const (
+	validRAMSpeedMHzMin = 800
+	validRAMSpeedMHzMax = 8400
+)
+
+// NormalizeRAMSpeed reconciles the speed_mhz attribute against the title.
+// If the LLM's value is null, zero, or outside the valid 800-8400 range,
+// it tries to recover the real speed from PC module / DDR designations in
+// the title (e.g., "PC4-21300" → 2666). When no recovery is possible and
+// the existing value is invalid, the field is deleted so validation treats
+// it as the optional null it can be. Modifies attrs in place. Returns true
+// if speed_mhz ends up set to a valid value.
 func NormalizeRAMSpeed(title string, attrs map[string]any) bool {
-	// Check if speed_mhz is already set and non-zero.
-	if v, ok := attrs["speed_mhz"]; ok && v != nil {
-		switch n := v.(type) {
-		case int:
-			if n != 0 {
-				return true
-			}
-		case float64:
-			if int(n) != 0 {
-				return true
-			}
-		}
+	if existing, ok := currentSpeedMHz(attrs); ok && speedInValidRange(existing) {
+		return true
 	}
 
-	// Attempt to extract speed from the title.
 	if mhz, ok := ExtractSpeedFromTitle(title); ok {
 		attrs["speed_mhz"] = mhz
 		return true
 	}
 
+	// No fallback found; drop a bad value rather than fail validation
+	// (speed_mhz is optional).
+	delete(attrs, "speed_mhz")
 	return false
+}
+
+// currentSpeedMHz returns the present speed_mhz value as an int, or
+// (0, false) if absent, nil, zero, or a non-numeric type.
+func currentSpeedMHz(attrs map[string]any) (int, bool) {
+	v, ok := attrs["speed_mhz"]
+	if !ok || v == nil {
+		return 0, false
+	}
+	var n int
+	switch x := v.(type) {
+	case int:
+		n = x
+	case float64:
+		n = int(x)
+	default:
+		return 0, false
+	}
+	if n == 0 {
+		return 0, false
+	}
+	return n, true
+}
+
+func speedInValidRange(mhz int) bool {
+	return mhz >= validRAMSpeedMHzMin && mhz <= validRAMSpeedMHzMax
 }
