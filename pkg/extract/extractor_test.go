@@ -347,6 +347,40 @@ func TestLLMExtractor_Extract(t *testing.T) {
 			wantErr:    true,
 			wantErrMsg: "calling LLM",
 		},
+		{
+			name:          "JSON wrapped in ```json fences (Anthropic habit)",
+			componentType: domain.ComponentRAM,
+			title:         "Samsung 32GB DDR4-2666 ECC RDIMM",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: "```json\n" + validRAMJSON + "\n```",
+					}, nil).
+					Once()
+			},
+			wantAttrKey: "manufacturer",
+			wantAttrVal: "Samsung",
+		},
+		{
+			name:          "JSON wrapped in bare ``` fences",
+			componentType: domain.ComponentRAM,
+			title:         "Samsung 32GB DDR4-2666 ECC RDIMM",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: "```\n" + validRAMJSON + "\n```",
+					}, nil).
+					Once()
+			},
+			wantAttrKey: "manufacturer",
+			wantAttrVal: "Samsung",
+		},
 	}
 
 	for _, tt := range tests {
