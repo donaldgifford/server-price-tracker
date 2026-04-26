@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -484,6 +486,293 @@ func (s *PostgresStore) HasSuccessfulNotification(ctx context.Context, alertID s
 	return exists, nil
 }
 
+// alertReviewDefaults clamps and normalizes a query in place. Pulled out
+// so the same defaults apply whether the caller is the HTTP handler or a
+// test, and so callers can pass in zero values without being surprised by
+// what shows up in the response.
+func alertReviewDefaults(q *AlertReviewQuery) {
+	if q.Status == "" {
+		q.Status = AlertStatusActive
+	}
+	if q.Sort == "" {
+		q.Sort = "score"
+	}
+	if q.Page < 1 {
+		q.Page = 1
+	}
+	if q.PerPage < 1 {
+		q.PerPage = 25
+	}
+	if q.PerPage > 100 {
+		q.PerPage = 100
+	}
+}
+
+// buildAlertReviewWhere assembles the WHERE clause and positional args for
+// ListAlertsForReview / count. Returns the SQL fragment (always starting
+// with "WHERE 1=1" so callers can append "AND ..." safely) and the args
+// slice. The caller appends ORDER BY / LIMIT / OFFSET on top.
+func buildAlertReviewWhere(q *AlertReviewQuery) (string, []any) {
+	var (
+		clauses = []string{"1=1"}
+		args    []any
+	)
+
+	switch q.Status {
+	case AlertStatusActive:
+		clauses = append(clauses, "a.notified = false")
+	case AlertStatusDismissed:
+		clauses = append(clauses, "a.dismissed_at IS NOT NULL")
+	case AlertStatusNotified:
+		clauses = append(clauses, "a.notified = true")
+	case AlertStatusUndismissed:
+		clauses = append(clauses, "a.dismissed_at IS NULL")
+	case AlertStatusAll:
+		// no-op
+	}
+
+	if q.MinScore > 0 {
+		args = append(args, q.MinScore)
+		clauses = append(clauses, fmt.Sprintf("a.score >= $%d", len(args)))
+	}
+	if q.ComponentType != "" {
+		args = append(args, q.ComponentType)
+		clauses = append(clauses, fmt.Sprintf("l.component_type = $%d", len(args)))
+	}
+	if q.WatchID != "" {
+		args = append(args, q.WatchID)
+		clauses = append(clauses, fmt.Sprintf("a.watch_id = $%d", len(args)))
+	}
+	if q.Search != "" {
+		args = append(args, q.Search)
+		clauses = append(clauses, fmt.Sprintf("l.title ILIKE '%%' || $%d || '%%'", len(args)))
+	}
+
+	return "WHERE " + strings.Join(clauses, " AND "), args
+}
+
+// alertReviewOrderBy maps the sort parameter to a stable ORDER BY clause.
+// Always appends id DESC as a tiebreaker so OFFSET pagination stays
+// deterministic across requests when rows arrive between page loads.
+func alertReviewOrderBy(sort string) string {
+	switch sort {
+	case "created":
+		return "ORDER BY a.created_at DESC, a.id DESC"
+	case "watch":
+		return "ORDER BY w.name ASC, a.score DESC, a.id DESC"
+	default:
+		return "ORDER BY a.score DESC, a.created_at DESC, a.id DESC"
+	}
+}
+
+// ListAlertsForReview returns one page of alerts joined with their listing
+// and watch context, plus the total count for pagination metadata. See
+// AlertReviewQuery for the available filters.
+func (s *PostgresStore) ListAlertsForReview(
+	ctx context.Context,
+	q *AlertReviewQuery,
+) (AlertReviewResult, error) {
+	if q == nil {
+		q = &AlertReviewQuery{}
+	}
+	alertReviewDefaults(q)
+
+	where, args := buildAlertReviewWhere(q)
+
+	countQuery := `
+		SELECT count(*)
+		FROM alerts a
+		JOIN listings l ON l.id = a.listing_id
+		JOIN watches  w ON w.id = a.watch_id
+		` + where
+
+	var total int
+	if err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return AlertReviewResult{}, fmt.Errorf("counting alerts for review: %w", err)
+	}
+
+	listArgs := append([]any(nil), args...)
+	listArgs = append(listArgs, q.PerPage, (q.Page-1)*q.PerPage)
+	listQuery := `
+		SELECT ` + alertReviewSelectColumns + `
+		FROM alerts a
+		JOIN listings l ON l.id = a.listing_id
+		JOIN watches  w ON w.id = a.watch_id
+		` + where + `
+		` + alertReviewOrderBy(q.Sort) + `
+		LIMIT $` + strconv.Itoa(len(listArgs)-1) + ` OFFSET $` + strconv.Itoa(len(listArgs))
+
+	rows, err := s.pool.Query(ctx, listQuery, listArgs...)
+	if err != nil {
+		return AlertReviewResult{}, fmt.Errorf("querying alerts for review: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]domain.AlertWithListing, 0, q.PerPage)
+	for rows.Next() {
+		item, err := scanAlertWithListing(rows)
+		if err != nil {
+			return AlertReviewResult{}, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return AlertReviewResult{}, fmt.Errorf("iterating alert review rows: %w", err)
+	}
+
+	return AlertReviewResult{
+		Items:   items,
+		Total:   total,
+		Page:    q.Page,
+		PerPage: q.PerPage,
+	}, nil
+}
+
+// scanAlertWithListing scans one row of the alert+listing+watch join.
+// Column order must match alertReviewSelectColumns.
+func scanAlertWithListing(rows pgx.Rows) (domain.AlertWithListing, error) {
+	var (
+		out domain.AlertWithListing
+		a   = &out.Alert
+		l   = &out.Listing
+	)
+	err := rows.Scan(
+		&a.ID, &a.WatchID, &a.ListingID, &a.Score,
+		&a.Notified, &a.NotifiedAt, &a.CreatedAt, &a.DismissedAt,
+		&l.ID, &l.EbayID, &l.Title, &l.ItemURL, &l.ImageURL,
+		&l.Price, &l.Currency, &l.ShippingCost, &l.ListingType,
+		&l.SellerName, &l.SellerFeedback, &l.SellerFeedbackPct, &l.SellerTopRated,
+		&l.ConditionRaw, &l.ConditionNorm, &l.ComponentType, &l.Quantity, &l.Attributes,
+		&l.ExtractionConfidence, &l.ProductKey, &l.Score, &l.ScoreBreakdown,
+		&l.Active, &l.ListedAt, &l.SoldAt, &l.SoldPrice, &l.FirstSeenAt, &l.UpdatedAt,
+		&out.WatchName,
+	)
+	if err != nil {
+		return domain.AlertWithListing{}, fmt.Errorf("scanning alert review row: %w", err)
+	}
+	return out, nil
+}
+
+// GetAlertDetail returns a single alert plus its listing, watch, and full
+// notification history. Returns nil and a wrapped pgx.ErrNoRows when the
+// alert does not exist.
+func (s *PostgresStore) GetAlertDetail(ctx context.Context, id string) (*domain.AlertDetail, error) {
+	detailQuery := `
+		SELECT ` + alertReviewSelectColumns + `
+		FROM alerts a
+		JOIN listings l ON l.id = a.listing_id
+		JOIN watches  w ON w.id = a.watch_id
+		WHERE a.id = $1`
+
+	rows, err := s.pool.Query(ctx, detailQuery, id)
+	if err != nil {
+		return nil, fmt.Errorf("querying alert detail: %w", err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("iterating alert detail: %w", err)
+		}
+		return nil, fmt.Errorf("alert %s: %w", id, pgx.ErrNoRows)
+	}
+
+	row, err := scanAlertWithListing(rows)
+	if err != nil {
+		return nil, err
+	}
+	rows.Close()
+
+	watch, err := s.GetWatch(ctx, row.Alert.WatchID)
+	if err != nil {
+		return nil, fmt.Errorf("fetching watch for alert %s: %w", id, err)
+	}
+
+	history, err := s.listNotificationAttempts(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.AlertDetail{
+		Alert:               row.Alert,
+		Listing:             row.Listing,
+		Watch:               *watch,
+		NotificationHistory: history,
+	}, nil
+}
+
+func (s *PostgresStore) listNotificationAttempts(
+	ctx context.Context,
+	alertID string,
+) ([]domain.NotificationAttempt, error) {
+	rows, err := s.pool.Query(ctx, queryNotificationAttemptsByAlert, alertID)
+	if err != nil {
+		return nil, fmt.Errorf("querying notification attempts: %w", err)
+	}
+	defer rows.Close()
+
+	var out []domain.NotificationAttempt
+	for rows.Next() {
+		var a domain.NotificationAttempt
+		if err := rows.Scan(
+			&a.ID, &a.AlertID, &a.AttemptedAt, &a.Succeeded, &a.HTTPStatus, &a.ErrorText,
+		); err != nil {
+			return nil, fmt.Errorf("scanning notification attempt: %w", err)
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// DismissAlerts marks the given alerts as dismissed, skipping any that are
+// already dismissed. Returns the number of rows actually transitioned, so
+// callers can distinguish "nothing to do" from "I dismissed N rows" for
+// UI feedback and metric counting.
+func (s *PostgresStore) DismissAlerts(ctx context.Context, ids []string) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	rows, err := s.pool.Query(ctx, queryDismissAlerts, ids)
+	if err != nil {
+		return 0, fmt.Errorf("dismissing alerts: %w", err)
+	}
+	defer rows.Close()
+
+	count := 0
+	for rows.Next() {
+		var ignored string
+		if err := rows.Scan(&ignored); err != nil {
+			return 0, fmt.Errorf("scanning dismissed alert id: %w", err)
+		}
+		count++
+	}
+	return count, rows.Err()
+}
+
+// RestoreAlerts clears dismissed_at on the given alerts. Returns the number
+// of rows actually transitioned (alerts that were not previously dismissed
+// are skipped silently).
+func (s *PostgresStore) RestoreAlerts(ctx context.Context, ids []string) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	rows, err := s.pool.Query(ctx, queryRestoreAlerts, ids)
+	if err != nil {
+		return 0, fmt.Errorf("restoring alerts: %w", err)
+	}
+	defer rows.Close()
+
+	count := 0
+	for rows.Next() {
+		var ignored string
+		if err := rows.Scan(&ignored); err != nil {
+			return 0, fmt.Errorf("scanning restored alert id: %w", err)
+		}
+		count++
+	}
+	return count, rows.Err()
+}
+
 // GetSystemState queries the system_state view for a single-row snapshot.
 func (s *PostgresStore) GetSystemState(ctx context.Context) (*domain.SystemState, error) {
 	var st domain.SystemState
@@ -752,7 +1041,7 @@ func (s *PostgresStore) queryAlerts(
 		var a domain.Alert
 		if err := rows.Scan(
 			&a.ID, &a.WatchID, &a.ListingID, &a.Score,
-			&a.Notified, &a.NotifiedAt, &a.CreatedAt,
+			&a.Notified, &a.NotifiedAt, &a.CreatedAt, &a.DismissedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning alert: %w", err)
 		}

@@ -24,6 +24,43 @@ type ListingQuery struct {
 	OrderBy       string // "score", "price", "first_seen_at"
 }
 
+// AlertReviewStatus narrows the alert review list to a state subset.
+// Each value maps to a deterministic SQL WHERE clause regardless of
+// server config, so a shared URL like
+// `/alerts?status=undismissed` produces the same result everywhere.
+type AlertReviewStatus string
+
+// Alert review status values.
+const (
+	AlertStatusActive      AlertReviewStatus = "active"      // notified=false (the default work surface)
+	AlertStatusDismissed   AlertReviewStatus = "dismissed"   // dismissed_at IS NOT NULL
+	AlertStatusNotified    AlertReviewStatus = "notified"    // notified=true
+	AlertStatusUndismissed AlertReviewStatus = "undismissed" // dismissed_at IS NULL (queue under summary mode)
+	AlertStatusAll         AlertReviewStatus = "all"
+)
+
+// AlertReviewQuery defines filters for the alert review surface.
+type AlertReviewQuery struct {
+	Search        string            // ILIKE substring against listings.title (empty = no filter)
+	ComponentType string            // exact match against listings.component_type (empty = no filter)
+	WatchID       string            // exact match against alerts.watch_id (empty = no filter)
+	MinScore      int               // alerts.score >= MinScore (0 = no filter)
+	Status        AlertReviewStatus // see constants above; empty = AlertStatusActive
+	Sort          string            // "score" (default) | "created" | "watch"
+	Page          int               // 1-indexed; 0 or negative = 1
+	PerPage       int               // default 25, hard cap 100
+}
+
+// AlertReviewResult is one page of the alert review list plus pagination
+// metadata. Total reflects the unpaginated result-set size for the same
+// filter so callers can render "page X of Y".
+type AlertReviewResult struct {
+	Items   []domain.AlertWithListing
+	Total   int
+	Page    int
+	PerPage int
+}
+
 // Store defines all data access operations for server-price-tracker.
 type Store interface {
 	// Listings
@@ -68,6 +105,12 @@ type Store interface {
 	HasRecentAlert(ctx context.Context, watchID, listingID string, cooldown time.Duration) (bool, error)
 	InsertNotificationAttempt(ctx context.Context, alertID string, succeeded bool, httpStatus int, errText string) error
 	HasSuccessfulNotification(ctx context.Context, alertID string) (bool, error)
+
+	// Alert review (DESIGN-0010)
+	ListAlertsForReview(ctx context.Context, q *AlertReviewQuery) (AlertReviewResult, error)
+	GetAlertDetail(ctx context.Context, id string) (*domain.AlertDetail, error)
+	DismissAlerts(ctx context.Context, ids []string) (int, error)
+	RestoreAlerts(ctx context.Context, ids []string) (int, error)
 
 	GetSystemState(ctx context.Context) (*domain.SystemState, error)
 

@@ -349,7 +349,7 @@ template work begins.
 
 #### Tasks
 
-- [ ] Create `migrations/009_alerts_dismissed_at.sql` with:
+- [x] Create `migrations/009_alerts_dismissed_at.sql` with:
   ```sql
   ALTER TABLE alerts
       ADD COLUMN dismissed_at TIMESTAMPTZ NULL;
@@ -357,70 +357,55 @@ template work begins.
       WHERE dismissed_at IS NULL;
   CREATE INDEX idx_alerts_score_created ON alerts(score DESC, created_at DESC);
   ```
-  Both indexes per resolved Q9 — partial dismissed_at index for the
-  dismiss workflow, composite for the default page sort.
-- [ ] Copy `009_alerts_dismissed_at.sql` to
+- [x] Copy `009_alerts_dismissed_at.sql` to
       `internal/store/migrations/` (the embed.FS source).
-- [ ] In `pkg/types/alert.go` (or wherever `domain.Alert` lives), add
-      `DismissedAt *time.Time` field with JSON tag
+- [x] Add `DismissedAt *time.Time` field to `domain.Alert` in
+      `pkg/types/types.go` with JSON tag
       `json:"dismissed_at,omitempty"`.
-- [ ] In `internal/store/queries.go`, update every `SELECT` against
-      the `alerts` table to include `dismissed_at` in the column list.
-      Match column order in the existing `scanAlert` / `scanAlertRow`
-      helpers — see the `MEMORY.md` note that scan functions must
-      mirror SELECT order.
-- [ ] In `internal/store/queries.go`, add new query constants:
-  - `qListAlertsForReview` — parameterized SELECT that joins
-    `alerts → listings → watches`, filters by status / type / watch /
-    `min_score`, optional `ILIKE` on title, with `LIMIT $N OFFSET $M`.
-  - `qCountAlertsForReview` — same WHERE, `count(*)` only.
-  - `qGetAlertDetail` — single-row SELECT joining `alerts → listings
-    → watches` plus a sub-select (or follow-up query) for
-    `notification_attempts` rows ordered DESC.
-  - `qDismissAlerts` — `UPDATE alerts SET dismissed_at = now()
-    WHERE id = ANY($1) AND dismissed_at IS NULL RETURNING id`.
-  - `qRestoreAlerts` — `UPDATE alerts SET dismissed_at = NULL
-    WHERE id = ANY($1) RETURNING id`.
-- [ ] In `internal/store/store.go`, extend the `Store` interface:
-  ```go
-  ListAlertsForReview(ctx context.Context, q AlertReviewQuery) (AlertReviewResult, error)
-  GetAlertDetail(ctx context.Context, id string) (*AlertDetail, error)
-  DismissAlerts(ctx context.Context, ids []string) (int, error)
-  RestoreAlerts(ctx context.Context, ids []string) (int, error)
-  ```
-  where `AlertReviewQuery` contains `Search string`,
-  `ComponentType string`, `WatchID string`, `MinScore int`,
-  `Status string` (active / dismissed / notified / undismissed /
-  all), `Sort string`, `Page int`, `PerPage int`; and
-  `AlertReviewResult` contains `Items []domain.AlertWithListing`,
-  `Total int`, `Page int`, `PerPage int`. `AlertDetail` carries the
-  joined listing/watch/score-breakdown plus
-  `NotificationHistory []domain.NotificationAttempt`.
-  Note Status enum includes the explicit `undismissed` value per
-  resolved Q7.
-- [ ] Implement the four new methods in `internal/store/postgres.go`
-      with safe parameter binding (no string concatenation for the
-      `ILIKE` clause — use `'%' || $1 || '%'`).
+- [x] In `internal/store/queries.go`, update every `SELECT` against
+      the `alerts` table (`queryListPendingAlerts`,
+      `queryListAlertsByWatch`) to include `dismissed_at`. Update
+      the inline `queryAlerts` scan in `postgres.go` to add
+      `&a.DismissedAt`.
+- [x] In `internal/store/queries.go`, add the new query constants:
+      `alertReviewSelectColumns` (shared by list + detail),
+      `queryDismissAlerts`, `queryRestoreAlerts`,
+      `queryNotificationAttemptsByAlert`. WHERE clause for
+      list/count is built dynamically by `buildAlertReviewWhere`
+      (parameterized; `ILIKE '%' || $N || '%'` for safe substring
+      search).
+- [x] In `internal/store/store.go`, add `AlertReviewQuery`,
+      `AlertReviewResult`, `AlertReviewStatus` (with `active`,
+      `dismissed`, `notified`, `undismissed`, `all` constants per
+      resolved Q7) and extend the `Store` interface with the four
+      new methods. `AlertWithListing`, `NotificationAttempt`, and
+      `AlertDetail` types added to `pkg/types/types.go`.
+- [x] Implement the four new methods in `internal/store/postgres.go`
+      (`ListAlertsForReview`, `GetAlertDetail`, `DismissAlerts`,
+      `RestoreAlerts`) plus helpers (`alertReviewDefaults`,
+      `buildAlertReviewWhere`, `alertReviewOrderBy`,
+      `scanAlertWithListing`, `listNotificationAttempts`).
+      Methods take `*AlertReviewQuery` to satisfy `gocritic`
+      hugeParam (matches the existing `*ListingQuery` precedent).
 - [ ] Wrap each store method's body with the
       `metrics.AlertsQueryDuration.WithLabelValues("<op>").Observe(...)`
-      timing pattern (registered in Phase 4).
-- [ ] Run `make mocks` to regenerate `MockStore` with the new
+      timing pattern. **Deferred to Phase 4** since the metric is
+      registered there; adding a stub now and wiring later would
+      add churn without value.
+- [x] Run `make mocks` to regenerate `MockStore` with the new
       methods.
-- [ ] Add `internal/store/postgres_test.go` cases (use the existing
-      `pgtestdb` setup pattern) for:
-  - `ListAlertsForReview` with no filters (returns all).
-  - `ListAlertsForReview` with a search substring (matches via ILIKE).
-  - `ListAlertsForReview` with `Status: "dismissed"` after a dismiss.
-  - `ListAlertsForReview` with `Status: "undismissed"` returns rows
-    regardless of `notified_at`.
-  - `LIMIT/OFFSET` correctness (insert 30, request `per_page=10,
-    page=2`, assert items 11-20).
-  - `GetAlertDetail` returns nested listing + watch + notification
-    history.
-  - `DismissAlerts` returns the row count and is idempotent (calling
-    it twice on the same IDs only updates once).
-  - `RestoreAlerts` clears `dismissed_at`.
-- [ ] Run `make lint`, `make fmt`, `make test ./internal/store/...`.
+- [x] Add integration tests in `postgres_integration_test.go` (uses
+      existing testcontainers setup pattern, `//go:build integration`):
+      `TestPostgresStore_AlertScanIncludesDismissed`,
+      `TestPostgresStore_AlertReview_ListAndPagination`,
+      `TestPostgresStore_AlertReview_StatusFilter` (covers all five
+      enum values including `undismissed`),
+      `TestPostgresStore_AlertReview_Search`,
+      `TestPostgresStore_DismissRestoreAlerts`,
+      `TestPostgresStore_GetAlertDetail`. Helper
+      `alertReviewSetup(t, s, name, scores)` reduces fixture noise.
+- [x] Run `make lint` (0 issues), `make fmt`, `go vet -tags
+      integration ./internal/store/...`.
 
 #### Success Criteria
 
