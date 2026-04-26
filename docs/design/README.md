@@ -38,4 +38,7 @@ docz create design "Your Design Title"
 | DESIGN-0004 | Inactive Listings Lifecycle | Implemented | 2026-03-14 | Donald Gifford | [0004-inactive-listings-lifecycle.md](0004-inactive-listings-lifecycle.md) |
 | DESIGN-0005 | CNPG Pooler with Gateway TCPRoute | Implemented | 2026-04-04 | Donald Gifford | [0005-cnpg-pooler-with-gateway-tcproute.md](0005-cnpg-pooler-with-gateway-tcproute.md) |
 | DESIGN-0007 | LLM Token Metrics | Implemented | 2026-04-25 | Donald Gifford | [0007-llm-token-metrics.md](0007-llm-token-metrics.md) |
+| DESIGN-0008 | Add spt watches update CLI command | Draft | 2026-04-25 | Donald Gifford | [0008-add-spt-watches-update-cli-command.md](0008-add-spt-watches-update-cli-command.md) |
+| DESIGN-0009 | Discord notifier rate limiting and embed chunking | Draft | 2026-04-26 | Donald Gifford | [0009-discord-notifier-rate-limiting-and-embed-chunking.md](0009-discord-notifier-rate-limiting-and-embed-chunking.md) |
+| DESIGN-0010 | Alert review UI with pagination and search | Draft | 2026-04-26 | Donald Gifford | [0010-alert-review-ui-with-pagination-and-search.md](0010-alert-review-ui-with-pagination-and-search.md) |
 <!-- END DOCZ AUTO-GENERATED -->
