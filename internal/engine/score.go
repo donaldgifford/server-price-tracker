@@ -61,7 +61,16 @@ func ScoreListing(
 
 	metrics.ScoringDistribution.Observe(float64(breakdown.Total))
 
-	return s.UpdateScore(ctx, listing.ID, breakdown.Total, breakdownJSON)
+	if err := s.UpdateScore(ctx, listing.ID, breakdown.Total, breakdownJSON); err != nil {
+		return err
+	}
+
+	// Mirror the persisted score onto the in-memory listing so callers
+	// (notably the extraction worker's post-score alert evaluator) can
+	// read it without re-fetching.
+	total := breakdown.Total
+	listing.Score = &total
+	return nil
 }
 
 // RescoreListings re-scores all unscored listings.

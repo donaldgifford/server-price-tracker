@@ -218,9 +218,37 @@ func (eng *Engine) processExtractionJob(
 		eng.log.Error("scoring failed",
 			"worker", workerID, "listing", listing.EbayID, "error", scoreErr,
 		)
+	} else {
+		// Alerts are evaluated here (post-score) rather than at ingestion
+		// because the listing has no score yet during ingestion.
+		eng.evaluateAlertsForListing(ctx, listing)
 	}
 
 	eng.completeJob(ctx, workerID, job.ID, "")
+}
+
+// evaluateAlertsForListing checks every enabled watch whose component_type
+// matches the listing and calls evaluateAlert for each. This is how alerts
+// get created for newly-scored listings — the per-watch ingestion loop
+// can't do it because the listing isn't scored yet at ingest time.
+func (eng *Engine) evaluateAlertsForListing(ctx context.Context, listing *domain.Listing) {
+	if listing.Score == nil {
+		return
+	}
+	watches, err := eng.store.ListWatches(ctx, true)
+	if err != nil {
+		eng.log.Error("listing watches for alert eval failed",
+			"listing", listing.ID, "error", err,
+		)
+		return
+	}
+	for i := range watches {
+		w := &watches[i]
+		if w.ComponentType != listing.ComponentType {
+			continue
+		}
+		eng.evaluateAlert(ctx, w, listing)
+	}
 }
 
 // completeJob marks a queue entry as done, logging on failure.
