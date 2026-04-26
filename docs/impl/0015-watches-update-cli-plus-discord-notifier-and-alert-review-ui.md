@@ -265,61 +265,58 @@ applies the deltas, and PUTs the updated body.
 
 #### Tasks
 
-- [ ] Create `cmd/spt/cmd/watches_update.go` with a new
-      `watchesUpdateCmd` `*cobra.Command` and `init()` that registers
-      it under `watchesCmd` (the existing parent in
-      `cmd/spt/cmd/watches.go`).
-- [ ] Define flags on `watchesUpdateCmd`:
+- [x] Create `cmd/spt/cmd/watches_update.go` with a new
+      `watchUpdateCmd` `*cobra.Command` registered under the existing
+      `watchCmd()` parent in `cmd/spt/cmd/watches.go`. (Note:
+      followed existing naming `watchUpdateCmd` not `watchesUpdateCmd`.)
+- [x] Define flags on `watchUpdateCmd`:
   - `--name string`
   - `--query string`
   - `--category string`
-  - `--component string` (with validation against the
-    `ram|drive|server|cpu|nic|other` enum on `RunE`)
+  - `--type string` (with validation against the
+    `ram|drive|server|cpu|nic|other` enum on `RunE`). (Note: matches
+    existing CLI convention; spec said `--component` but consistency
+    with `watchCreateCmd` won out.)
   - `--threshold int`
   - `--enabled bool`
   - `--filter stringSlice` (replace semantics)
   - `--add-filter stringSlice` (merge semantics)
   - `--clear-filters bool`
-- [ ] In `RunE`:
-  - [ ] Validate exactly one of `{--clear-filters, --filter, --add-filter}`
-        was passed (or none — leave filters untouched). Two-of-the-three
-        is a usage error.
-  - [ ] Construct an API client via `newAPIClient(cmd)` (existing
-        helper used in other CLI commands).
-  - [ ] Call `client.GetWatch(ctx, args[0])` to fetch current state.
-  - [ ] For each scalar flag, copy its value into the fetched watch
+- [x] In `RunE`:
+  - [x] Validate at most one of `{--clear-filters, --filter, --add-filter}`
+        was passed; mutually-exclusive set is a usage error.
+  - [x] Construct an API client via `newClient()` (matches existing
+        CLI helper).
+  - [x] Call `client.GetWatch(ctx, args[0])` to fetch current state.
+  - [x] For each scalar flag, copy its value into the fetched watch
         only if `cmd.Flags().Changed("<name>")` returned `true`.
-  - [ ] For filters, branch:
-    - `--clear-filters`: set `Filters = domain.WatchFilters{}` (the
-      zero value).
-    - `--filter` set: parse with `handlers.ParseFilters`, replace the
-      entire `Filters` block.
-    - `--add-filter` set: parse, then merge the parsed
-      `AttributeFilters` into the existing map (key-by-key overwrite).
-    - None of the three: leave `Filters` as fetched.
-  - [ ] Call `client.UpdateWatch(ctx, updated)`.
-  - [ ] Print the updated watch to stdout via the existing
-        `printWatch(updated, output)` helper (mirrors
-        `watchesCreateCmd` behavior).
-- [ ] Create `cmd/spt/cmd/watches_update_test.go` with table-driven
-      tests for the merge/replace logic — extract the merge logic into
-      a small pure helper `applyFilterUpdates(current, filterFlag,
-      addFlag []string, clear bool) (domain.WatchFilters, error)` so
-      it's testable without spinning up a Cobra command.
-  - [ ] Test cases: no flags (preserved), `--filter k=v` (replaced),
-        `--add-filter k=v` (merged into existing map),
-        `--add-filter k=v` overwrites same key, `--clear-filters`
-        empties, mutually-exclusive flags return error.
-- [ ] In `internal/api/client/client_test.go`, add (or extend) one
-      round-trip test that asserts a partial update PUTs the full
-      updated body (since the existing `TestClient_UpdateWatch` only
-      covers the happy path).
-- [ ] Update `docs/OPERATIONS.md` "Watch Management" section with one
-      `spt watches update` example (changing a threshold and adding a
-      filter).
-- [ ] Update `docs/USAGE.md` to reference the new command in its
-      command summary.
-- [ ] Run `make lint`, `make fmt`,
+        Extracted to `(*watchUpdateFlags).applyScalarFlags` for
+        clarity.
+  - [x] For filters, branch via the `applyFilterUpdates` pure helper
+        (clear / replace / merge / preserve).
+  - [x] Call `client.UpdateWatch(ctx, updated)`.
+  - [x] Print the updated watch to stdout via the existing
+        `printWatchDetail(updated)` helper (mirrors
+        `watchGetCmd` output).
+- [x] Create `cmd/spt/cmd/watches_update_test.go` with table-driven
+      tests for the `applyFilterUpdates` pure helper.
+  - [x] Test cases: no flags (preserved), `--filter` (replaced),
+        `--add-filter` (merged into existing map), `--add-filter`
+        overwrites same key, `--clear-filters` empties, all three
+        mutually-exclusive pairings return error, parse-error
+        surfacing for both `--filter` and `--add-filter`.
+- [x] In `internal/api/client/client_test.go`, add
+      `TestClient_UpdateWatch_PartialUpdate` that asserts a partial
+      update PUTs the full updated body shape.
+- [x] Update `docs/OPERATIONS.md` "Watch Management" section with
+      `spt watches update` examples (threshold tighten,
+      `--add-filter`, `--filter`, `--clear-filters` plus exclusivity
+      note).
+- [x] Run `make cli-docs` to regenerate `docs/cli/spt_watches_update.md`
+      from the new Cobra command. (Note: spec said `docs/USAGE.md`
+      but the project uses Cobra's auto-generated `docs/cli/`
+      reference instead — `make cli-docs` is the source of truth.)
+- [x] Run `make lint`, `make fmt`,
       `make test ./cmd/spt/... ./internal/api/client/...`.
 
 #### Success Criteria

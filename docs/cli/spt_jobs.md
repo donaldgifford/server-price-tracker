@@ -1,25 +1,16 @@
-## spt ingest
+## spt jobs
 
-Trigger manual ingestion
+View scheduler job history
 
 ### Synopsis
 
-Triggers the ingestion pipeline to poll eBay for all enabled watches.
-
-```
-spt ingest [flags]
-```
-
-### Examples
-
-```
-  spt ingest
-```
+View the execution history of scheduled jobs (ingestion, baseline_refresh,
+re_extraction). Each job records status, duration, and any errors.
 
 ### Options
 
 ```
-  -h, --help   help for ingest
+  -h, --help   help for jobs
 ```
 
 ### Options inherited from parent commands
@@ -33,4 +24,6 @@ spt ingest [flags]
 ### SEE ALSO
 
 * [spt](spt.md)  - CLI client for Server Price Tracker
+* [spt jobs history](spt_jobs_history.md)  - Show run history for a job
+* [spt jobs list](spt_jobs_list.md)  - List latest run per job
 

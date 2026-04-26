@@ -1,22 +1,22 @@
-## spt baselines list
+## spt jobs history
 
-List all baselines
+Show run history for a job
 
 ```
-spt baselines list [flags]
+spt jobs history <job_name> [flags]
 ```
 
 ### Examples
 
 ```
-  spt baselines list
-  spt baselines list --output json
+  spt jobs history ingestion
+  spt jobs history baseline_refresh --output json
 ```
 
 ### Options
 
 ```
-  -h, --help   help for list
+  -h, --help   help for history
 ```
 
 ### Options inherited from parent commands
@@ -29,5 +29,5 @@ spt baselines list [flags]
 
 ### SEE ALSO
 
-* [spt baselines](spt_baselines.md)  - Manage price baselines
+* [spt jobs](spt_jobs.md)  - View scheduler job history
 

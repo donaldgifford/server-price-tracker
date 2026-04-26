@@ -1,16 +1,16 @@
-## spt baselines list
+## spt jobs list
 
-List all baselines
+List latest run per job
 
 ```
-spt baselines list [flags]
+spt jobs list [flags]
 ```
 
 ### Examples
 
 ```
-  spt baselines list
-  spt baselines list --output json
+  spt jobs list
+  spt jobs list --output json
 ```
 
 ### Options
@@ -29,5 +29,5 @@ spt baselines list [flags]
 
 ### SEE ALSO
 
-* [spt baselines](spt_baselines.md)  - Manage price baselines
+* [spt jobs](spt_jobs.md)  - View scheduler job history
 

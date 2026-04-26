@@ -30,3 +30,5 @@ filters, and score thresholds for deal alerts.
 * [spt watches enable](spt_watches_enable.md)  - Enable a watch
 * [spt watches get](spt_watches_get.md)  - Show watch details
 * [spt watches list](spt_watches_list.md)  - List all watches
+* [spt watches update](spt_watches_update.md)  - Update an existing watch
+

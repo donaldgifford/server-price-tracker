@@ -4,8 +4,7 @@ Extract structured attributes from a listing title
 
 ### Synopsis
 
-Sends a title to the API server for LLM-based classification and attribute
-extraction.
+Sends a title to the API server for LLM-based classification and attribute extraction.
 
 ```
 spt extract <title> [flags]
@@ -34,4 +33,5 @@ spt extract <title> [flags]
 
 ### SEE ALSO
 
-- [spt](spt.md) - CLI client for Server Price Tracker
+* [spt](spt.md)  - CLI client for Server Price Tracker
+

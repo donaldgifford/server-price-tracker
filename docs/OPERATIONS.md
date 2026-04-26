@@ -431,7 +431,29 @@ spt watches enable --server https://spt.yourdomain.dev <watch-id>
 
 # Delete a watch
 spt watches delete --server https://spt.yourdomain.dev <watch-id>
+
+# Update a watch in place — only the flags you pass are changed.
+# Tighten a threshold:
+spt watches update --server https://spt.yourdomain.dev <watch-id> --threshold 80
+
+# Add an attribute filter without dropping existing filters:
+spt watches update --server https://spt.yourdomain.dev <watch-id> \
+  --add-filter "attr:capacity_gb=eq:32"
+
+# Replace the entire filter block (drops everything not in this command):
+spt watches update --server https://spt.yourdomain.dev <watch-id> \
+  --filter "attr:capacity_gb=eq:64" \
+  --filter "price_max=500"
+
+# Clear all filters:
+spt watches update --server https://spt.yourdomain.dev <watch-id> --clear-filters
 ```
+
+`--filter`, `--add-filter`, and `--clear-filters` are mutually
+exclusive in a single invocation. `--add-filter` only merges the
+`attr:`-prefixed keys into the existing `attribute_filters` map;
+use `--filter` if you also want to change standard fields like
+`price_max` or `seller_min_feedback`.
 
 ### Quota Monitoring
 
