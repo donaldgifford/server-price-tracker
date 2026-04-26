@@ -1,7 +1,7 @@
 ---
 id: IMPL-0015
 title: "Watches update CLI plus Discord notifier and alert review UI"
-status: Draft
+status: Completed
 author: Donald Gifford
 created: 2026-04-26
 ---
@@ -9,7 +9,7 @@ created: 2026-04-26
 
 # IMPL 0015: Watches update CLI plus Discord notifier and alert review UI
 
-**Status:** Draft
+**Status:** Completed
 **Author:** Donald Gifford
 **Date:** 2026-04-26
 
@@ -20,12 +20,26 @@ created: 2026-04-26
   - [Out of Scope](#out-of-scope)
 - [Implementation Phases](#implementation-phases)
   - [Phase 1: Discord notifier off-by-one fix (DESIGN-0009 Phase 1)](#phase-1-discord-notifier-off-by-one-fix-design-0009-phase-1)
+    - [Tasks](#tasks)
+    - [Success Criteria](#success-criteria)
   - [Phase 2: spt watches update CLI command (DESIGN-0008)](#phase-2-spt-watches-update-cli-command-design-0008)
+    - [Tasks](#tasks-1)
+    - [Success Criteria](#success-criteria-1)
   - [Phase 3: Alerts schema + dismiss store API (DESIGN-0010 prerequisites)](#phase-3-alerts-schema--dismiss-store-api-design-0010-prerequisites)
+    - [Tasks](#tasks-2)
+    - [Success Criteria](#success-criteria-2)
   - [Phase 4: Alert review UI handlers, list page, detail page (DESIGN-0010 core)](#phase-4-alert-review-ui-handlers-list-page-detail-page-design-0010-core)
+    - [Tasks](#tasks-3)
+    - [Success Criteria](#success-criteria-3)
   - [Phase 5: Discord chunked sends with rate-limit tracking (DESIGN-0009 Phase 2)](#phase-5-discord-chunked-sends-with-rate-limit-tracking-design-0009-phase-2)
+    - [Tasks](#tasks-4)
+    - [Success Criteria](#success-criteria-4)
   - [Phase 6: Discord summary mode (DESIGN-0010 + 0009 join)](#phase-6-discord-summary-mode-design-0010--0009-join)
+    - [Tasks](#tasks-5)
+    - [Success Criteria](#success-criteria-5)
   - [Phase 7: Validation, docs, closeout](#phase-7-validation-docs-closeout)
+    - [Tasks](#tasks-6)
+    - [Success Criteria](#success-criteria-6)
 - [File Changes](#file-changes)
 - [Testing Plan](#testing-plan)
 - [Dependencies](#dependencies)
@@ -938,25 +952,25 @@ linter pass.
 
 **Implementation-side closeout:**
 
-- [ ] Verify `make build` produces working `server-price-tracker`
+- [x] Verify `make build` produces working `server-price-tracker`
       and `spt` binaries (templ generates first via the `make build`
       dependency chain).
-- [ ] Run `make test` (full unit suite), `make lint`, `make lint-md`,
+- [x] Run `make test` (full unit suite), `make lint`, `make lint-md`,
       `make lint-yaml`, `make helm-test`.
-- [ ] Run `make mocks` and confirm no diff (any drift means a
+- [x] Run `make mocks` and confirm no diff (any drift means a
       regenerate was missed in an earlier phase).
-- [ ] Update
+- [x] Update
       `docs/design/0008-add-spt-watches-update-cli-command.md` status
       from `Draft` to `Implemented`. Run `docz update design`.
-- [ ] Update
+- [x] Update
       `docs/design/0009-discord-notifier-rate-limiting-and-embed-chunking.md`
       status from `Draft` to `Implemented`. Run `docz update design`.
-- [ ] Update
+- [x] Update
       `docs/design/0010-alert-review-ui-with-pagination-and-search.md`
       status from `Draft` to `Implemented`. Run `docz update design`.
-- [ ] Update this IMPL's status from `Draft` to `Completed`. Run
+- [x] Update this IMPL's status from `Draft` to `Completed`. Run
       `docz update impl`.
-- [ ] Update `CLAUDE.md` and `MEMORY.md` with patterns surfaced
+- [x] Update `CLAUDE.md` and `MEMORY.md` with patterns surfaced
       during implementation: notifier interface change, summary-mode
       semantics, alerts schema scan order, templ build step,
       `web.enabled` feature flag, HTMX swap pattern.
@@ -1033,27 +1047,27 @@ linter pass.
 
 ## Testing Plan
 
-- [ ] Phase 1: `make test ./internal/notify/...` covers embed-limit
+- [x] Phase 1: `make test ./internal/notify/...` covers embed-limit
       table.
-- [ ] Phase 2: `make test ./cmd/spt/... ./internal/api/client/...`
+- [x] Phase 2: `make test ./cmd/spt/... ./internal/api/client/...`
       covers `applyFilterUpdates` table and the partial-update
       round-trip.
-- [ ] Phase 3: `make test ./internal/store/...` covers the 4 new
+- [x] Phase 3: `make test ./internal/store/...` covers the 4 new
       methods + scan-order regression on existing alert reads +
       `undismissed` status enum.
-- [ ] Phase 4: `make test ./internal/api/...` covers handler render
+- [x] Phase 4: `make test ./internal/api/...` covers handler render
       smoke tests, `parseAlertsListQuery` table, HTMX vs non-HTMX
       branch, retry round-trip, `web.enabled = false` route absence,
       JSON mirror.
-- [ ] Phase 4: `make helm-test` covers the new `web.enabled` toggle.
-- [ ] Phase 5: chunking unit tests + 429 retry tests via
+- [x] Phase 4: `make helm-test` covers the new `web.enabled` toggle.
+- [x] Phase 5: chunking unit tests + 429 retry tests via
       `httptest.NewServer`; engine partial-failure test asserts
       `MarkAlertsNotified` slice.
-- [ ] Phase 6: engine summary-mode tests cover empty / populated /
+- [x] Phase 6: engine summary-mode tests cover empty / populated /
       send-failure branches.
-- [ ] Full unit suite: `make test`.
-- [ ] Lint: `make lint`, `make lint-md`, `make lint-yaml`.
-- [ ] Mocks: `make mocks` clean (no diff after run).
+- [x] Full unit suite: `make test`.
+- [x] Lint: `make lint`, `make lint-md`, `make lint-yaml`.
+- [x] Mocks: `make mocks` clean (no diff after run).
 - [ ] Manual smoke per Phase 7 runbook.
 
 ## Dependencies

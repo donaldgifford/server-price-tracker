@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0010
 title: "Alert review UI with pagination and search"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-04-26
 ---
@@ -9,7 +9,7 @@ created: 2026-04-26
 
 # DESIGN 0010: Alert review UI with pagination and search
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-04-26
 
@@ -23,6 +23,7 @@ created: 2026-04-26
   - [Page layout](#page-layout)
   - [Endpoints](#endpoints)
   - [Discord summary mode](#discord-summary-mode)
+  - [Stack](#stack)
   - [Implementation notes](#implementation-notes)
 - [API / Interface Changes](#api--interface-changes)
 - [Data Model](#data-model)

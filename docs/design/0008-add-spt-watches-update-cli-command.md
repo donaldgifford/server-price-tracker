@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0008
 title: "Add spt watches update CLI command"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-04-25
 ---
@@ -9,7 +9,7 @@ created: 2026-04-25
 
 # DESIGN 0008: Add spt watches update CLI command
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-04-25
 

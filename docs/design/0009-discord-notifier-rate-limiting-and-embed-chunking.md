@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0009
 title: "Discord notifier rate limiting and embed chunking"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-04-26
 ---
@@ -9,7 +9,7 @@ created: 2026-04-26
 
 # DESIGN 0009: Discord notifier rate limiting and embed chunking
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-04-26
 
@@ -23,7 +23,7 @@ created: 2026-04-26
   - [Phase 1 — off-by-one fix](#phase-1--off-by-one-fix)
   - [Phase 2 — chunked sends with rate-limit tracking](#phase-2--chunked-sends-with-rate-limit-tracking)
   - [Phase 3 — persisted bucket state (deferred)](#phase-3--persisted-bucket-state-deferred)
-  - [Atomicity of `MarkAlertsNotified`](#atomicity-of-markalertsnotified)
+  - [Atomicity of MarkAlertsNotified](#atomicity-of-markalertsnotified)
 - [API / Interface Changes](#api--interface-changes)
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
