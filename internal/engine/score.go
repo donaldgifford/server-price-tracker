@@ -102,7 +102,9 @@ func RescoreByProductKey(
 }
 
 // RescoreAll re-scores all active listings using cursor-based pagination to
-// avoid loading the entire table into memory.
+// avoid loading the entire table into memory. Does NOT evaluate alerts —
+// use (*Engine).RescoreAll for the operator-facing path that should fire
+// alerts on newly-eligible listings.
 func RescoreAll(ctx context.Context, s store.Store) (int, error) {
 	const batchSize = 200
 	var cursor string

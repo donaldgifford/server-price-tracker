@@ -175,7 +175,7 @@ func registerRoutes(
 		watchH := handlers.NewWatchHandler(s)
 		handlers.RegisterWatchRoutes(humaAPI, watchH)
 
-		rescoreH := handlers.NewRescoreHandler(s)
+		rescoreH := handlers.NewRescoreHandler(eng)
 		handlers.RegisterRescoreRoutes(humaAPI, rescoreH)
 
 		baselinesH := handlers.NewBaselinesHandler(s)

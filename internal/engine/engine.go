@@ -227,6 +227,38 @@ func (eng *Engine) processExtractionJob(
 	eng.completeJob(ctx, workerID, job.ID, "")
 }
 
+// RescoreAll re-scores every active listing and evaluates alerts after each
+// successful score. Use this from the operator-facing /api/v1/rescore path
+// (and from RunBaselineRefresh) so a manual rescore can backfill alerts on
+// listings that became deal-worthy after a baseline change.
+func (eng *Engine) RescoreAll(ctx context.Context) (int, error) {
+	const batchSize = 200
+	var cursor string
+	total := 0
+	var errs []error
+
+	for {
+		batch, err := eng.store.ListListingsCursor(ctx, cursor, batchSize)
+		if err != nil {
+			return total, fmt.Errorf("listing by cursor: %w", err)
+		}
+		if len(batch) == 0 {
+			break
+		}
+		for i := range batch {
+			if err := ScoreListing(ctx, eng.store, &batch[i]); err != nil {
+				errs = append(errs, fmt.Errorf("scoring %s: %w", batch[i].ID, err))
+				continue
+			}
+			total++
+			eng.evaluateAlertsForListing(ctx, &batch[i])
+		}
+		cursor = batch[len(batch)-1].ID
+	}
+
+	return total, errors.Join(errs...)
+}
+
 // evaluateAlertsForListing checks every enabled watch whose component_type
 // matches the listing and calls evaluateAlert for each. This is how alerts
 // get created for newly-scored listings — the per-watch ingestion loop
@@ -540,7 +572,7 @@ func (eng *Engine) RunBaselineRefresh(ctx context.Context) error {
 		return fmt.Errorf("recomputing baselines: %w", err)
 	}
 
-	_, err := RescoreAll(ctx, eng.store)
+	_, err := eng.RescoreAll(ctx)
 	if err != nil {
 		return fmt.Errorf("re-scoring after baseline refresh: %w", err)
 	}

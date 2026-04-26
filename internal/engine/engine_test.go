@@ -485,6 +485,45 @@ func TestEvaluateAlertsForListing_LogsListWatchesError(t *testing.T) {
 	eng.evaluateAlertsForListing(context.Background(), listing)
 }
 
+func TestEngineRescoreAll_FiresAlerts(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	// One RAM listing with a product key, returned in the first cursor batch.
+	listings := []domain.Listing{
+		{
+			ID:            "l1",
+			ProductKey:    "ram:ddr4:32gb",
+			ComponentType: domain.ComponentRAM,
+			Price:         45.99,
+			Quantity:      1,
+		},
+	}
+	ms.EXPECT().ListListingsCursor(mock.Anything, "", 200).Return(listings, nil).Once()
+	ms.EXPECT().ListListingsCursor(mock.Anything, "l1", 200).Return(nil, nil).Once()
+
+	ms.EXPECT().GetBaseline(mock.Anything, "ram:ddr4:32gb").Return(nil, pgx.ErrNoRows).Once()
+	ms.EXPECT().UpdateScore(mock.Anything, "l1", mock.AnythingOfType("int"), mock.Anything).Return(nil).Once()
+
+	// Watch lookup for alert eval — threshold 0 so any computed score
+	// triggers the alert path (this test verifies plumbing, not scoring math).
+	ms.EXPECT().ListWatches(mock.Anything, true).Return([]domain.Watch{
+		{ID: "w-ram", ComponentType: domain.ComponentRAM, ScoreThreshold: 0},
+	}, nil).Once()
+	ms.EXPECT().CreateAlert(mock.Anything, mock.MatchedBy(func(a *domain.Alert) bool {
+		return a.WatchID == "w-ram" && a.ListingID == "l1"
+	})).Return(nil).Once()
+
+	scored, err := eng.RescoreAll(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, scored)
+}
+
 func TestRunBaselineRefresh_Success(t *testing.T) {
 	t.Parallel()
 

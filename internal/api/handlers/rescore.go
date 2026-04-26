@@ -5,19 +5,25 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
-
-	"github.com/donaldgifford/server-price-tracker/internal/engine"
-	"github.com/donaldgifford/server-price-tracker/internal/store"
 )
+
+// Rescorer is the engine surface this handler needs. The production
+// implementation is *engine.Engine; tests can pass a small fake.
+type Rescorer interface {
+	RescoreAll(ctx context.Context) (int, error)
+}
 
 // RescoreHandler handles re-scoring requests.
 type RescoreHandler struct {
-	store store.Store
+	rescorer Rescorer
 }
 
-// NewRescoreHandler creates a new RescoreHandler.
-func NewRescoreHandler(s store.Store) *RescoreHandler {
-	return &RescoreHandler{store: s}
+// NewRescoreHandler creates a new RescoreHandler. The Rescorer must
+// evaluate alerts after each scored listing — that is how a manual
+// rescore backfills alerts for listings that became deal-worthy after
+// baseline changes.
+func NewRescoreHandler(r Rescorer) *RescoreHandler {
+	return &RescoreHandler{rescorer: r}
 }
 
 // RescoreOutput is the response body for the rescore endpoint.
@@ -27,9 +33,10 @@ type RescoreOutput struct {
 	}
 }
 
-// Rescore recalculates composite scores for all listings.
+// Rescore recalculates composite scores for all listings and evaluates
+// alerts for each newly-eligible listing.
 func (h *RescoreHandler) Rescore(ctx context.Context, _ *struct{}) (*RescoreOutput, error) {
-	scored, err := engine.RescoreAll(ctx, h.store)
+	scored, err := h.rescorer.RescoreAll(ctx)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("rescore failed: " + err.Error())
 	}
