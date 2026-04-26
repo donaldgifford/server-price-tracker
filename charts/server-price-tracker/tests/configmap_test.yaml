@@ -56,3 +56,19 @@ tests:
       - matchRegex:
           path: data["config.yaml"]
           pattern: "enabled: false"
+
+  - it: discord summary_only flag round-trips
+    set:
+      config.notifications.discord.summary_only: true
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "summary_only: true"
+
+  - it: discord inter_chunk_delay round-trips
+    set:
+      config.notifications.discord.inter_chunk_delay: "100ms"
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'inter_chunk_delay: "100ms"'
