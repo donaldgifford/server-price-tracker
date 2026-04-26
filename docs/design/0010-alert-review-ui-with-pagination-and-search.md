@@ -48,19 +48,28 @@ instead of relying solely on the chunking work in DESIGN-0009.
 
 - Operator can open a single URL (`https://spt.fartlab.dev/alerts`)
   and see every undismissed alert in a sortable, paginated table.
+- Per-alert detail page at `/alerts/{id}` showing the full listing
+  info, score breakdown, watch info, and notification history — the
+  triage surface for "why did this alert fire and what do I do with
+  it?"
 - Search box that filters by listing title (PostgreSQL `ILIKE` against
   `listings.title`). Good enough for "find that 32GB ECC alert" —
   ranked search is out of scope.
 - Filter chips: component type, watch name, score range,
   dismissed/active.
 - Per-row actions: open eBay listing (link), dismiss alert (POST,
-  hides from default view), view raw alert JSON.
+  hides from default view), view detail page.
+- Per-alert detail-page actions: **retry Discord** (re-send the rich
+  embed bypassing idempotency), dismiss, restore.
 - Bulk dismiss: select N rows + dismiss button → mark notified +
   dismissed in one round-trip.
 - Discord summary embed gains a hyperlink to the page so an alerted
   operator can pivot to triage in one click.
 - Hide unsorted, unfiltered noise (PR #44 surfaced ~2,100 alerts —
   the page must be usable with that volume).
+- Whole `/alerts` route group is gated by a `web.enabled` config flag
+  (default true) so paranoid prod deploys can disable the UI without
+  recompiling.
 
 ### Non-Goals
 
@@ -132,13 +141,44 @@ smaller: one summary embed per tick instead of `ceil(N/10)` chunks.
 
 ### Endpoints
 
-| Method | Path                          | Purpose                                  |
-|--------|-------------------------------|------------------------------------------|
-| `GET`  | `/alerts`                     | HTML page (paginated table)              |
-| `GET`  | `/alerts.json`                | Same data as JSON (debugging, scripts)   |
-| `POST` | `/alerts/{id}/dismiss`        | Mark single alert dismissed              |
-| `POST` | `/alerts/dismiss`             | Body: `{ids: [...]}` — bulk dismiss      |
-| `POST` | `/alerts/{id}/restore`        | Undismiss (clears `dismissed_at`)        |
+| Method | Path                          | Purpose                                       |
+|--------|-------------------------------|-----------------------------------------------|
+| `GET`  | `/alerts`                     | HTML page (paginated table)                   |
+| `GET`  | `/alerts.json`                | Same data as JSON (debugging, scripts)        |
+| `GET`  | `/alerts/{id}`                | HTML detail page for a single alert           |
+| `POST` | `/alerts/{id}/dismiss`        | Mark single alert dismissed                   |
+| `POST` | `/alerts/dismiss`             | Body: `{ids: [...]}` — bulk dismiss           |
+| `POST` | `/alerts/{id}/restore`        | Undismiss (clears `dismissed_at`)             |
+| `POST` | `/alerts/{id}/retry`          | Re-send via Discord (rich embed, bypasses idempotency) |
+
+The detail page renders:
+
+- Full listing card: title, image, price, unit price, eBay URL, seller,
+  condition, component type, attribute extraction.
+- Score breakdown: each factor (price 40%, seller 20%, condition 15%,
+  quantity 10%, quality 10%, time 5%) with its computed value.
+- Watch info: name, threshold, filter snapshot at the time the alert
+  fired.
+- Notification history: rows from `notification_attempts` for this
+  alert (timestamp, succeeded, http status, error text if any).
+- Action buttons: **Retry Discord**, **Dismiss** (or **Restore** if
+  already dismissed), **Open eBay listing** (external link).
+
+The retry endpoint:
+
+- Calls the existing single-alert `Notifier.SendAlert` path (not the
+  batched chunked path).
+- Always sends the rich per-alert embed regardless of `summary_only`
+  config — manual retry is the user explicitly asking for the full
+  detail in Discord.
+- Bypasses the `HasSuccessfulNotification` idempotency guard (the
+  whole point of "retry").
+- Records a `notification_attempts` row regardless of outcome.
+- Does NOT change `notified_at` or `dismissed_at` — those are
+  separate operator actions.
+- Returns the updated detail-page partial (HTMX swap-in-place) so the
+  notification history list reflects the new attempt without a
+  reload.
 
 Query parameters for `GET /alerts` and `/alerts.json`:
 
@@ -180,19 +220,52 @@ flip to `true` once the page ships):
   fixes) continues. Useful for low-volume installs that prefer
   Discord-as-feed.
 
+### Stack
+
+The UI uses **templ + HTMX + Alpine** rather than `html/template` or a
+separate React/Bun SPA. Rationale:
+
+- **templ** for compile-time-checked components. The dismiss/retry
+  HTMX swap pattern returns the same row partial that the list-page
+  renders — templ guarantees they share data shape at compile time
+  rather than at request time. Score breakdown (nested struct) and
+  notification history (slice of structs) render with type-safe field
+  references and IDE autocomplete instead of `interface{}`-via-reflection.
+- **HTMX** for server-side-driven interactivity. Search uses
+  `hx-get="/alerts" hx-trigger="keyup changed delay:300ms"
+  hx-target="#alerts-table" hx-push-url="true"`. Dismiss/retry/restore
+  use `hx-post` with a row partial swap-in-place. Forms get
+  `hx-boost="true"` for graceful no-JS fallback.
+- **Alpine** for small reactive bits (select-all checkbox state,
+  shift-click range select, "N selected" counter on the bulk-dismiss
+  control). Not a framework; ~15 lines of inline `x-data` per page.
+
+A separate Bun/React SPA was considered and deferred. For an internal
+admin tool with a single operator, the costs (separate build pipeline,
+second deployable, OpenAPI client generation step, CORS handling, npm
+toolchain in CI) outweigh the benefits. The templ stack scales
+comfortably to a top-10 dashboard, watch editor, and similar
+extensions; if the UI grows past read-list + detail + a small set of
+write actions (retry, rescan, re-alert, clear), revisit the SPA option.
+
 ### Implementation notes
 
-- **Templates.** `html/template` files in `internal/api/web/`.
-  Embedded via `embed.FS` so the server binary stays single-file.
-  Three templates: `alerts.html` (page), `_row.html` (single row,
-  for HTMX-style swap if we add inline dismiss later), `_layout.html`.
+- **Templates.** `*.templ` files in `internal/api/web/`. Generated
+  Go via `templ generate` (CLI pinned in `mise.toml`, run via `make
+  templ-generate`). Embedded indirectly — the generated `*_templ.go`
+  compiles into the binary, so the server still ships single-file.
+  Components: `Layout`, `AlertsPage`, `AlertsTable`, `AlertRow`
+  (shared between page render and HTMX swap), `AlertDetailPage`,
+  `RetryButton`, `DismissButton`, `ScoreBadge`, `NotificationHistory`.
 - **CSS.** One static file `static/spt.css` ~5KB, served via Echo's
-  `e.Static`. No CSS framework. Variables for the score colors so
-  they match Discord embeds exactly.
-- **No JS framework.** Vanilla JS for: pagination link prefetch (nice
-  to have), bulk-select checkbox shift-click, fetch-based dismiss
-  that updates the row in place. ~50 lines, inline in the layout
-  template. If/when this gets gnarlier, swap in HTMX (`<10KB`).
+  `e.Static` from an `embed.FS`. No CSS framework. Variables for the
+  score colors so they match Discord embeds exactly.
+- **JS.** HTMX (~14KB minified) and Alpine (~15KB minified) served
+  from the same embed. No framework, no build step, no npm.
+- **Feature flag.** `web.enabled` (bool, default true). When false,
+  the entire `/alerts` route group is not registered — `/alerts`
+  returns 404. Helm chart exposes the same toggle under `web.enabled`
+  in `values.yaml`.
 - **Pagination.** `LIMIT $1 OFFSET $2` keyset is overkill for
   expected volumes (≤10K alerts). Add `created_at DESC, id DESC`
   tiebreakers in the ORDER BY so OFFSET stays stable across pages
