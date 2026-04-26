@@ -213,9 +213,9 @@ before doing anything else — every batch send today produces a 400.
 
 #### Tasks
 
-- [ ] In `internal/notify/discord.go`, add `const maxEmbedsPerMessage = 10`
+- [x] In `internal/notify/discord.go`, add `const maxEmbedsPerMessage = 10`
       near the existing `colorGreen`/`colorYellow`/`colorOrange` block.
-- [ ] In `(*DiscordNotifier).SendBatchAlert`, compute `alertCap` so
+- [x] In `(*DiscordNotifier).SendBatchAlert`, compute `alertCap` so
       that when `len(alerts) > maxEmbedsPerMessage` we reserve a slot
       for the summary embed:
   ```go
@@ -224,18 +224,18 @@ before doing anything else — every batch send today produces a 400.
       alertCap = maxEmbedsPerMessage - 1
   }
   ```
-- [ ] Replace the `min(len(alerts), 10)` literal with `alertCap`.
-- [ ] Update the summary-embed `Title` to use `len(alerts) - alertCap`
+- [x] Replace the `min(len(alerts), 10)` literal with `alertCap`.
+- [x] Update the summary-embed `Title` to use `len(alerts) - alertCap`
       so the count is correct (currently `len(alerts) - 10`, which is
       off by one when we cap at 9).
-- [ ] In `internal/notify/discord_test.go`, add a table-driven test
+- [x] In `internal/notify/discord_test.go`, add a table-driven test
       `TestSendBatchAlert_EmbedLimit` with cases for `n = 1, 9, 10,
       11, 25, 100`. Use `httptest.NewServer` to capture the posted
       payload; assert `len(decoded.Embeds) <= 10` in every case and
       that the summary embed text reflects the right "and N more"
       count for `n > 10`.
-- [ ] Run `make lint` and `make fmt`.
-- [ ] Run `make test ./internal/notify/...` and verify the new test
+- [x] Run `make lint` and `make fmt`.
+- [x] Run `make test ./internal/notify/...` and verify the new test
       passes.
 
 #### Success Criteria

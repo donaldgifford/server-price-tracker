@@ -179,6 +179,69 @@ func TestDiscordNotifier_SendBatchAlert(t *testing.T) {
 	assert.Len(t, received.Embeds, 3)
 }
 
+// TestSendBatchAlert_EmbedLimit guards against the off-by-one in
+// SendBatchAlert that produced 11-embed payloads (10 alert embeds + 1
+// summary) and got rejected by Discord with HTTP 400 "Must be 10 or
+// fewer in length". For every input size, the posted payload must contain
+// at most maxEmbedsPerMessage embeds, and overflow batches must include
+// a summary embed whose count reflects the number of alerts dropped from
+// the alert-embed list (not a hard-coded 10).
+func TestSendBatchAlert_EmbedLimit(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		n           int
+		wantEmbeds  int
+		wantSummary bool
+		wantOmitted int
+	}{
+		{name: "single alert", n: 1, wantEmbeds: 1, wantSummary: false},
+		{name: "9 alerts under cap", n: 9, wantEmbeds: 9, wantSummary: false},
+		{name: "exactly cap", n: 10, wantEmbeds: 10, wantSummary: false},
+		{name: "11 alerts overflows by one", n: 11, wantEmbeds: 10, wantSummary: true, wantOmitted: 2},
+		{name: "25 alerts deep overflow", n: 25, wantEmbeds: 10, wantSummary: true, wantOmitted: 16},
+		{name: "100 alerts worst case", n: 100, wantEmbeds: 10, wantSummary: true, wantOmitted: 91},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var received discordWebhookPayload
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				err := json.NewDecoder(r.Body).Decode(&received)
+				assert.NoError(t, err)
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer srv.Close()
+
+			alerts := make([]AlertPayload, tt.n)
+			for i := range alerts {
+				alerts[i] = testAlert(85)
+			}
+
+			d := NewDiscordNotifier(srv.URL)
+			err := d.SendBatchAlert(context.Background(), alerts, "DDR4 Watch")
+			require.NoError(t, err)
+
+			require.LessOrEqual(t, len(received.Embeds), maxEmbedsPerMessage,
+				"payload must not exceed Discord's %d-embed cap", maxEmbedsPerMessage)
+			require.Len(t, received.Embeds, tt.wantEmbeds)
+
+			if !tt.wantSummary {
+				return
+			}
+
+			summary := received.Embeds[len(received.Embeds)-1]
+			wantTitle := fmt.Sprintf("... and %d more alerts for DDR4 Watch", tt.wantOmitted)
+			assert.Equal(t, wantTitle, summary.Title,
+				"summary count must reflect alerts dropped, not a hard-coded constant")
+		})
+	}
+}
+
 func TestDiscordNotifier_NetworkError(t *testing.T) {
 	t.Parallel()
 

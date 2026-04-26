@@ -16,6 +16,9 @@ const (
 	colorGreen  = 0x2ECC71 // score 90+
 	colorYellow = 0xF1C40F // score 80-89
 	colorOrange = 0xE67E22 // score 75-79
+
+	// maxEmbedsPerMessage is Discord's hard cap on embeds per webhook message.
+	maxEmbedsPerMessage = 10
 )
 
 // DiscordNotifier implements Notifier via Discord webhook.
@@ -80,23 +83,29 @@ func (d *DiscordNotifier) SendAlert(ctx context.Context, alert *AlertPayload) er
 }
 
 // SendBatchAlert sends multiple alerts as a single Discord message.
+//
+// Discord caps embeds at maxEmbedsPerMessage per webhook payload. When the
+// caller passes more alerts than the cap, we reserve one slot for the summary
+// embed so the total stays at the cap (e.g., 9 alerts + 1 summary = 10).
 func (d *DiscordNotifier) SendBatchAlert(
 	ctx context.Context,
 	alerts []AlertPayload,
 	watchName string,
 ) error {
-	embeds := make([]discordEmbed, 0, len(alerts))
+	embeds := make([]discordEmbed, 0, maxEmbedsPerMessage)
 
-	// Discord allows max 10 embeds per message.
-	limit := min(len(alerts), 10)
+	alertCap := len(alerts)
+	if alertCap > maxEmbedsPerMessage {
+		alertCap = maxEmbedsPerMessage - 1
+	}
 
-	for i := range limit {
+	for i := range alertCap {
 		embeds = append(embeds, buildEmbed(&alerts[i]))
 	}
 
-	if len(alerts) > 10 {
+	if len(alerts) > maxEmbedsPerMessage {
 		embeds = append(embeds, discordEmbed{
-			Title:       fmt.Sprintf("... and %d more alerts for %s", len(alerts)-10, watchName),
+			Title:       fmt.Sprintf("... and %d more alerts for %s", len(alerts)-alertCap, watchName),
 			Color:       colorYellow,
 			Description: "Check the dashboard for the full list.",
 		})
