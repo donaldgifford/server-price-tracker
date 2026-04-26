@@ -27,7 +27,7 @@ build-spt: ## Build spt CLI client binary
 
 ## Testing
 
-test: ## Run all tests with race detector
+test: templ-generate ## Run all tests with race detector
 	@ $(MAKE) --no-print-directory log-$@
 	@go test -v -race ./...
 
@@ -42,7 +42,7 @@ test-report: ## Run tests with coverage report then open
 	@go test -coverprofile=$(COVERAGE_OUT) ./...
 	@go tool cover -html=$(COVERAGE_OUT)
 
-test-coverage: ## Run tests with coverage report
+test-coverage: templ-generate ## Run tests with coverage report
 	@ $(MAKE) --no-print-directory log-$@
 	@go test -v -race -coverprofile=$(COVERAGE_OUT) -covermode=atomic ./...
 	@echo "✓ Test coverage generated"
@@ -60,7 +60,7 @@ test-integration: ## Run Ebay API integration tests
 
 ## Code Quality
 
-lint: ## Run golangci-lint
+lint: templ-generate ## Run golangci-lint
 	@ $(MAKE) --no-print-directory log-$@
 	@golangci-lint run ./...
 
