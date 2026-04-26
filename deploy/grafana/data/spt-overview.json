@@ -1266,6 +1266,204 @@
             },
             "overrides": []
           }
+        },
+        {
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "spt:extraction_tokens_input:rate5m",
+              "legendFormat": "{{backend}}/{{model}} input",
+              "refId": "A"
+            },
+            {
+              "expr": "spt:extraction_tokens_output:rate5m",
+              "legendFormat": "{{backend}}/{{model}} output",
+              "refId": "B"
+            }
+          ],
+          "title": "Extraction Token Rate",
+          "description": "LLM token rate (input vs output) by backend and model",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 69
+          },
+          "repeatDirection": "h",
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": false,
+              "calcs": [
+                "mean",
+                "max",
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "tokens/s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 20
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum by (backend, model, le) (rate(spt_extraction_tokens_per_request_bucket[5m])))",
+              "legendFormat": "{{backend}}/{{model}} p50",
+              "refId": "A"
+            },
+            {
+              "expr": "spt:extraction_tokens_per_request:p95",
+              "legendFormat": "{{backend}}/{{model}} p95",
+              "refId": "B"
+            }
+          ],
+          "title": "Tokens per Request",
+          "description": "Distribution of total tokens per extraction request (p50, p95)",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 69
+          },
+          "repeatDirection": "h",
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": false,
+              "calcs": [
+                "mean",
+                "max",
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum by (backend, model, direction) (spt_extraction_tokens_total)",
+              "legendFormat": "{{backend}}/{{model}} {{direction}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Extraction Tokens (cumulative)",
+          "description": "Total LLM tokens consumed since process start, by backend and model",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 77
+          },
+          "repeatDirection": "h",
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": false,
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          }
         }
       ]
     },
@@ -1277,7 +1475,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 69
+        "y": 85
       },
       "id": 0,
       "panels": [
@@ -1301,7 +1499,7 @@
             "h": 4,
             "w": 8,
             "x": 0,
-            "y": 70
+            "y": 86
           },
           "repeatDirection": "h",
           "options": {
@@ -1370,7 +1568,7 @@
             "h": 4,
             "w": 8,
             "x": 8,
-            "y": 70
+            "y": 86
           },
           "repeatDirection": "h",
           "options": {
@@ -1424,7 +1622,7 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 70
+            "y": 86
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -1471,7 +1669,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 78
+            "y": 94
           },
           "repeatDirection": "h",
           "options": {
@@ -1523,7 +1721,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 86
+        "y": 102
       },
       "id": 0,
       "panels": [
@@ -1547,7 +1745,7 @@
             "h": 4,
             "w": 6,
             "x": 0,
-            "y": 87
+            "y": 103
           },
           "repeatDirection": "h",
           "options": {
@@ -1610,7 +1808,7 @@
             "h": 8,
             "w": 12,
             "x": 6,
-            "y": 87
+            "y": 103
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -1656,7 +1854,7 @@
             "h": 8,
             "w": 12,
             "x": 18,
-            "y": 87
+            "y": 103
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -1711,7 +1909,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 95
+            "y": 111
           },
           "repeatDirection": "h",
           "options": {

@@ -388,6 +388,38 @@ curl -X POST https://spt.yourdomain.dev/api/v1/search \
   -d '{"query": "Dell PowerEdge R730", "limit": 5}'
 ```
 
+### Reextract Listings With Quality Issues
+
+The `/api/v1/reextract` endpoint re-runs extraction on listings whose
+`component_type IS NOT NULL` but have missing or stale attributes:
+
+```bash
+curl -sX POST https://spt.yourdomain.dev/api/v1/reextract \
+  -H 'content-type: application/json' \
+  -d '{"component_type":"ram","limit":50}' | jq
+```
+
+This **will not** re-queue listings that were never extracted at all
+(`component_type IS NULL`) — those need a manual SQL backfill. See
+`docs/SQL_HELPERS.md` for the queries:
+
+```sql
+-- Identify the stuck listings
+SELECT id, title, first_seen_at FROM listings
+WHERE component_type IS NULL AND active = true
+ORDER BY first_seen_at DESC;
+
+-- Push them onto the queue
+INSERT INTO extraction_queue (listing_id, priority)
+SELECT id, 1 FROM listings WHERE component_type IS NULL AND active = true
+ON CONFLICT DO NOTHING;
+```
+
+After the worker drains the queue, listings that still have NULL
+`component_type` are unrecoverable — typically misclassified accessories
+(e.g., drive caddies). Soft-deactivate them with
+`UPDATE listings SET active = false WHERE id = '<uuid>';`.
+
 ### Watch Management
 
 ```bash

@@ -24,9 +24,15 @@ Validated against `mistral:7b-instruct-v0.3-q5_K_M` via Ollama:
 ## LLM Extraction Schema
 
 The extraction pipeline classifies each eBay listing into a component type, then
-extracts structured attributes using component-specific prompts. Validation
-enforces required fields and enum values. Fields marked **required** will fail
-validation if the LLM returns `null`.
+extracts structured attributes using component-specific prompts. A pre-validation
+**normalization pass** (`pkg/extract/normalize.go`) repairs common LLM mistakes
+(unit confusion in `capacity_gb`, placeholder strings like `"N/A"`, `speed_mhz`
+pulled from PC4 byte-rate markers) before validation enforces required fields
+and enum values. Fields marked **required** will fail validation if the LLM
+returns `null` and the value cannot be recovered. See
+[docs/EXTRACTION.md](docs/EXTRACTION.md) for the full normalization rules and
+[docs/SQL_HELPERS.md](docs/SQL_HELPERS.md) for backfill queries when listings
+get stuck unextracted.
 
 ### Common Fields (all component types)
 
@@ -76,7 +82,7 @@ validation if the LLM returns `null`.
 | `manufacturer`          | string  | yes      |                           |
 | `model`                 | string  | yes      |                           |
 | `generation`            | string  | no       |                           |
-| `form_factor`           | enum    | no       | `1U`, `2U`, `4U`, `tower` |
+| `form_factor`           | enum    | no       | `1U`, `2U`, `3U`, `4U`, `5U`, `6U`, `7U`, `8U`, `10U`, `tower` |
 | `drive_bays`            | string  | no       |                           |
 | `drive_form_factor`     | string  | no       |                           |
 | `cpu_count`             | integer | no       |                           |

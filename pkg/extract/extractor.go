@@ -65,6 +65,21 @@ func NewLLMExtractor(backend LLMBackend, opts ...LLMExtractorOption) *LLMExtract
 	return e
 }
 
+// stripJSONFences removes ```json or ``` markdown code fences that some LLM
+// backends (notably Anthropic) wrap JSON responses in despite explicit
+// "no markdown" instructions in the prompt. Returns the inner content
+// trimmed of surrounding whitespace; passes bare JSON through unchanged.
+func stripJSONFences(s string) string {
+	s = strings.TrimSpace(s)
+	if !strings.HasPrefix(s, "```") {
+		return s
+	}
+	s = strings.TrimPrefix(s, "```json")
+	s = strings.TrimPrefix(s, "```")
+	s = strings.TrimSuffix(s, "```")
+	return strings.TrimSpace(s)
+}
+
 // recordTokens emits LLM token telemetry for a successful Generate response.
 // Called before JSON parse / validation so the metric reflects billed tokens,
 // not just tokens that produced useful output.
@@ -146,22 +161,21 @@ func (e *LLMExtractor) Extract(
 
 	e.log.Debug("extract LLM response", "component_type", componentType, "title", title, "raw_response", resp.Content)
 
+	content := stripJSONFences(resp.Content)
+
 	var attrs map[string]any
-	if err := json.Unmarshal([]byte(resp.Content), &attrs); err != nil {
+	if err := json.Unmarshal([]byte(content), &attrs); err != nil {
 		e.log.Warn("extract JSON parse failed",
 			"component_type", componentType, "title", title, "raw_response", resp.Content, "error", err)
 		return nil, fmt.Errorf("parsing LLM JSON response: %w", err)
 	}
 
+	NormalizeExtraction(componentType, title, attrs)
+
 	if err := ValidateExtraction(componentType, attrs); err != nil {
 		e.log.Warn("extract validation failed",
 			"component_type", componentType, "title", title, "raw_response", resp.Content, "error", err)
 		return nil, fmt.Errorf("validating extraction: %w", err)
-	}
-
-	// Normalize RAM speed from PC module numbers in title when LLM missed it.
-	if componentType == domain.ComponentRAM {
-		NormalizeRAMSpeed(title, attrs)
 	}
 
 	return attrs, nil

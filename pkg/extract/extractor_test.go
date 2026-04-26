@@ -239,8 +239,10 @@ func TestLLMExtractor_Extract(t *testing.T) {
 				m.EXPECT().
 					Generate(mock.Anything, mock.Anything).
 					Return(extract.GenerateResponse{
+						// 1500 is not divisible by 1024 or 1000, so the
+						// MB/MiB normalizer cannot rescue it.
 						Content: `{
-							"capacity_gb": 2048,
+							"capacity_gb": 1500,
 							"generation": "DDR4",
 							"condition": "used_working",
 							"confidence": 0.9,
@@ -344,6 +346,40 @@ func TestLLMExtractor_Extract(t *testing.T) {
 			},
 			wantErr:    true,
 			wantErrMsg: "calling LLM",
+		},
+		{
+			name:          "JSON wrapped in ```json fences (Anthropic habit)",
+			componentType: domain.ComponentRAM,
+			title:         "Samsung 32GB DDR4-2666 ECC RDIMM",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: "```json\n" + validRAMJSON + "\n```",
+					}, nil).
+					Once()
+			},
+			wantAttrKey: "manufacturer",
+			wantAttrVal: "Samsung",
+		},
+		{
+			name:          "JSON wrapped in bare ``` fences",
+			componentType: domain.ComponentRAM,
+			title:         "Samsung 32GB DDR4-2666 ECC RDIMM",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: "```\n" + validRAMJSON + "\n```",
+					}, nil).
+					Once()
+			},
+			wantAttrKey: "manufacturer",
+			wantAttrVal: "Samsung",
 		},
 	}
 
