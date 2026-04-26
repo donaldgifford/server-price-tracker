@@ -71,21 +71,31 @@ func (_c *MockNotifier_SendAlert_Call) RunAndReturn(run func(context.Context, *n
 }
 
 // SendBatchAlert provides a mock function with given fields: ctx, alerts, watchName
-func (_m *MockNotifier) SendBatchAlert(ctx context.Context, alerts []notify.AlertPayload, watchName string) error {
+func (_m *MockNotifier) SendBatchAlert(ctx context.Context, alerts []notify.AlertPayload, watchName string) (int, error) {
 	ret := _m.Called(ctx, alerts, watchName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SendBatchAlert")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []notify.AlertPayload, string) error); ok {
+	var r0 int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []notify.AlertPayload, string) (int, error)); ok {
+		return rf(ctx, alerts, watchName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []notify.AlertPayload, string) int); ok {
 		r0 = rf(ctx, alerts, watchName)
 	} else {
-		r0 = ret.Error(0)
+		r0 = ret.Get(0).(int)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context, []notify.AlertPayload, string) error); ok {
+		r1 = rf(ctx, alerts, watchName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // MockNotifier_SendBatchAlert_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendBatchAlert'
@@ -108,12 +118,12 @@ func (_c *MockNotifier_SendBatchAlert_Call) Run(run func(ctx context.Context, al
 	return _c
 }
 
-func (_c *MockNotifier_SendBatchAlert_Call) Return(_a0 error) *MockNotifier_SendBatchAlert_Call {
-	_c.Call.Return(_a0)
+func (_c *MockNotifier_SendBatchAlert_Call) Return(sent int, err error) *MockNotifier_SendBatchAlert_Call {
+	_c.Call.Return(sent, err)
 	return _c
 }
 
-func (_c *MockNotifier_SendBatchAlert_Call) RunAndReturn(run func(context.Context, []notify.AlertPayload, string) error) *MockNotifier_SendBatchAlert_Call {
+func (_c *MockNotifier_SendBatchAlert_Call) RunAndReturn(run func(context.Context, []notify.AlertPayload, string) (int, error)) *MockNotifier_SendBatchAlert_Call {
 	_c.Call.Return(run)
 	return _c
 }

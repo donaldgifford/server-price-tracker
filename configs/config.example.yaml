@@ -91,6 +91,11 @@ notifications:
   discord:
     enabled: true
     webhook_url: "${DISCORD_WEBHOOK_URL}"
+    # Optional defensive sleep between chunks (in addition to
+    # X-RateLimit-driven waits). Set to e.g. "100ms" if a busy webhook
+    # repeatedly trips global limits despite header-driven waits.
+    # Default 0s (no extra delay).
+    inter_chunk_delay: 0s
 
   # Optional: generic webhook
   webhook:

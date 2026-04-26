@@ -311,8 +311,14 @@ func buildExtractor(cfg *config.Config, logger *slog.Logger) extract.Extractor {
 
 func buildNotifier(cfg *config.Config, logger *slog.Logger) notify.Notifier {
 	if cfg.Notifications.Discord.Enabled && cfg.Notifications.Discord.WebhookURL != "" {
-		logger.Info("discord notifications enabled")
-		return notify.NewDiscordNotifier(cfg.Notifications.Discord.WebhookURL)
+		opts := []notify.DiscordOption{}
+		if delay := cfg.Notifications.Discord.InterChunkDelay; delay > 0 {
+			opts = append(opts, notify.WithInterChunkDelay(delay))
+			logger.Info("discord notifications enabled", "inter_chunk_delay", delay)
+		} else {
+			logger.Info("discord notifications enabled")
+		}
+		return notify.NewDiscordNotifier(cfg.Notifications.Discord.WebhookURL, opts...)
 	}
 	logger.Info("notifications disabled, using no-op notifier")
 	return notify.NewNoOpNotifier(logger)

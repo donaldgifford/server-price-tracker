@@ -701,14 +701,14 @@ return `(sent int, err error)`.
 
 #### Tasks
 
-- [ ] In `internal/notify/notifier.go`, change the `Notifier`
+- [x] In `internal/notify/notifier.go`, change the `Notifier`
       interface signature (per resolved Q2 — break, don't wrap):
   ```go
   SendBatchAlert(ctx context.Context, alerts []AlertPayload, watchName string) (sent int, err error)
   ```
-- [ ] Update `internal/notify/noop.go` and any other implementations
+- [x] Update `internal/notify/noop.go` and any other implementations
       (none expected beyond `Discord` and `NoOp`) to match.
-- [ ] In `internal/notify/discord.go`, add the `rateLimitState`
+- [x] In `internal/notify/discord.go`, add the `rateLimitState`
       struct:
   ```go
   type rateLimitState struct {
@@ -723,9 +723,9 @@ return `(sent int, err error)`.
   ```
   Initialize a single `*rateLimitState` per `DiscordNotifier` instance
   (matches the webhook-as-bucket assumption in DESIGN-0009).
-- [ ] Add `chunkAlerts(alerts []AlertPayload, n int) [][]AlertPayload`
+- [x] Add `chunkAlerts(alerts []AlertPayload, n int) [][]AlertPayload`
       pure helper. Easy to table-test.
-- [ ] Rewrite `(*DiscordNotifier).SendBatchAlert` to:
+- [x] Rewrite `(*DiscordNotifier).SendBatchAlert` to:
   - Compute chunks via `chunkAlerts(alerts, maxEmbedsPerMessage)`.
   - For each chunk:
     - Call `d.rateLimit.waitForBucket(ctx)`.
@@ -737,11 +737,11 @@ return `(sent int, err error)`.
   - Track `sent` cumulatively; on first error, return
     `(sent, fmt.Errorf("chunk %d/%d: %w", i+1, len(chunks), err))`.
   - On full success return `(len(alerts), nil)`.
-- [ ] Wire `interChunkDelay time.Duration` field on
+- [x] Wire `interChunkDelay time.Duration` field on
       `DiscordNotifier`; expose via a new `WithInterChunkDelay(d)`
       option. Read from `cfg.Notify.Discord.InterChunkDelay` in
       `serve.go`.
-- [ ] Rewrite `(*DiscordNotifier).post` to:
+- [x] Rewrite `(*DiscordNotifier).post` to:
   - Always call `d.rateLimit.update(resp)` after `d.client.Do` and
     before any branching, including non-2xx paths.
   - Update `metrics.DiscordRateLimitRemaining.Set(float64(snapshot))`.
@@ -750,12 +750,12 @@ return `(sent int, err error)`.
     `Retry-After` (respecting `ctx.Done()`), retry once.
   - On other non-2xx: existing read-body, return-error behavior.
   - Loop counter caps at 2 attempts.
-- [ ] Add Prometheus metrics in `internal/metrics/metrics.go`:
+- [x] Add Prometheus metrics in `internal/metrics/metrics.go`:
   - `DiscordRateLimitRemaining` (Gauge)
   - `DiscordRateLimitWaitsTotal` (Counter)
   - `Discord429Total` (CounterVec, label `global="true"|"false"`)
   - `DiscordChunksSentTotal` (Counter)
-- [ ] In `internal/engine/alert.go`, update `sendBatch`:
+- [x] In `internal/engine/alert.go`, update `sendBatch`:
   - Replace the single `n.SendBatchAlert(ctx, payloads, watch.Name)`
     call site with the new `(sentCount, sendErr)` signature.
   - When `sentCount > 0`: slice `alertIDs[:sentCount]`, call
@@ -767,14 +767,14 @@ return `(sent int, err error)`.
     `alertIDs[sentCount:]` with the error text.
   - Return `sendErr` so the outer loop in `ProcessAlerts` keeps its
     failure path.
-- [ ] In `internal/config/config.go`, add
+- [x] In `internal/config/config.go`, add
       `Notify.Discord.InterChunkDelay time.Duration` (default `0s`).
-- [ ] Update `configs/config.example.yaml` with the new key + a
+- [x] Update `configs/config.example.yaml` with the new key + a
       comment explaining when to set it (defensive throttling beyond
       header-driven waits).
-- [ ] Run `make mocks` to regenerate `MockNotifier` with the new
+- [x] Run `make mocks` to regenerate `MockNotifier` with the new
       signature.
-- [ ] Update `internal/engine/alert_test.go`:
+- [x] Update `internal/engine/alert_test.go`:
   - All `mn.EXPECT().SendBatchAlert(...).Return(nil)` become
     `Return(<n>, nil)` where `<n>` is the count of input payloads.
   - Add new test `TestProcessAlerts_BatchPartialFailure`:
@@ -782,7 +782,7 @@ return `(sent int, err error)`.
     a 30-alert batch; assert `MarkAlertsNotified` is called with the
     first 20 IDs only and `InsertNotificationAttempt(false, ...)`
     for the last 10.
-- [ ] Update `internal/notify/discord_test.go`:
+- [x] Update `internal/notify/discord_test.go`:
   - Table-driven `TestChunkAlerts` over
     `n = {0, 1, 9, 10, 11, 21, 100}` with assertions on chunk count
     and last-chunk size.
@@ -801,7 +801,7 @@ return `(sent int, err error)`.
   - `TestSendBatchAlert_InterChunkDelay` — wire a 25ms delay; assert
     second POST is at least 25ms after first even when headers say
     capacity is available.
-- [ ] Run `make lint`, `make fmt`,
+- [x] Run `make lint`, `make fmt`,
       `make test ./internal/notify/... ./internal/engine/...`.
 
 #### Success Criteria

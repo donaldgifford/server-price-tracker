@@ -146,6 +146,10 @@ type NotificationsConfig struct {
 type DiscordConfig struct {
 	Enabled    bool   `yaml:"enabled"`
 	WebhookURL string `yaml:"webhook_url"`
+	// InterChunkDelay is a defensive sleep between chunks beyond what
+	// the response headers require. Zero (the default) means no extra
+	// delay; bucket-driven waits still apply.
+	InterChunkDelay time.Duration `yaml:"inter_chunk_delay"`
 }
 
 // WebhookConfig defines generic webhook settings.

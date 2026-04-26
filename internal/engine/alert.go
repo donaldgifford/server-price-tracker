@@ -152,32 +152,57 @@ func sendBatch(
 		return nil
 	}
 
-	sendErr := n.SendBatchAlert(ctx, payloads, watch.Name)
+	sentCount, sendErr := n.SendBatchAlert(ctx, payloads, watch.Name)
+	if sentCount < 0 {
+		sentCount = 0
+	}
+	if sentCount > len(toSend) {
+		sentCount = len(toSend)
+	}
 
-	// Record attempts for every alert that was included in the batch.
+	// Per-ID accounting (resolved Q8): the first sentCount IDs got
+	// delivered, the remainder did not. Record both outcomes so the
+	// notification_attempts table reflects partial-success batches.
 	errText := ""
 	if sendErr != nil {
 		errText = sendErr.Error()
 	}
-	alertIDs := make([]string, 0, len(toSend))
-	for i := range toSend {
-		if attemptErr := s.InsertNotificationAttempt(ctx, toSend[i].ID, sendErr == nil, 0, errText); attemptErr != nil {
-			slog.Default().Warn("failed to record notification attempt",
-				"alert_id", toSend[i].ID, "error", attemptErr,
+	delivered := make([]string, 0, sentCount)
+	for i := 0; i < sentCount; i++ {
+		recordAttempt(ctx, s, toSend[i].ID, true, "")
+		delivered = append(delivered, toSend[i].ID)
+	}
+	for i := sentCount; i < len(toSend); i++ {
+		recordAttempt(ctx, s, toSend[i].ID, false, errText)
+	}
+
+	if len(delivered) > 0 {
+		metrics.AlertsFiredTotal.Add(float64(len(delivered)))
+		metrics.NotificationLastSuccessTimestamp.Set(float64(time.Now().Unix()))
+		metrics.AlertsFiredByWatch.WithLabelValues(watch.Name).Add(float64(len(delivered)))
+		if markErr := s.MarkAlertsNotified(ctx, delivered); markErr != nil {
+			slog.Default().Warn("failed to mark alerts notified",
+				"watch", watch.Name, "delivered", len(delivered), "error", markErr,
 			)
 		}
-		alertIDs = append(alertIDs, toSend[i].ID)
 	}
 
 	if sendErr != nil {
 		return fmt.Errorf("sending batch alert: %w", sendErr)
 	}
+	return nil
+}
 
-	metrics.AlertsFiredTotal.Add(float64(len(alertIDs)))
-	metrics.NotificationLastSuccessTimestamp.Set(float64(time.Now().Unix()))
-	metrics.AlertsFiredByWatch.WithLabelValues(watch.Name).Add(float64(len(alertIDs)))
-
-	return s.MarkAlertsNotified(ctx, alertIDs)
+// recordAttempt logs an InsertNotificationAttempt failure but does not
+// propagate it — losing the audit row should not unwind a successful
+// send. The metric counter still increments so we can monitor write
+// loss independently.
+func recordAttempt(ctx context.Context, s store.Store, alertID string, succeeded bool, errText string) {
+	if attemptErr := s.InsertNotificationAttempt(ctx, alertID, succeeded, 0, errText); attemptErr != nil {
+		slog.Default().Warn("failed to record notification attempt",
+			"alert_id", alertID, "error", attemptErr,
+		)
+	}
 }
 
 func buildAlertPayload(

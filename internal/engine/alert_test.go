@@ -140,7 +140,7 @@ func TestProcessAlerts_BatchAlert(t *testing.T) {
 			}, nil).Once()
 	}
 
-	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").Return(nil).Once()
+	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").Return(len(alerts), nil).Once()
 
 	for i := range alerts {
 		ms.EXPECT().
@@ -448,7 +448,7 @@ func TestSendBatch_PartialListingsMissing(t *testing.T) {
 	}
 
 	// Batch sent with 4 items (the missing one is excluded).
-	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").Return(nil).Once()
+	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").Return(4, nil).Once()
 
 	// InsertNotificationAttempt only for the 4 items that were included.
 	for i := range alerts {
@@ -499,7 +499,7 @@ func TestSendBatch_SendFails_AttemptsRecorded(t *testing.T) {
 
 	sendErr := errors.New("discord 429")
 	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").
-		Return(sendErr).Once()
+		Return(0, sendErr).Once()
 
 	// Attempts recorded as failed for all included alerts.
 	for i := range alerts {
@@ -508,6 +508,64 @@ func TestSendBatch_SendFails_AttemptsRecorded(t *testing.T) {
 			Return(nil).Once()
 	}
 	// MarkAlertsNotified must NOT be called when send fails.
+
+	err := ProcessAlerts(context.Background(), ms, mn)
+	require.NoError(t, err) // ProcessAlerts absorbs per-watch errors
+}
+
+// TestProcessAlerts_BatchPartialFailure verifies the partial-success
+// path: SendBatchAlert reports 3 of 5 alerts delivered before erroring
+// out. The first 3 must be marked notified with succeeded=true; the
+// last 2 get succeeded=false attempt rows. Per-ID accounting is the
+// resolved Q8 outcome.
+func TestProcessAlerts_BatchPartialFailure(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	alerts := make([]domain.Alert, 5)
+	for i := range alerts {
+		alerts[i] = domain.Alert{
+			ID:        "a" + string(rune('1'+i)),
+			WatchID:   "w1",
+			ListingID: "l" + string(rune('1'+i)),
+			Score:     80,
+		}
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+
+	for i := range alerts {
+		ms.EXPECT().
+			HasSuccessfulNotification(mock.Anything, alerts[i].ID).
+			Return(false, nil).Once()
+		ms.EXPECT().
+			GetListingByID(mock.Anything, alerts[i].ListingID).
+			Return(&domain.Listing{
+				ID: alerts[i].ListingID, Title: "Listing", Price: 45.0, Quantity: 1,
+			}, nil).Once()
+	}
+
+	const sentCount = 3
+	sendErr := errors.New("chunk 2/2: discord 429")
+	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").
+		Return(sentCount, sendErr).Once()
+
+	for i := 0; i < sentCount; i++ {
+		ms.EXPECT().
+			InsertNotificationAttempt(mock.Anything, alerts[i].ID, true, 0, "").
+			Return(nil).Once()
+	}
+	for i := sentCount; i < len(alerts); i++ {
+		ms.EXPECT().
+			InsertNotificationAttempt(mock.Anything, alerts[i].ID, false, 0, sendErr.Error()).
+			Return(nil).Once()
+	}
+
+	deliveredIDs := []string{alerts[0].ID, alerts[1].ID, alerts[2].ID}
+	ms.EXPECT().MarkAlertsNotified(mock.Anything, deliveredIDs).Return(nil).Once()
 
 	err := ProcessAlerts(context.Background(), ms, mn)
 	require.NoError(t, err) // ProcessAlerts absorbs per-watch errors

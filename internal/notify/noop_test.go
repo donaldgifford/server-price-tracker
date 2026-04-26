@@ -30,16 +30,18 @@ func TestNoOpNotifier_SendBatchAlert(t *testing.T) {
 		{WatchName: "test-watch", ListingTitle: "Micron 16GB DDR4", Score: 78},
 	}
 
-	err := n.SendBatchAlert(context.Background(), alerts, "test-watch")
+	sent, err := n.SendBatchAlert(context.Background(), alerts, "test-watch")
 	require.NoError(t, err)
+	require.Equal(t, len(alerts), sent)
 }
 
 func TestNoOpNotifier_SendBatchAlert_Empty(t *testing.T) {
 	t.Parallel()
 
 	n := NewNoOpNotifier(slog.New(slog.NewTextHandler(io.Discard, nil)))
-	err := n.SendBatchAlert(context.Background(), nil, "empty-watch")
+	sent, err := n.SendBatchAlert(context.Background(), nil, "empty-watch")
 	require.NoError(t, err)
+	require.Equal(t, 0, sent)
 }
 
 // compile-time interface check.

@@ -26,11 +26,12 @@ func (n *NoOpNotifier) SendAlert(_ context.Context, alert *AlertPayload) error {
 	return nil
 }
 
-// SendBatchAlert logs and discards a batch of alerts.
-func (n *NoOpNotifier) SendBatchAlert(_ context.Context, alerts []AlertPayload, watchName string) error {
+// SendBatchAlert logs and discards a batch of alerts. Returns len(alerts)
+// as "sent" so callers treat the no-op send as a clean success.
+func (n *NoOpNotifier) SendBatchAlert(_ context.Context, alerts []AlertPayload, watchName string) (int, error) {
 	n.log.Debug("batch notification discarded (no backend configured)",
 		"watch", watchName,
 		"count", len(alerts),
 	)
-	return nil
+	return len(alerts), nil
 }

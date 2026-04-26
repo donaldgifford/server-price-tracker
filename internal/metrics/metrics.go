@@ -329,3 +329,34 @@ var (
 		Help:      "notification_attempts rows inserted, labeled by outcome.",
 	}, []string{"result"})
 )
+
+// Discord rate-limit metrics (DESIGN-0009 / IMPL-0015 Phase 5).
+//
+// Track the in-process bucket state derived from Discord's
+// X-RateLimit-* response headers so chunked sends reflect upstream
+// capacity rather than blindly hammering the webhook.
+var (
+	DiscordRateLimitRemaining = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "discord_rate_limit_remaining",
+		Help:      "Last observed X-RateLimit-Remaining for the Discord webhook bucket.",
+	})
+
+	DiscordRateLimitWaitsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "discord_rate_limit_waits_total",
+		Help:      "Number of times we slept before posting to wait out a Discord bucket reset.",
+	})
+
+	Discord429Total = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "discord_429_total",
+		Help:      "Discord 429 responses by global flag.",
+	}, []string{"global"})
+
+	DiscordChunksSentTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "discord_chunks_sent_total",
+		Help:      "Total chunks (one HTTP POST each) sent to Discord webhooks.",
+	})
+)

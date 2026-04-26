@@ -25,7 +25,13 @@ type AlertPayload struct {
 }
 
 // Notifier defines the interface for sending deal alert notifications.
+//
+// SendBatchAlert returns the number of alerts successfully delivered so
+// callers can record per-alert outcomes (deliver = true for the first
+// `sent` IDs; false for the remainder when err != nil). This shape was
+// introduced when chunked Discord sends replaced single-message
+// truncation — see DESIGN-0009 / IMPL-0015 Phase 5.
 type Notifier interface {
 	SendAlert(ctx context.Context, alert *AlertPayload) error
-	SendBatchAlert(ctx context.Context, alerts []AlertPayload, watchName string) error
+	SendBatchAlert(ctx context.Context, alerts []AlertPayload, watchName string) (sent int, err error)
 }
