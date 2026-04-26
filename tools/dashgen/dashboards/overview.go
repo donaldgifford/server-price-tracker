@@ -53,7 +53,10 @@ func BuildOverview() *dashboard.DashboardBuilder {
 	// Row 5: Extraction.
 	b.WithRow(dashboard.NewRowBuilder("Extraction").
 		WithPanel(panels.ExtractionDuration()).
-		WithPanel(panels.ExtractionFailures()))
+		WithPanel(panels.ExtractionFailures()).
+		WithPanel(panels.ExtractionTokenRate()).
+		WithPanel(panels.ExtractionTokensPerRequest()).
+		WithPanel(panels.ExtractionTokensTotal()))
 
 	// Row 6: Scoring.
 	b.WithRow(dashboard.NewRowBuilder("Scoring").
