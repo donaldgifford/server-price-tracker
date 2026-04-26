@@ -401,11 +401,12 @@ template work begins.
       `scanAlertWithListing`, `listNotificationAttempts`).
       Methods take `*AlertReviewQuery` to satisfy `gocritic`
       hugeParam (matches the existing `*ListingQuery` precedent).
-- [ ] Wrap each store method's body with the
+- [x] Wrap each store method's body with the
       `metrics.AlertsQueryDuration.WithLabelValues("<op>").Observe(...)`
-      timing pattern. **Deferred to Phase 4** since the metric is
-      registered there; adding a stub now and wiring later would
-      add churn without value.
+      timing pattern. Implemented as `defer observeQueryDuration("<op>",
+      time.Now())` on `ListAlertsForReview` (`list`), `GetAlertDetail`
+      (`detail`), `DismissAlerts` (`dismiss`), `RestoreAlerts`
+      (`restore`).
 - [x] Run `make mocks` to regenerate `MockStore` with the new
       methods.
 - [x] Add integration tests in `postgres_integration_test.go` (uses
