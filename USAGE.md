@@ -392,12 +392,34 @@ Response:
 ### How Extraction Works
 
 **Pass 1 — Classification.** The LLM reads the title and returns one of six
-component types: `ram`, `drive`, `server`, `cpu`, `nic`, or `other`.
+component types: `ram`, `drive`, `server`, `cpu`, `nic`, or `other`. Server
+accessories (drive caddies, rack rails, bezels, brackets, etc.) route to
+`other` so they don't get falsely matched against drive/server schemas.
 
 **Pass 2 — Attribute extraction.** Using the classified type, the LLM receives a
 component-specific prompt and returns structured JSON with the relevant
 attributes (e.g., capacity, speed, ECC for RAM; interface, form factor, RPM for
 drives).
+
+**Pass 2.5 — Normalization (pre-validate).** The raw JSON is repaired before
+validation runs:
+
+- `capacity_gb` returned in MB / MiB (e.g., `32768` for "32GB") gets divided
+  back to the GB scale.
+- `speed_mhz` outside the valid range (e.g., the LLM grabbing `19200` from a
+  `DDR4-19200` marker) gets recovered from the title's `PC4-XXXXX` /
+  `DDRX-YYYY` markers — or dropped if unrecoverable, since the field is
+  optional.
+- Placeholder values like `"N/A"`, `"unknown"`, `"None"` in optional enum
+  fields are stripped (treated as null).
+- Missing `confidence` defaults to `0.5`.
+- For Anthropic responses, surrounding ```` ```json ... ``` ```` markdown
+  fences are stripped so `json.Unmarshal` succeeds.
+
+**Pass 3 — Validation.** Required fields and enum values are enforced. If
+validation still fails after normalization, the listing keeps `component_type
+= NULL` and is excluded from scoring. See [docs/EXTRACTION.md](docs/EXTRACTION.md)
+for the full rule set.
 
 ### Product Keys
 

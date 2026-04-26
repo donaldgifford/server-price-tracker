@@ -470,7 +470,7 @@ After parsing the JSON response from any backend, validate per component type:
 
 - `manufacturer`: non-empty (required)
 - `model`: non-empty (required)
-- `form_factor`: one of 1U, 2U, 4U, tower (optional)
+- `form_factor`: one of 1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 10U, tower (optional)
 
 ### CPU
 
@@ -494,3 +494,76 @@ After parsing the JSON response from any backend, validate per component type:
 - `quantity`: >= 1
 
 If validation fails, log the raw response and set `extraction_confidence = 0.0`. The listing is stored but excluded from scoring.
+
+## Pre-Validation Normalization
+
+LLMs return structurally-correct JSON that nonetheless fails validation
+because of unit confusion, placeholder strings, or values pulled from the
+wrong part of the title. `NormalizeExtraction(componentType, title, attrs)`
+runs immediately before `ValidateExtraction` to repair these recoverable
+mistakes, mutating `attrs` in place. The orchestrator lives in
+`pkg/extract/normalize.go`.
+
+### Capacity unit recovery (RAM)
+
+The LLM frequently returns `capacity_gb` in MB or MiB instead of GB:
+
+| Title says | LLM returns | Normalized to |
+|---|---|---|
+| `32GB` | `32768` (32×1024) | `32` |
+| `16GB` | `16384` (16×1024) | `16` |
+| `32GB` | `32000` (32×1000) | `32` |
+| `64GB` | `64000` | `64` |
+
+`normalizeCapacityGB` divides by 1024 or 1000 when the value exceeds 1024
+and the result lands in the valid `1–1024` range.
+
+### RAM speed recovery from PC module markers
+
+`NormalizeRAMSpeed` (in `pkg/extract/pc4.go`) recovers `speed_mhz` from
+`PC4-XXXXX` and `DDRX-YYYY` markers in the title when the LLM:
+
+- omitted the field entirely, **or**
+- returned `null` / `0`, **or**
+- returned an out-of-range value (e.g., `19200` from `DDR4-19200`,
+  which is the byte-rate, not the MHz speed)
+
+If no recovery is possible and the existing value is invalid, the field
+is **deleted** so validation treats it as the optional null it can be —
+preferable to failing the entire extraction over one optional field.
+
+### Placeholder enum stripping
+
+LLMs sometimes substitute strings like `"N/A"`, `"unknown"`, `"None"`,
+`"null"`, `"not specified"` for null in optional enum fields. Affected
+fields (`form_factor`, `type`, `interface`, `port_type`) have these
+placeholder values stripped (set to absent) before validation. Compared
+case-insensitively; whitespace trimmed.
+
+### Default confidence
+
+When the LLM omits `confidence` entirely, it defaults to `0.5` — a
+neutral mid-point that prevents an otherwise-valid extraction from being
+rejected for a missing meta field.
+
+### Markdown fence stripping (Anthropic backend)
+
+Anthropic's Claude family wraps JSON responses in ```` ```json ... ``` ````
+markdown fences despite the prompt's "no markdown" instruction.
+`stripJSONFences` (in `pkg/extract/extractor.go`) removes the surrounding
+fences before `json.Unmarshal`. Bare JSON passes through unchanged. This
+runs before normalization since the JSON has to parse first.
+
+## Classifier Behavior — Accessories
+
+The classify prompt routes server accessories (drive caddies/trays, rack
+rails, bezels, brackets, mounting kits, cables, fans, heatsinks, risers,
+backplanes when sold alone, standalone PSUs) to `other`. This prevents
+listings like "Drive Tray Caddy for Dell R740" from being misclassified
+as `drive` and then failing validation for missing `capacity`.
+
+If a new accessory pattern slips through (validates as a real type but
+has no recoverable attributes), prefer:
+
+1. Soft-deactivate the affected listing(s) via SQL (`UPDATE listings SET active = false WHERE id = ...`) — see `docs/SQL_HELPERS.md`.
+2. Add the accessory keyword to the classify prompt's "Accessories" rule and redeploy.
