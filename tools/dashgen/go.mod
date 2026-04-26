@@ -1,6 +1,6 @@
 module github.com/donaldgifford/server-price-tracker/tools/dashgen
 
-go 1.25.7
+go 1.25.9
 
 require (
 	github.com/grafana/grafana-foundation-sdk/go v0.0.7

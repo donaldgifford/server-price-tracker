@@ -9,7 +9,7 @@
 "npm:@apideck/portman" = "latest" # Postman collection + contract tests from OpenAPI
 "npm:newman" = "latest"           # Postman CLI test runner
 
-go = "1.25.7"
+go = "1.25.9"
 markdownlint-cli2 = "0.18.1"
 yamlfmt = "0.20.0"
 yamllint = "1.37.1"

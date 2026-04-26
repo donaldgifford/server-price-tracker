@@ -1,6 +1,6 @@
 module github.com/donaldgifford/server-price-tracker
 
-go 1.25.7
+go 1.25.9
 
 require (
 	github.com/danielgtaylor/huma/v2 v2.35.0
