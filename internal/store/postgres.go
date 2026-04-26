@@ -12,8 +12,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
+
+// observeQueryDuration records elapsed time on the AlertsQueryDuration
+// histogram. Use as `defer observeQueryDuration("op", time.Now())` at the
+// top of an alert-review store method so every code path is timed.
+func observeQueryDuration(op string, start time.Time) {
+	metrics.AlertsQueryDuration.WithLabelValues(op).Observe(time.Since(start).Seconds())
+}
 
 const defaultPoolSize = 10
 
@@ -473,6 +481,11 @@ func (s *PostgresStore) InsertNotificationAttempt(
 	if err != nil {
 		return fmt.Errorf("inserting notification attempt: %w", err)
 	}
+	result := "failure"
+	if succeeded {
+		result = "success"
+	}
+	metrics.NotificationAttemptsInsertedTotal.WithLabelValues(result).Inc()
 	return nil
 }
 
@@ -572,6 +585,8 @@ func (s *PostgresStore) ListAlertsForReview(
 	ctx context.Context,
 	q *AlertReviewQuery,
 ) (AlertReviewResult, error) {
+	defer observeQueryDuration("list", time.Now())
+
 	if q == nil {
 		q = &AlertReviewQuery{}
 	}
@@ -590,6 +605,7 @@ func (s *PostgresStore) ListAlertsForReview(
 	if err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return AlertReviewResult{}, fmt.Errorf("counting alerts for review: %w", err)
 	}
+	metrics.AlertsTableRows.Set(float64(total))
 
 	listArgs := append([]any(nil), args...)
 	listArgs = append(listArgs, q.PerPage, (q.Page-1)*q.PerPage)
@@ -657,6 +673,7 @@ func scanAlertWithListing(rows pgx.Rows) (domain.AlertWithListing, error) {
 // notification history. Returns nil and a wrapped pgx.ErrNoRows when the
 // alert does not exist.
 func (s *PostgresStore) GetAlertDetail(ctx context.Context, id string) (*domain.AlertDetail, error) {
+	defer observeQueryDuration("detail", time.Now())
 	detailQuery := `
 		SELECT ` + alertReviewSelectColumns + `
 		FROM alerts a
@@ -729,6 +746,7 @@ func (s *PostgresStore) listNotificationAttempts(
 // callers can distinguish "nothing to do" from "I dismissed N rows" for
 // UI feedback and metric counting.
 func (s *PostgresStore) DismissAlerts(ctx context.Context, ids []string) (int, error) {
+	defer observeQueryDuration("dismiss", time.Now())
 	if len(ids) == 0 {
 		return 0, nil
 	}
@@ -753,6 +771,7 @@ func (s *PostgresStore) DismissAlerts(ctx context.Context, ids []string) (int, e
 // of rows actually transitioned (alerts that were not previously dismissed
 // are skipped silently).
 func (s *PostgresStore) RestoreAlerts(ctx context.Context, ids []string) (int, error) {
+	defer observeQueryDuration("restore", time.Now())
 	if len(ids) == 0 {
 		return 0, nil
 	}

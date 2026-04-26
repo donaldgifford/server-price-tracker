@@ -70,7 +70,8 @@ func BuildOverview() *dashboard.DashboardBuilder {
 		WithPanel(panels.LastNotification()).
 		WithPanel(panels.AlertsRate()).
 		WithPanel(panels.NotificationLatency()).
-		WithPanel(panels.NotificationFailures()))
+		WithPanel(panels.NotificationFailures()).
+		WithPanel(panels.AlertsQueryLatency()))
 
 	return b
 }

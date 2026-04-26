@@ -437,64 +437,64 @@ summary mode is Phase 6.
 
 **Tooling setup:**
 
-- [ ] Pin `templ` in `mise.toml` (latest stable, e.g.
+- [x] Pin `templ` in `mise.toml` (latest stable, e.g.
       `go:github.com/a-h/templ/cmd/templ 0.2.x`). Run `mise install`
       to confirm.
-- [ ] Add `make templ-generate` target to
+- [x] Add `make templ-generate` target to
       `scripts/makefiles/go.mk` (or similar):
   ```makefile
   templ-generate:
   	templ generate
   ```
-- [ ] Add `templ generate` to `make build` (and CI's `make ci`) so
+- [x] Add `templ generate` to `make build` (and CI's `make ci`) so
       generated `*_templ.go` is always fresh. Either add it as a
       dependency of `build`, or wire `//go:generate templ generate`
       directives in the `internal/api/web/` package and run
       `go generate ./...` as part of `make build`.
-- [ ] Decide commit-vs-gitignore for `*_templ.go`. Recommendation:
+- [x] Decide commit-vs-gitignore for `*_templ.go`. Recommendation:
       gitignore generated files; CI / make build always regenerates.
       Keeps PR diffs clean. Document the decision in CLAUDE.md.
-- [ ] Add `internal/api/web/static/htmx.min.js` (~14KB) and
+- [x] Add `internal/api/web/static/htmx.min.js` (~14KB) and
       `internal/api/web/static/alpine.min.js` (~15KB) — committed
       static files served from the embed. Pin specific versions and
       record them in the file comments / commit message.
 
 **Template components (templ):**
 
-- [ ] Create `internal/api/web/embed.go` declaring
+- [x] Create `internal/api/web/embed.go` declaring
       `//go:embed templates/*.templ static/*` `var FS embed.FS` (the
       static files are embedded at build time; `*.templ` files are
       embedded too for source reference but compiled via codegen).
-- [ ] Create `internal/api/web/components/layout.templ` with
+- [x] Create `internal/api/web/components/layout.templ` with
       `templ Layout(title string)` that includes htmx.min.js and
       alpine.min.js + the static CSS link.
-- [ ] Create `internal/api/web/components/alerts_page.templ` with
+- [x] Create `internal/api/web/components/alerts_page.templ` with
       `templ AlertsPage(data AlertsPageData)` rendering the search
       input, filter chips, and `@AlertsTable(data.Result)`. The
       search input carries:
       `hx-get="/alerts" hx-trigger="keyup changed delay:300ms"
        hx-target="#alerts-table" hx-swap="innerHTML"
        hx-push-url="true"`.
-- [ ] Create `internal/api/web/components/alerts_table.templ` with
+- [x] Create `internal/api/web/components/alerts_table.templ` with
       `templ AlertsTable(result AlertReviewResult)` rendering the
       table body + pagination controls. ID `#alerts-table` on the
       outer wrapper so HTMX swaps it cleanly. Bulk dismiss form uses
       `hx-boost="true" action="/alerts/dismiss" method="post"`.
-- [ ] Create `internal/api/web/components/alert_row.templ` with
+- [x] Create `internal/api/web/components/alert_row.templ` with
       `templ AlertRow(a domain.AlertWithListing)` — shared between
       the page render and any HTMX swap responses (compile-time
       guarantee they match).
-- [ ] Create `internal/api/web/components/alert_detail.templ` with
+- [x] Create `internal/api/web/components/alert_detail.templ` with
       `templ AlertDetailPage(d AlertDetail)` rendering the full
       listing card, score-breakdown table, watch info, notification
       history list, and action buttons (Retry, Dismiss/Restore,
       External link to eBay).
-- [ ] Create `internal/api/web/components/score_badge.templ` with
+- [x] Create `internal/api/web/components/score_badge.templ` with
       `templ ScoreBadge(score int)` for consistent score coloring
       matching Discord embeds.
-- [ ] Create `internal/api/web/components/notification_history.templ`
+- [x] Create `internal/api/web/components/notification_history.templ`
       with `templ NotificationHistory(attempts []domain.NotificationAttempt)`.
-- [ ] Add Alpine `x-data` to the bulk-dismiss control on the table
+- [x] Add Alpine `x-data` to the bulk-dismiss control on the table
       template:
   ```html
   <div x-data="{ selected: [], allSelected: false }">
@@ -505,47 +505,44 @@ summary mode is Phase 6.
   </div>
   ```
   Plus shift-click range select on row checkboxes (~15 lines).
-- [ ] Create `internal/api/web/static/spt.css` (~5KB) with score
+- [x] Create `internal/api/web/static/spt.css` (~5KB) with score
       color variables and minimal layout styling.
 
 **Template renderer:**
 
-- [ ] Create `internal/api/web/renderer.go` with a small `echo.Renderer`
-      adapter that delegates to `templ`'s `Render(ctx, w)` method, so
-      handler code can call
-      `c.Render(http.StatusOK, components.AlertsPage(data))` or
-      similar. (Templ doesn't *need* `echo.Renderer` — handlers can
-      call `Render(c.Request().Context(), c.Response().Writer)`
-      directly. Whichever is cleaner per the templ examples.)
+- [x] ~~Create `internal/api/web/renderer.go`~~ — Skipped. Handlers
+      call `templ.Component.Render(c.Request().Context(),
+      c.Response().Writer)` directly. The adapter would have only
+      wrapped that single call.
 
 **Handlers:**
 
-- [ ] Create `internal/api/handlers/alerts_ui.go` with
+- [x] Create `internal/api/handlers/alerts_ui.go` with
       `AlertsUIHandler` accepting `store.Store`, `notify.Notifier`,
       and a config struct (`AlertsURLBase string`). Methods:
-  - [ ] `(h *AlertsUIHandler) ListPage(c echo.Context) error` —
+  - [x] `(h *AlertsUIHandler) ListPage(c echo.Context) error` —
         parses query via `parseAlertsListQuery`, calls
         `s.ListAlertsForReview`, renders `AlertsPage` for normal
         requests, `AlertsTable` partial for HTMX requests
         (inspect `c.Request().Header.Get("HX-Request") == "true"`).
-  - [ ] `(h *AlertsUIHandler) ListJSON(c echo.Context) error` — same
+  - [x] `(h *AlertsUIHandler) ListJSON(c echo.Context) error` — same
         query, returns `AlertReviewResult` as JSON.
-  - [ ] `(h *AlertsUIHandler) DetailPage(c echo.Context) error` —
+  - [x] `(h *AlertsUIHandler) DetailPage(c echo.Context) error` —
         calls `s.GetAlertDetail`, renders `AlertDetailPage`. 404 if
         not found.
-  - [ ] `(h *AlertsUIHandler) DismissOne(c echo.Context) error` —
+  - [x] `(h *AlertsUIHandler) DismissOne(c echo.Context) error` —
         path param `id`, calls `s.DismissAlerts(ctx, []string{id})`,
         returns the updated row partial via `AlertRow` for HTMX
         requests, redirect to `/alerts` for non-HTMX.
-  - [ ] `(h *AlertsUIHandler) DismissBulk(c echo.Context) error` —
+  - [x] `(h *AlertsUIHandler) DismissBulk(c echo.Context) error` —
         form values `ids` (or JSON body `{"ids": [...]}` for the
         JSON mirror), calls `s.DismissAlerts(ctx, ids)`, returns
         the updated table partial via `AlertsTable` for HTMX,
         redirect for non-HTMX.
-  - [ ] `(h *AlertsUIHandler) Restore(c echo.Context) error` —
+  - [x] `(h *AlertsUIHandler) Restore(c echo.Context) error` —
         path param `id`, calls `s.RestoreAlerts(ctx,
         []string{id})`.
-  - [ ] `(h *AlertsUIHandler) Retry(c echo.Context) error` — path
+  - [x] `(h *AlertsUIHandler) Retry(c echo.Context) error` — path
         param `id`, fetches the alert detail, builds an
         `AlertPayload`, calls `n.SendAlert(ctx, payload)` (single
         embed, bypasses `HasSuccessfulNotification`), records a
@@ -554,7 +551,7 @@ summary mode is Phase 6.
         to `/alerts/{id}` for non-HTMX. Per resolved Q3 expansion,
         retry always sends the rich per-alert embed regardless of
         `summary_only`.
-  - [ ] `parseAlertsListQuery(c echo.Context) AlertReviewQuery` with
+  - [x] `parseAlertsListQuery(c echo.Context) AlertReviewQuery` with
         defaults: `min_score=75`, `status=active`, `page=1`,
         `per_page=25` (max 100), `sort=score`. Invalid values fall
         back to defaults rather than 400ing. Recognizes the explicit
@@ -562,7 +559,7 @@ summary mode is Phase 6.
 
 **Wiring:**
 
-- [ ] In `cmd/server-price-tracker/cmd/serve.go` (or wherever Echo
+- [x] In `cmd/server-price-tracker/cmd/serve.go` (or wherever Echo
       routes are registered), gate the `/alerts` group on
       `cfg.Web.Enabled`:
   ```go
@@ -580,58 +577,58 @@ summary mode is Phase 6.
       ))
   }
   ```
-- [ ] In `internal/config/config.go`, add:
+- [x] In `internal/config/config.go`, add:
   - `Web.Enabled bool` (default `true`)
   - `Web.AlertsURLBase string` (default `""`)
-- [ ] Update `configs/config.example.yaml` and
+- [x] Update `configs/config.example.yaml` and
       `configs/config.dev.yaml` with the new keys and comments.
 
 **Helm chart:**
 
-- [ ] In `charts/server-price-tracker/values.yaml`, add:
+- [x] In `charts/server-price-tracker/values.yaml`, add:
   ```yaml
   web:
     enabled: true
     alertsUrlBase: ""  # absolute URL base; empty = links omitted
   ```
-- [ ] In `charts/server-price-tracker/templates/configmap.yaml` (or
+- [x] In `charts/server-price-tracker/templates/configmap.yaml` (or
       whichever template renders the runtime config), wire
       `web.enabled` and `web.alertsUrlBase` into the container
       config. Keep generated config valid when both are unset
       (defaults bake into the binary).
-- [ ] In `charts/server-price-tracker/tests/`, add a helm-unittest
+- [x] In `charts/server-price-tracker/tests/`, add a helm-unittest
       case asserting the `web.enabled` toggle round-trips into the
       config.
 
 **Metrics:**
 
-- [ ] In `internal/metrics/metrics.go`, register:
+- [x] In `internal/metrics/metrics.go`, register:
   - `AlertsDismissedTotal` (Counter)
   - `AlertsQueryDuration` (HistogramVec, label `query`,
     buckets `[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5]`)
   - `AlertsTableRows` (Gauge)
   - `NotificationAttemptsInsertedTotal` (CounterVec, label `result`)
-- [ ] Increment `AlertsDismissedTotal` from the dismiss handlers.
-- [ ] Update `AlertsTableRows` from `ListAlertsForReview` after the
+- [x] Increment `AlertsDismissedTotal` from the dismiss handlers.
+- [x] Update `AlertsTableRows` from `ListAlertsForReview` after the
       `COUNT(*)` query.
-- [ ] Increment `NotificationAttemptsInsertedTotal` everywhere
+- [x] Increment `NotificationAttemptsInsertedTotal` everywhere
       `InsertNotificationAttempt` is called (engine + retry handler).
       Single-source helper would be cleanest:
       `func recordNotificationAttempt(...) { ...; metric.Inc() }`.
 
 **Dashgen:**
 
-- [ ] In `tools/dashgen/`, add a panel definition surfacing:
+- [x] In `tools/dashgen/`, add a panel definition surfacing:
   - `histogram_quantile(0.50, rate(spt_alerts_query_duration_seconds_bucket[5m]))`
     p50 line per query type
   - p95 and p99 stacked
   - `spt_alerts_table_rows` as a single-stat
-- [ ] Run `make dashboards` (or whatever the dashgen entrypoint is)
+- [x] Run `make dashboards` (or whatever the dashgen entrypoint is)
       and verify the JSON updates cleanly.
 
 **Tests:**
 
-- [ ] `internal/api/handlers/alerts_ui_test.go`:
+- [x] `internal/api/handlers/alerts_ui_test.go`:
   - Table-driven `parseAlertsListQuery` (defaults, `per_page` clamp
     to 100, invalid `sort` → fallback, invalid `min_score` →
     fallback, `undismissed` accepted).
@@ -647,7 +644,7 @@ summary mode is Phase 6.
     the alert row.
   - `Web.Enabled = false` → routes return 404 (test by registering
     the gated routes and asserting absence).
-- [ ] Run `make lint`, `make fmt`,
+- [x] Run `make lint`, `make fmt`,
       `make test ./internal/api/...`.
 - [ ] Manual smoke test on local dev: `make dev-setup`, `make run`,
       navigate to `http://localhost:8080/alerts`, exercise

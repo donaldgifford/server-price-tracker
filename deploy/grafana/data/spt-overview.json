@@ -1950,6 +1950,61 @@
             },
             "overrides": []
           }
+        },
+        {
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (query, le) (rate(spt_alerts_query_duration_seconds_bucket{job=\"server-price-tracker\"}[5m])))",
+              "legendFormat": "{{query}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Alert Review Query Latency (p95)",
+          "description": "95th percentile latency of alert review queries by operation",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 111
+          },
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  },
+                  {
+                    "value": 0.1,
+                    "color": "yellow"
+                  },
+                  {
+                    "value": 0.5,
+                    "color": "red"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          }
         }
       ]
     }

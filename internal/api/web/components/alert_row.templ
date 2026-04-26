@@ -1,0 +1,45 @@
+package components
+
+import (
+	"fmt"
+	"time"
+
+	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
+)
+
+// AlertRow renders one row of the alerts list. Used by both the full-page
+// render and HTMX swap responses, which is the whole reason we picked
+// templ — sharing the row markup at compile time.
+templ AlertRow(a domain.AlertWithListing) {
+	<tr id={ "alert-" + a.Alert.ID }>
+		<td>
+			<input type="checkbox" name="ids" value={ a.Alert.ID } @click={ "selected[$event.target.checked ? 'push' : 'splice'](" + a.Alert.ID + ")" }/>
+		</td>
+		<td>@ScoreBadge(a.Alert.Score)</td>
+		<td>
+			<a href={ templ.URL("/alerts/" + a.Alert.ID) }>{ a.Listing.Title }</a>
+		</td>
+		<td>{ a.WatchName }</td>
+		<td>{ string(a.Listing.ComponentType) }</td>
+		<td>{ formatRelative(a.Alert.CreatedAt) }</td>
+		<td>
+			<a class="btn" href={ templ.URL(a.Listing.ItemURL) } target="_blank" rel="noreferrer">eBay ↗</a>
+		</td>
+	</tr>
+}
+
+// formatRelative renders a coarse "Nh ago" / "Nd ago" string for table
+// density. Detail page shows the absolute timestamp.
+func formatRelative(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+	}
+}

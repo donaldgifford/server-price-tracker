@@ -99,6 +99,14 @@ notifications:
     headers:
       Authorization: "Bearer ${WEBHOOK_TOKEN}"
 
+# Embedded alert review UI at /alerts (DESIGN-0010).
+web:
+  # Set to false to disable the entire /alerts route group on this deploy.
+  enabled: true
+  # Absolute base URL used to deep-link from Discord summary embeds back
+  # to the dashboard. Empty = link omitted.
+  alerts_url_base: "https://spt.example.com"
+
 logging:
   level: info
   format: text  # text or json

@@ -104,6 +104,14 @@ config:
       enabled: true
       webhook_url: "${DISCORD_WEBHOOK_URL}"
 
+  # Embedded alert review UI at /alerts (DESIGN-0010 / IMPL-0015 Phase 4).
+  web:
+    # Set to false to skip mounting the /alerts route group on this deploy.
+    enabled: true
+    # Absolute base URL used to deep-link from Discord summary embeds back
+    # to the dashboard. Empty = link omitted.
+    alerts_url_base: ""
+
   logging:
     level: info
     format: json

@@ -51,6 +51,10 @@ make fmt                      # or: goimports -w . && golines -w .
 # Generate mocks (run after changing any interface)
 make mocks                    # or: mockery
 
+# Generate templ components (alert review UI at /alerts)
+make templ-generate           # or: templ generate
+make templ-watch              # rebuild on change during development
+
 # Generate Postman collection with contract tests (requires running server)
 make postman                  # portman fetches /openapi.json from running server
 
@@ -185,7 +189,7 @@ docs/                         Design and implementation documentation (managed v
 - `pkg/extract/` — `LLMBackend` and `Extractor` interfaces, implementations (Ollama, Anthropic, OpenAI-compatible), extraction orchestrator, prompt templates, response validation.
 
 **Internal (`internal/`)** — application-specific, not importable:
-- `internal/api/` — Echo HTTP server with Huma v2 typed handlers, middleware (Prometheus metrics, request logging, panic recovery), API client for CLI
+- `internal/api/` — Echo HTTP server with Huma v2 typed handlers, middleware (Prometheus metrics, request logging, panic recovery), API client for CLI. Also hosts the alert review UI at `/alerts` (DESIGN-0010): server-rendered HTML via [templ](https://templ.guide) components in `internal/api/web/components/`, [HTMX](https://htmx.org) 1.9 for swap-in-place interactions, [Alpine.js](https://alpinejs.dev) 3.14 for small reactive bits. Generated `*_templ.go` files are gitignored — `make build` runs `templ generate` first. Static assets (htmx.min.js, alpine.min.js, spt.css) ship via `go:embed` in `internal/api/web/embed.go`.
 - `internal/store/` — `Store` interface (datastore abstraction) + `PostgresStore` implementation (raw SQL with pgx, no ORM)
 - `internal/engine/` — Ingestion loop, baseline recomputation, alert evaluation, scheduler. Takes all dependencies as interfaces.
 - `internal/ebay/` — `EbayClient` and `TokenProvider` interfaces + implementations

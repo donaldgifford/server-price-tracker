@@ -34,3 +34,25 @@ tests:
       - matchRegex:
           path: data["config.yaml"]
           pattern: "llm:"
+
+  - it: web section enabled by default
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "web:\\s*\\n\\s*enabled: true"
+
+  - it: web section reflects alerts_url_base override
+    set:
+      config.web.alerts_url_base: "https://spt.example.com"
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'alerts_url_base: "https://spt.example.com"'
+
+  - it: web section can be disabled
+    set:
+      config.web.enabled: false
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "enabled: false"

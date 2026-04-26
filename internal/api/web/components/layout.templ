@@ -1,0 +1,30 @@
+package components
+
+// Layout wraps a page with the standard <html>/<body>/<header> shell, the
+// HTMX and Alpine bundles, and the SPT stylesheet. Pages embed their
+// content via `templ.Component` parameters or render their own templ
+// components directly.
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ title } — Server Price Tracker</title>
+			<link rel="stylesheet" href="/static/spt.css"/>
+			<script src="/static/htmx.min.js" defer></script>
+			<script src="/static/alpine.min.js" defer></script>
+		</head>
+		<body>
+			<header class="spt-header">
+				<h1><a href="/alerts">Server Price Tracker — Alerts</a></h1>
+				<nav>
+					<a href="/docs">API Docs</a>
+				</nav>
+			</header>
+			<main>
+				{ children... }
+			</main>
+		</body>
+	</html>
+}

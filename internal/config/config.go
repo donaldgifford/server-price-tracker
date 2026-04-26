@@ -21,7 +21,20 @@ type Config struct {
 	Schedule      ScheduleConfig      `yaml:"schedule"`
 	Alerts        AlertsConfig        `yaml:"alerts"`
 	Notifications NotificationsConfig `yaml:"notifications"`
+	Web           WebConfig           `yaml:"web"`
 	Logging       LoggingConfig       `yaml:"logging"`
+}
+
+// WebConfig controls the embedded alert review UI.
+//
+// Enabled defaults to true so existing dev configs keep working without a
+// schema bump; production deployments that don't want the UI surface set
+// it to false. AlertsURLBase is the absolute URL prefix used to build
+// deep-links from Discord summary embeds back to /alerts; empty means
+// the link is omitted from the embed.
+type WebConfig struct {
+	Enabled       bool   `yaml:"enabled"`
+	AlertsURLBase string `yaml:"alerts_url_base"`
 }
 
 // ServerConfig defines the Echo HTTP server settings.
