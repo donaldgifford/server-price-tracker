@@ -78,6 +78,18 @@ data:
       discord:
         enabled: {{ .Values.config.notifications.discord.enabled }}
         webhook_url: {{ .Values.config.notifications.discord.webhook_url | quote }}
+        {{- with .Values.config.notifications.discord.inter_chunk_delay }}
+        inter_chunk_delay: {{ . | quote }}
+        {{- end }}
+        {{- if hasKey .Values.config.notifications.discord "summary_only" }}
+        summary_only: {{ .Values.config.notifications.discord.summary_only }}
+        {{- end }}
+
+    {{- with .Values.config.web }}
+    web:
+      enabled: {{ .enabled }}
+      alerts_url_base: {{ .alerts_url_base | quote }}
+    {{- end }}
 
     logging:
       level: {{ .Values.config.logging.level }}

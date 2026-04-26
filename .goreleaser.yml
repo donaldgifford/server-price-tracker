@@ -1,6 +1,14 @@
 ---
 version: 2
 
+before:
+  hooks:
+    # Generate templ Go code before any build target compiles. The
+    # *_templ.go files are gitignored (IMPL-0015 Phase 4); without
+    # this hook goreleaser fails with `undefined: components.AlertsPage`.
+    - go install github.com/a-h/templ/cmd/templ@latest
+    - templ generate
+
 builds:
   - id: server-price-tracker
     binary: server-price-tracker

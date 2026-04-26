@@ -30,3 +30,4 @@ spt watches list [flags]
 ### SEE ALSO
 
 * [spt watches](spt_watches.md)  - Manage watches
+

@@ -63,6 +63,29 @@ func NotificationLatency() *timeseries.PanelBuilder {
 		DrawStyle(common.GraphDrawStyleLine)
 }
 
+// AlertsQueryLatency returns a timeseries panel showing the p95 latency of
+// alert review store queries (list, count, detail). Surfaces when index
+// scans regress so the pg_stat_statements follow-up can be triaged
+// against real evidence rather than guesswork (DESIGN-0010).
+func AlertsQueryLatency() *timeseries.PanelBuilder {
+	return timeseries.NewPanelBuilder().
+		Title("Alert Review Query Latency (p95)").
+		Description("95th percentile latency of alert review queries by operation").
+		Datasource(DSRef()).
+		Height(TSHeight).
+		Span(TSWidth).
+		WithTarget(PromQuery(
+			`histogram_quantile(0.95, sum by (query, le) (rate(spt_alerts_query_duration_seconds_bucket{job="server-price-tracker"}[5m])))`,
+			"{{query}}", "A",
+		)).
+		Unit("s").
+		FillOpacity(10).
+		LineWidth(2).
+		Thresholds(ThresholdsGreenYellowRed(0.1, 0.5)).
+		ColorScheme(ColorSchemePaletteClassic()).
+		DrawStyle(common.GraphDrawStyleLine)
+}
+
 // NotificationFailures returns a stat panel showing notification failures
 // in the past 24 hours.
 func NotificationFailures() *stat.PanelBuilder {

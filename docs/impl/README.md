@@ -46,4 +46,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0012 | Refactor Implementation Plan | In Progress | 2026-03-14 | Donald Gifford | [0012-refactor-implementation-plan.md](0012-refactor-implementation-plan.md) |
 | IMPL-0013 | CNPG Pooler and TCPRoute Helm Templates | Completed | 2026-04-04 | Donald Gifford | [0013-cnpg-pooler-and-tcproute-helm-templates.md](0013-cnpg-pooler-and-tcproute-helm-templates.md) |
 | IMPL-0014 | LLM Token Metrics | Completed | 2026-04-25 | Donald Gifford | [0014-llm-token-metrics.md](0014-llm-token-metrics.md) |
+| IMPL-0015 | Watches update CLI plus Discord notifier and alert review UI | Completed | 2026-04-26 | Donald Gifford | [0015-watches-update-cli-plus-discord-notifier-and-alert-review-ui.md](0015-watches-update-cli-plus-discord-notifier-and-alert-review-ui.md) |
 <!-- END DOCZ AUTO-GENERATED -->

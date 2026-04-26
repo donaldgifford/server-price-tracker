@@ -340,13 +340,13 @@ const (
 		RETURNING id, created_at`
 
 	queryListPendingAlerts = `
-		SELECT id, watch_id, listing_id, score, notified, notified_at, created_at
+		SELECT id, watch_id, listing_id, score, notified, notified_at, created_at, dismissed_at
 		FROM alerts
 		WHERE notified = false
 		ORDER BY created_at DESC`
 
 	queryListAlertsByWatch = `
-		SELECT id, watch_id, listing_id, score, notified, notified_at, created_at
+		SELECT id, watch_id, listing_id, score, notified, notified_at, created_at, dismissed_at
 		FROM alerts
 		WHERE watch_id = $1
 		ORDER BY created_at DESC
@@ -383,4 +383,44 @@ const (
 			WHERE alert_id = $1
 			  AND succeeded = true
 		)`
+)
+
+// Alert review queries (DESIGN-0010 / IMPL-0015 Phase 3).
+//
+// These join alerts → listings → watches to back the /alerts UI. The WHERE
+// clause is built dynamically per request since AlertReviewQuery has many
+// optional filters; see (*PostgresStore).buildAlertReviewWhere.
+const (
+	// alertReviewSelectColumns mirrors scan order in scanAlertWithListing.
+	// The leading comma-separated alert columns must match the ordering in
+	// queryListPendingAlerts so the same scan helper handles both.
+	alertReviewSelectColumns = `
+		a.id, a.watch_id, a.listing_id, a.score, a.notified, a.notified_at,
+		a.created_at, a.dismissed_at,
+		l.id, l.ebay_item_id, l.title, l.item_url, l.image_url, l.price,
+		l.currency, l.shipping_cost, l.listing_type, l.seller_name,
+		l.seller_feedback, l.seller_feedback_pct, l.seller_top_rated,
+		l.condition_raw, l.condition_norm, l.component_type, l.quantity,
+		l.attributes, l.extraction_confidence, l.product_key, l.score,
+		l.score_breakdown, l.active, l.listed_at, l.sold_at, l.sold_price,
+		l.first_seen_at, l.updated_at,
+		w.name`
+
+	queryDismissAlerts = `
+		UPDATE alerts SET dismissed_at = now()
+		WHERE id = ANY($1)
+		  AND dismissed_at IS NULL
+		RETURNING id`
+
+	queryRestoreAlerts = `
+		UPDATE alerts SET dismissed_at = NULL
+		WHERE id = ANY($1)
+		  AND dismissed_at IS NOT NULL
+		RETURNING id`
+
+	queryNotificationAttemptsByAlert = `
+		SELECT id, alert_id, attempted_at, succeeded, http_status, error_text
+		FROM notification_attempts
+		WHERE alert_id = $1
+		ORDER BY attempted_at DESC`
 )

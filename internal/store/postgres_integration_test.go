@@ -438,3 +438,204 @@ func TestPostgresStore_MarkAlertsNotified(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, pending)
 }
+
+// alertReviewSetup creates a watch and N alerts (each with its own listing)
+// for the alert-review tests below. Returns the watch and the alert IDs in
+// score-DESC order to make assertion math easy.
+func alertReviewSetup(t *testing.T, s *store.PostgresStore, watchName string, scores []int) (
+	*domain.Watch, []string,
+) {
+	t.Helper()
+	ctx := context.Background()
+
+	w := &domain.Watch{
+		Name:           watchName,
+		SearchQuery:    "review setup",
+		ComponentType:  domain.ComponentRAM,
+		Filters:        domain.WatchFilters{},
+		ScoreThreshold: 50,
+		Enabled:        true,
+	}
+	require.NoError(t, s.CreateWatch(ctx, w))
+
+	ids := make([]string, len(scores))
+	for i, score := range scores {
+		l := testListing()
+		l.EbayID = watchName + "-" + string(rune('a'+i))
+		l.Title = "Samsung " + string(rune('A'+i)) + " 32GB DDR4 ECC"
+		require.NoError(t, s.UpsertListing(ctx, l))
+
+		a := &domain.Alert{WatchID: w.ID, ListingID: l.ID, Score: score}
+		require.NoError(t, s.CreateAlert(ctx, a))
+		ids[i] = a.ID
+	}
+	return w, ids
+}
+
+// TestPostgresStore_AlertScanIncludesDismissed guards against scan-order
+// regression after migration 009 added the dismissed_at column.
+// ListPendingAlerts scans 8 columns now (was 7); a typo in the column list
+// would surface as either a scan error or a misaligned field.
+func TestPostgresStore_AlertScanIncludesDismissed(t *testing.T) {
+	s := setupPostgres(t)
+	ctx := context.Background()
+	_, ids := alertReviewSetup(t, s, "scan-test", []int{85})
+
+	pending, err := s.ListPendingAlerts(ctx)
+	require.NoError(t, err)
+	require.Len(t, pending, 1)
+	assert.Equal(t, ids[0], pending[0].ID)
+	assert.Equal(t, 85, pending[0].Score)
+	assert.Nil(t, pending[0].DismissedAt, "freshly created alerts should have NULL dismissed_at")
+}
+
+func TestPostgresStore_AlertReview_ListAndPagination(t *testing.T) {
+	s := setupPostgres(t)
+	ctx := context.Background()
+
+	scores := make([]int, 30)
+	for i := range scores {
+		scores[i] = 50 + i // 50..79
+	}
+	_, _ = alertReviewSetup(t, s, "pagination", scores)
+
+	got, err := s.ListAlertsForReview(ctx, &store.AlertReviewQuery{
+		Status:  store.AlertStatusActive,
+		Page:    1,
+		PerPage: 10,
+	})
+	require.NoError(t, err)
+	require.Len(t, got.Items, 10)
+	assert.Equal(t, 30, got.Total)
+	assert.Equal(t, 79, got.Items[0].Alert.Score)
+	assert.Equal(t, 70, got.Items[9].Alert.Score)
+
+	page2, err := s.ListAlertsForReview(ctx, &store.AlertReviewQuery{
+		Status:  store.AlertStatusActive,
+		Page:    2,
+		PerPage: 10,
+	})
+	require.NoError(t, err)
+	require.Len(t, page2.Items, 10)
+	assert.Equal(t, 69, page2.Items[0].Alert.Score)
+	assert.Equal(t, 60, page2.Items[9].Alert.Score)
+
+	assert.NotEmpty(t, got.Items[0].Listing.ID)
+	assert.NotEmpty(t, got.Items[0].WatchName)
+}
+
+func TestPostgresStore_AlertReview_StatusFilter(t *testing.T) {
+	s := setupPostgres(t)
+	ctx := context.Background()
+
+	w, ids := alertReviewSetup(t, s, "status-filter", []int{80, 85, 90})
+
+	res, err := s.ListAlertsForReview(ctx, &store.AlertReviewQuery{Status: store.AlertStatusActive})
+	require.NoError(t, err)
+	assert.Equal(t, 3, res.Total)
+
+	require.NoError(t, s.MarkAlertNotified(ctx, ids[0]))
+	dismissed, err := s.DismissAlerts(ctx, []string{ids[1]})
+	require.NoError(t, err)
+	assert.Equal(t, 1, dismissed)
+
+	res, err = s.ListAlertsForReview(ctx, &store.AlertReviewQuery{Status: store.AlertStatusNotified})
+	require.NoError(t, err)
+	assert.Equal(t, 1, res.Total, "notified filter sees only the marked alert")
+
+	res, err = s.ListAlertsForReview(ctx, &store.AlertReviewQuery{Status: store.AlertStatusDismissed})
+	require.NoError(t, err)
+	assert.Equal(t, 1, res.Total, "dismissed filter sees only the dismissed alert")
+
+	res, err = s.ListAlertsForReview(ctx, &store.AlertReviewQuery{Status: store.AlertStatusUndismissed})
+	require.NoError(t, err)
+	assert.Equal(t, 2, res.Total, "undismissed sees notified+pending, not dismissed")
+
+	res, err = s.ListAlertsForReview(ctx, &store.AlertReviewQuery{Status: store.AlertStatusAll})
+	require.NoError(t, err)
+	assert.Equal(t, 3, res.Total, "all sees everything")
+
+	res, err = s.ListAlertsForReview(ctx, &store.AlertReviewQuery{
+		WatchID: w.ID,
+		Status:  store.AlertStatusAll,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 3, res.Total)
+}
+
+func TestPostgresStore_AlertReview_Search(t *testing.T) {
+	s := setupPostgres(t)
+	ctx := context.Background()
+
+	_, _ = alertReviewSetup(t, s, "search", []int{75, 80, 85})
+
+	res, err := s.ListAlertsForReview(ctx, &store.AlertReviewQuery{
+		Search: "DDR4 ECC",
+		Status: store.AlertStatusAll,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 3, res.Total, "ILIKE matches all three (Title contains 'DDR4 ECC')")
+
+	res, err = s.ListAlertsForReview(ctx, &store.AlertReviewQuery{
+		Search: "no-such-substring-anywhere",
+		Status: store.AlertStatusAll,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 0, res.Total)
+}
+
+func TestPostgresStore_DismissRestoreAlerts(t *testing.T) {
+	s := setupPostgres(t)
+	ctx := context.Background()
+
+	_, ids := alertReviewSetup(t, s, "dismiss-restore", []int{80, 85})
+
+	dismissed, err := s.DismissAlerts(ctx, ids)
+	require.NoError(t, err)
+	assert.Equal(t, 2, dismissed)
+
+	again, err := s.DismissAlerts(ctx, ids)
+	require.NoError(t, err)
+	assert.Equal(t, 0, again, "second dismiss on the same IDs is a no-op")
+
+	restored, err := s.RestoreAlerts(ctx, []string{ids[0]})
+	require.NoError(t, err)
+	assert.Equal(t, 1, restored)
+
+	noop, err := s.RestoreAlerts(ctx, []string{ids[0]})
+	require.NoError(t, err)
+	assert.Equal(t, 0, noop)
+
+	zero, err := s.DismissAlerts(ctx, nil)
+	require.NoError(t, err)
+	assert.Equal(t, 0, zero)
+}
+
+func TestPostgresStore_GetAlertDetail(t *testing.T) {
+	s := setupPostgres(t)
+	ctx := context.Background()
+
+	w, ids := alertReviewSetup(t, s, "detail", []int{82})
+
+	d, err := s.GetAlertDetail(ctx, ids[0])
+	require.NoError(t, err)
+	require.NotNil(t, d)
+	assert.Equal(t, ids[0], d.Alert.ID)
+	assert.Equal(t, w.ID, d.Watch.ID)
+	assert.Equal(t, w.Name, d.Watch.Name)
+	assert.NotEmpty(t, d.Listing.ID)
+	assert.Empty(t, d.NotificationHistory)
+
+	require.NoError(t, s.InsertNotificationAttempt(ctx, ids[0], false, 429, "rate limited"))
+	require.NoError(t, s.InsertNotificationAttempt(ctx, ids[0], true, 204, ""))
+
+	d, err = s.GetAlertDetail(ctx, ids[0])
+	require.NoError(t, err)
+	require.Len(t, d.NotificationHistory, 2, "history surfaces both attempts")
+	// DESC order: most recent (the success) is first.
+	assert.True(t, d.NotificationHistory[0].Succeeded)
+	assert.False(t, d.NotificationHistory[1].Succeeded)
+
+	_, err = s.GetAlertDetail(ctx, "00000000-0000-0000-0000-000000000000")
+	require.Error(t, err)
+}

@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/donaldgifford/server-price-tracker/internal/metrics"
@@ -16,12 +18,27 @@ const (
 	colorGreen  = 0x2ECC71 // score 90+
 	colorYellow = 0xF1C40F // score 80-89
 	colorOrange = 0xE67E22 // score 75-79
+
+	// maxEmbedsPerMessage is Discord's hard cap on embeds per webhook message.
+	maxEmbedsPerMessage = 10
+
+	// max429Attempts bounds the per-chunk retry loop on 429 responses
+	// — one initial post + one retry after honoring Retry-After.
+	max429Attempts = 2
 )
+
+// errGlobal429 marks a 429 response carrying X-RateLimit-Global=true.
+// Global limits apply across the entire webhook; we don't retry locally
+// — surface the error so the caller can decide whether to back off
+// further (e.g., trip a circuit breaker upstream).
+var errGlobal429 = errors.New("discord: global rate limit hit")
 
 // DiscordNotifier implements Notifier via Discord webhook.
 type DiscordNotifier struct {
-	webhookURL string
-	client     *http.Client
+	webhookURL      string
+	client          *http.Client
+	rateLimit       *rateLimitState
+	interChunkDelay time.Duration
 }
 
 // NewDiscordNotifier creates a new DiscordNotifier.
@@ -29,6 +46,7 @@ func NewDiscordNotifier(webhookURL string, opts ...DiscordOption) *DiscordNotifi
 	d := &DiscordNotifier{
 		webhookURL: webhookURL,
 		client:     http.DefaultClient,
+		rateLimit:  newRateLimitState(),
 	}
 	for _, opt := range opts {
 		opt(d)
@@ -43,6 +61,14 @@ type DiscordOption func(*DiscordNotifier)
 func WithHTTPClient(c *http.Client) DiscordOption {
 	return func(d *DiscordNotifier) {
 		d.client = c
+	}
+}
+
+// WithInterChunkDelay sets a defensive sleep between chunks beyond what
+// the bucket headers require. Default is 0 (no extra delay).
+func WithInterChunkDelay(delay time.Duration) DiscordOption {
+	return func(d *DiscordNotifier) {
+		d.interChunkDelay = delay
 	}
 }
 
@@ -79,34 +105,50 @@ func (d *DiscordNotifier) SendAlert(ctx context.Context, alert *AlertPayload) er
 	return d.post(ctx, payload)
 }
 
-// SendBatchAlert sends multiple alerts as a single Discord message.
+// SendBatchAlert chunks alerts into Discord-compliant batches (<=10
+// embeds each), waits for the bucket to refill between chunks, and
+// returns the count of alerts that landed plus the first error
+// encountered (if any). Partial success is the common case during
+// 429s — the engine uses `sent` to mark only the delivered IDs as
+// notified.
 func (d *DiscordNotifier) SendBatchAlert(
 	ctx context.Context,
 	alerts []AlertPayload,
-	watchName string,
-) error {
-	embeds := make([]discordEmbed, 0, len(alerts))
+	_ string,
+) (int, error) {
+	chunks := chunkAlerts(alerts, maxEmbedsPerMessage)
+	sent := 0
+	for i, chunk := range chunks {
+		if _, err := d.rateLimit.waitForBucket(ctx); err != nil {
+			return sent, fmt.Errorf("waiting for discord bucket on chunk %d/%d: %w",
+				i+1, len(chunks), err)
+		}
+		if i > 0 && d.interChunkDelay > 0 {
+			if err := sleepCtx(ctx, d.interChunkDelay); err != nil {
+				return sent, fmt.Errorf("inter-chunk delay on chunk %d/%d: %w",
+					i+1, len(chunks), err)
+			}
+		}
 
-	// Discord allows max 10 embeds per message.
-	limit := min(len(alerts), 10)
+		embeds := make([]discordEmbed, 0, len(chunk))
+		for j := range chunk {
+			embeds = append(embeds, buildEmbed(&chunk[j]))
+		}
 
-	for i := range limit {
-		embeds = append(embeds, buildEmbed(&alerts[i]))
+		if err := d.post(ctx, discordWebhookPayload{Embeds: embeds}); err != nil {
+			return sent, fmt.Errorf("chunk %d/%d: %w", i+1, len(chunks), err)
+		}
+		sent += len(chunk)
+		metrics.DiscordChunksSentTotal.Inc()
 	}
-
-	if len(alerts) > 10 {
-		embeds = append(embeds, discordEmbed{
-			Title:       fmt.Sprintf("... and %d more alerts for %s", len(alerts)-10, watchName),
-			Color:       colorYellow,
-			Description: "Check the dashboard for the full list.",
-		})
-	}
-
-	payload := discordWebhookPayload{Embeds: embeds}
-	return d.post(ctx, payload)
+	return sent, nil
 }
 
 func buildEmbed(alert *AlertPayload) discordEmbed {
+	if len(alert.SummaryFields) > 0 {
+		return buildSummaryEmbed(alert)
+	}
+
 	embed := discordEmbed{
 		Title: fmt.Sprintf("Deal Alert: %s", alert.ListingTitle),
 		URL:   alert.EbayURL,
@@ -128,6 +170,25 @@ func buildEmbed(alert *AlertPayload) discordEmbed {
 	return embed
 }
 
+// buildSummaryEmbed renders a Phase 6 summary payload as one embed:
+// Title + each SummaryField as an inline row + optional dashboard URL.
+// No price/seller/condition rows since those don't apply across a pool
+// of listings.
+func buildSummaryEmbed(alert *AlertPayload) discordEmbed {
+	fields := make([]discordEmbedField, 0, len(alert.SummaryFields))
+	for _, f := range alert.SummaryFields {
+		fields = append(fields, discordEmbedField{
+			Name: f.Name, Value: f.Value, Inline: true,
+		})
+	}
+	return discordEmbed{
+		Title:  alert.ListingTitle,
+		URL:    alert.EbayURL,
+		Color:  scoreColor(alert.Score),
+		Fields: fields,
+	}
+}
+
 func scoreColor(score int) int {
 	switch {
 	case score >= 90:
@@ -145,6 +206,22 @@ func (d *DiscordNotifier) post(ctx context.Context, payload discordWebhookPayloa
 		return fmt.Errorf("marshaling discord payload: %w", err)
 	}
 
+	for attempt := 1; attempt <= max429Attempts; attempt++ {
+		retry, postErr := d.postOnce(ctx, body, attempt)
+		if postErr == nil {
+			return nil
+		}
+		if !retry {
+			return postErr
+		}
+	}
+	return fmt.Errorf("discord: rate limited after %d attempts", max429Attempts)
+}
+
+// postOnce executes one HTTP POST. The boolean return signals whether a
+// retry is appropriate (true on a non-global 429 with a fresh
+// Retry-After window). Any other error path returns retry=false.
+func (d *DiscordNotifier) postOnce(ctx context.Context, body []byte, attempt int) (bool, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
@@ -152,30 +229,77 @@ func (d *DiscordNotifier) post(ctx context.Context, payload discordWebhookPayloa
 		bytes.NewReader(body),
 	)
 	if err != nil {
-		return fmt.Errorf("creating discord request: %w", err)
+		return false, fmt.Errorf("creating discord request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	start := time.Now()
 	resp, err := d.client.Do(req)
 	metrics.NotificationDuration.Observe(time.Since(start).Seconds())
-
 	if err != nil {
-		return fmt.Errorf("sending discord webhook: %w", err)
+		return false, fmt.Errorf("sending discord webhook: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusTooManyRequests {
-		return fmt.Errorf("discord rate limited (429)")
-	}
+	d.rateLimit.update(resp)
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	switch {
+	case resp.StatusCode == http.StatusTooManyRequests:
+		return d.handle429(ctx, resp, attempt)
+	case resp.StatusCode < 200 || resp.StatusCode >= 300:
 		respBody, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
-			return fmt.Errorf("discord returned %d (body unreadable)", resp.StatusCode)
+			return false, fmt.Errorf("discord returned %d (body unreadable)", resp.StatusCode)
 		}
-		return fmt.Errorf("discord returned %d: %s", resp.StatusCode, respBody)
+		return false, fmt.Errorf("discord returned %d: %s", resp.StatusCode, respBody)
+	}
+	return false, nil
+}
+
+func (*DiscordNotifier) handle429(ctx context.Context, resp *http.Response, attempt int) (bool, error) {
+	global := resp.Header.Get("X-RateLimit-Global") == "true"
+	metrics.Discord429Total.WithLabelValues(strconv.FormatBool(global)).Inc()
+	if global {
+		return false, errGlobal429
+	}
+	if attempt >= max429Attempts {
+		return false, fmt.Errorf("discord rate limited (429), retries exhausted")
 	}
 
-	return nil
+	wait := parseRetryAfter(resp)
+	if wait <= 0 {
+		return false, fmt.Errorf("discord rate limited (429) with no usable Retry-After")
+	}
+	if err := sleepCtx(ctx, wait); err != nil {
+		return false, fmt.Errorf("waiting on discord 429 Retry-After: %w", err)
+	}
+	return true, fmt.Errorf("discord rate limited (429), retrying after %s", wait)
+}
+
+func parseRetryAfter(resp *http.Response) time.Duration {
+	if v := resp.Header.Get("Retry-After"); v != "" {
+		if secs, err := strconv.ParseFloat(v, 64); err == nil {
+			return time.Duration(secs * float64(time.Second))
+		}
+	}
+	if v := resp.Header.Get("X-RateLimit-Reset-After"); v != "" {
+		if secs, err := strconv.ParseFloat(v, 64); err == nil {
+			return time.Duration(secs * float64(time.Second))
+		}
+	}
+	return 0
+}
+
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }

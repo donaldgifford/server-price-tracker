@@ -43,6 +43,12 @@ var KnownMetrics = map[string]bool{
 	"spt_alerts_fired_by_watch":       true,
 	"spt_notification_failures_total": true,
 
+	// Alert review UI metrics (DESIGN-0010).
+	"spt_alerts_dismissed_total":               true,
+	"spt_alerts_query_duration_seconds":        true,
+	"spt_alerts_table_rows":                    true,
+	"spt_notification_attempts_inserted_total": true,
+
 	// Notification metrics.
 	"spt_notification_duration_seconds":       true,
 	"spt_notification_last_success_timestamp": true,

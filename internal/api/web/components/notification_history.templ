@@ -1,0 +1,34 @@
+package components
+
+import (
+	"fmt"
+
+	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
+)
+
+// NotificationHistory renders the rows from notification_attempts for a
+// single alert. Latest attempt first.
+templ NotificationHistory(attempts []domain.NotificationAttempt) {
+	<section id="notification-history" class="notification-history">
+		<h2>Notification History</h2>
+		if len(attempts) == 0 {
+			<p style="color:var(--color-muted);">No attempts recorded yet.</p>
+		}
+		for _, a := range attempts {
+			<div class="attempt">
+				<span>{ a.AttemptedAt.Format("2006-01-02 15:04:05 MST") }</span>
+				if a.Succeeded {
+					<span class="ok">✓ delivered</span>
+				} else {
+					<span class="err">✗ failed</span>
+				}
+				if a.HTTPStatus != nil {
+					<span>HTTP { fmt.Sprint(*a.HTTPStatus) }</span>
+				}
+				if a.ErrorText != nil && *a.ErrorText != "" {
+					<span style="color:var(--color-muted);">{ *a.ErrorText }</span>
+				}
+			</div>
+		}
+	</section>
+}

@@ -51,5 +51,12 @@ tools/docgen/docgen
 # Mock files (regenerate with: make mocks)
 mocks/
 
+# templ-generated Go (regenerate with: make templ-generate)
+*_templ.go
+*_templ.txt
+
+# Donald loop session state
+.claude/donald-loop.local.md
+
 # Generated Postman collection (regenerate with: make postman)
 portman/postman_collection.json

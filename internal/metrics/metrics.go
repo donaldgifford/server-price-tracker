@@ -296,3 +296,67 @@ var (
 		Help:      "Unix epoch of the last successful baseline refresh.",
 	})
 )
+
+// Alert review UI metrics (DESIGN-0010 / IMPL-0015 Phase 4).
+//
+// Surfaces operator-visible activity (dismissals, manual retries) and
+// query-shape health (latency, table size). Wired into a dashgen panel
+// so we know when alert-list latency starts climbing and the
+// pg_stat_statements follow-up needs prioritizing.
+var (
+	AlertsDismissedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "alerts_dismissed_total",
+		Help:      "Total number of alerts dismissed via the alert review UI.",
+	})
+
+	AlertsQueryDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Name:      "alerts_query_duration_seconds",
+		Help:      "Latency of alert review store queries by operation.",
+		Buckets:   []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5},
+	}, []string{"query"})
+
+	AlertsTableRows = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "alerts_table_rows",
+		Help:      "Total alerts matching the most recent list query (after filters).",
+	})
+
+	NotificationAttemptsInsertedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "notification_attempts_inserted_total",
+		Help:      "notification_attempts rows inserted, labeled by outcome.",
+	}, []string{"result"})
+)
+
+// Discord rate-limit metrics (DESIGN-0009 / IMPL-0015 Phase 5).
+//
+// Track the in-process bucket state derived from Discord's
+// X-RateLimit-* response headers so chunked sends reflect upstream
+// capacity rather than blindly hammering the webhook.
+var (
+	DiscordRateLimitRemaining = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "discord_rate_limit_remaining",
+		Help:      "Last observed X-RateLimit-Remaining for the Discord webhook bucket.",
+	})
+
+	DiscordRateLimitWaitsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "discord_rate_limit_waits_total",
+		Help:      "Number of times we slept before posting to wait out a Discord bucket reset.",
+	})
+
+	Discord429Total = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "discord_429_total",
+		Help:      "Discord 429 responses by global flag.",
+	}, []string{"global"})
+
+	DiscordChunksSentTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "discord_chunks_sent_total",
+		Help:      "Total chunks (one HTTP POST each) sent to Discord webhooks.",
+	})
+)

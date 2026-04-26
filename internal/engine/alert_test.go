@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -52,7 +53,7 @@ func TestProcessAlerts_NoPending(t *testing.T) {
 		Return(nil, nil).
 		Once()
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 }
 
@@ -76,7 +77,7 @@ func TestProcessAlerts_SingleAlert(t *testing.T) {
 		Return(nil).Once()
 	ms.EXPECT().MarkAlertNotified(mock.Anything, "a1").Return(nil).Once()
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 }
 
@@ -102,7 +103,7 @@ func TestProcessAlerts_NotifyFails_NotMarked(t *testing.T) {
 		Return(nil).Once()
 	// MarkAlertNotified should NOT be called when send fails.
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err) // ProcessAlerts logs errors, doesn't return them
 }
 
@@ -140,7 +141,7 @@ func TestProcessAlerts_BatchAlert(t *testing.T) {
 			}, nil).Once()
 	}
 
-	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").Return(nil).Once()
+	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").Return(len(alerts), nil).Once()
 
 	for i := range alerts {
 		ms.EXPECT().
@@ -154,7 +155,7 @@ func TestProcessAlerts_BatchAlert(t *testing.T) {
 	}
 	ms.EXPECT().MarkAlertsNotified(mock.Anything, alertIDs).Return(nil).Once()
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 }
 
@@ -194,7 +195,7 @@ func TestProcessAlerts_IndividualAlerts(t *testing.T) {
 		ms.EXPECT().MarkAlertNotified(mock.Anything, alerts[i].ID).Return(nil).Once()
 	}
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 }
 
@@ -209,7 +210,7 @@ func TestProcessAlerts_StoreError(t *testing.T) {
 		Return(nil, errors.New("db error")).
 		Once()
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "listing pending alerts")
 }
@@ -248,7 +249,7 @@ func TestProcessAlerts_SetsSuccessTimestamp(t *testing.T) {
 	ms.EXPECT().InsertNotificationAttempt(mock.Anything, "a1", true, 0, "").Return(nil).Once()
 	ms.EXPECT().MarkAlertNotified(mock.Anything, "a1").Return(nil).Once()
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 
 	ts := ptestutil.ToFloat64(metrics.NotificationLastSuccessTimestamp)
@@ -275,7 +276,7 @@ func TestProcessAlerts_SetsFailureTimestamp(t *testing.T) {
 		InsertNotificationAttempt(mock.Anything, "a1", false, 0, "discord 429").
 		Return(nil).Once()
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 
 	ts := ptestutil.ToFloat64(metrics.NotificationLastFailureTimestamp)
@@ -307,7 +308,7 @@ func TestProcessAlerts_IncrementsAlertsFiredByWatch(t *testing.T) {
 
 	before := ptestutil.ToFloat64(metrics.AlertsFiredByWatch.WithLabelValues("DDR4 ECC REG"))
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 
 	after := ptestutil.ToFloat64(metrics.AlertsFiredByWatch.WithLabelValues("DDR4 ECC REG"))
@@ -332,7 +333,7 @@ func TestProcessAlerts_SkipsAlreadyNotified(t *testing.T) {
 	ms.EXPECT().HasSuccessfulNotification(mock.Anything, "a1").Return(true, nil).Once()
 	// SendAlert, InsertNotificationAttempt, MarkAlertNotified should NOT be called.
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 }
 
@@ -357,7 +358,7 @@ func TestProcessAlerts_RecordsFailedAttempt(t *testing.T) {
 		Return(nil).Once()
 	// MarkAlertNotified is not expected when the send fails.
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 }
 
@@ -382,7 +383,7 @@ func TestProcessAlerts_RecordsSuccessfulAttempt(t *testing.T) {
 		Return(nil).Once()
 	ms.EXPECT().MarkAlertNotified(mock.Anything, "a1").Return(nil).Once()
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 }
 
@@ -402,7 +403,7 @@ func TestProcessAlerts_WatchDeletedSkipped(t *testing.T) {
 		Return(nil, errors.New("not found")).Once()
 	// sendAlerts must NOT be called when watch is missing.
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 }
 
@@ -448,7 +449,7 @@ func TestSendBatch_PartialListingsMissing(t *testing.T) {
 	}
 
 	// Batch sent with 4 items (the missing one is excluded).
-	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").Return(nil).Once()
+	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").Return(4, nil).Once()
 
 	// InsertNotificationAttempt only for the 4 items that were included.
 	for i := range alerts {
@@ -462,7 +463,7 @@ func TestSendBatch_PartialListingsMissing(t *testing.T) {
 	includedIDs := []string{alerts[0].ID, alerts[1].ID, alerts[3].ID, alerts[4].ID}
 	ms.EXPECT().MarkAlertsNotified(mock.Anything, includedIDs).Return(nil).Once()
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 }
 
@@ -499,7 +500,7 @@ func TestSendBatch_SendFails_AttemptsRecorded(t *testing.T) {
 
 	sendErr := errors.New("discord 429")
 	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").
-		Return(sendErr).Once()
+		Return(0, sendErr).Once()
 
 	// Attempts recorded as failed for all included alerts.
 	for i := range alerts {
@@ -509,7 +510,65 @@ func TestSendBatch_SendFails_AttemptsRecorded(t *testing.T) {
 	}
 	// MarkAlertsNotified must NOT be called when send fails.
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
+	require.NoError(t, err) // ProcessAlerts absorbs per-watch errors
+}
+
+// TestProcessAlerts_BatchPartialFailure verifies the partial-success
+// path: SendBatchAlert reports 3 of 5 alerts delivered before erroring
+// out. The first 3 must be marked notified with succeeded=true; the
+// last 2 get succeeded=false attempt rows. Per-ID accounting is the
+// resolved Q8 outcome.
+func TestProcessAlerts_BatchPartialFailure(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	alerts := make([]domain.Alert, 5)
+	for i := range alerts {
+		alerts[i] = domain.Alert{
+			ID:        "a" + string(rune('1'+i)),
+			WatchID:   "w1",
+			ListingID: "l" + string(rune('1'+i)),
+			Score:     80,
+		}
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	ms.EXPECT().GetWatch(mock.Anything, "w1").Return(testWatch(), nil).Once()
+
+	for i := range alerts {
+		ms.EXPECT().
+			HasSuccessfulNotification(mock.Anything, alerts[i].ID).
+			Return(false, nil).Once()
+		ms.EXPECT().
+			GetListingByID(mock.Anything, alerts[i].ListingID).
+			Return(&domain.Listing{
+				ID: alerts[i].ListingID, Title: "Listing", Price: 45.0, Quantity: 1,
+			}, nil).Once()
+	}
+
+	const sentCount = 3
+	sendErr := errors.New("chunk 2/2: discord 429")
+	mn.EXPECT().SendBatchAlert(mock.Anything, mock.Anything, "DDR4 ECC REG").
+		Return(sentCount, sendErr).Once()
+
+	for i := 0; i < sentCount; i++ {
+		ms.EXPECT().
+			InsertNotificationAttempt(mock.Anything, alerts[i].ID, true, 0, "").
+			Return(nil).Once()
+	}
+	for i := sentCount; i < len(alerts); i++ {
+		ms.EXPECT().
+			InsertNotificationAttempt(mock.Anything, alerts[i].ID, false, 0, sendErr.Error()).
+			Return(nil).Once()
+	}
+
+	deliveredIDs := []string{alerts[0].ID, alerts[1].ID, alerts[2].ID}
+	ms.EXPECT().MarkAlertsNotified(mock.Anything, deliveredIDs).Return(nil).Once()
+
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err) // ProcessAlerts absorbs per-watch errors
 }
 
@@ -581,7 +640,7 @@ func TestProcessAlerts_HasSuccessfulNotificationError(t *testing.T) {
 		Return(false, errors.New("db error")).Once()
 	// sendSingle returns the error; ProcessAlerts increments failure metric and continues.
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err) // ProcessAlerts absorbs per-watch errors
 }
 
@@ -612,7 +671,7 @@ func TestSendBatch_AllAlreadyNotified(t *testing.T) {
 	}
 	// SendBatchAlert must NOT be called — all payloads were filtered out.
 
-	err := ProcessAlerts(context.Background(), ms, mn)
+	err := ProcessAlerts(context.Background(), ms, mn, AlertProcessingConfig{})
 	require.NoError(t, err)
 }
 
@@ -640,4 +699,183 @@ func TestEvaluateAlert_ReAlertsEnabled_AllowsAfterCooldown(t *testing.T) {
 		ReAlertsCooldown: 24 * time.Hour,
 	}
 	eng.evaluateAlert(context.Background(), watch, listing)
+}
+
+// === IMPL-0015 Phase 6: summary mode ===
+
+func TestBuildSummaryPayload(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		alerts         []domain.Alert
+		listings       map[string]*domain.Listing
+		alertsURLBase  string
+		wantTitle      string
+		wantTopScore   int
+		wantURL        string
+		wantFieldNames []string
+	}{
+		{
+			name:           "empty pool",
+			alerts:         nil,
+			listings:       map[string]*domain.Listing{},
+			alertsURLBase:  "https://spt.example.com",
+			wantTitle:      "0 new alerts (top score 0)",
+			wantTopScore:   0,
+			wantURL:        "https://spt.example.com/alerts",
+			wantFieldNames: []string{},
+		},
+		{
+			name: "mixed component types",
+			alerts: []domain.Alert{
+				{ID: "a1", Score: 85},
+				{ID: "a2", Score: 92},
+				{ID: "a3", Score: 78},
+			},
+			listings: map[string]*domain.Listing{
+				"a1": {ComponentType: domain.ComponentRAM},
+				"a2": {ComponentType: domain.ComponentServer},
+				"a3": {ComponentType: domain.ComponentRAM},
+			},
+			alertsURLBase:  "https://spt.example.com",
+			wantTitle:      "3 new alerts (top score 92)",
+			wantTopScore:   92,
+			wantURL:        "https://spt.example.com/alerts",
+			wantFieldNames: []string{"ram", "server"}, // sorted
+		},
+		{
+			name: "no alerts URL base omits link",
+			alerts: []domain.Alert{
+				{ID: "a1", Score: 80},
+			},
+			listings: map[string]*domain.Listing{
+				"a1": {ComponentType: domain.ComponentRAM},
+			},
+			alertsURLBase:  "",
+			wantTitle:      "1 new alerts (top score 80)",
+			wantTopScore:   80,
+			wantURL:        "",
+			wantFieldNames: []string{"ram"},
+		},
+		{
+			name: "missing listing skips count",
+			alerts: []domain.Alert{
+				{ID: "a1", Score: 88},
+				{ID: "a2", Score: 70},
+			},
+			listings: map[string]*domain.Listing{
+				"a1": {ComponentType: domain.ComponentNIC},
+			},
+			alertsURLBase:  "https://spt.example.com",
+			wantTitle:      "2 new alerts (top score 88)",
+			wantTopScore:   88,
+			wantURL:        "https://spt.example.com/alerts",
+			wantFieldNames: []string{"nic"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			payload := BuildSummaryPayload(tt.alerts, tt.listings, tt.alertsURLBase)
+			assert.Equal(t, "Summary", payload.WatchName)
+			assert.Equal(t, tt.wantTitle, payload.ListingTitle)
+			assert.Equal(t, tt.wantTopScore, payload.Score)
+			assert.Equal(t, tt.wantURL, payload.EbayURL)
+
+			gotNames := make([]string, 0, len(payload.SummaryFields))
+			for _, f := range payload.SummaryFields {
+				gotNames = append(gotNames, f.Name)
+			}
+			assert.Equal(t, tt.wantFieldNames, gotNames)
+		})
+	}
+}
+
+func TestProcessAlerts_SummaryMode_SingleEmbed(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	const n = 50
+	alerts := make([]domain.Alert, n)
+	for i := range alerts {
+		alerts[i] = domain.Alert{
+			ID:        "a" + strconv.Itoa(i),
+			WatchID:   "w1",
+			ListingID: "l" + strconv.Itoa(i),
+			Score:     75 + (i % 25),
+		}
+	}
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	for i := range alerts {
+		ms.EXPECT().
+			GetListingByID(mock.Anything, alerts[i].ListingID).
+			Return(&domain.Listing{ID: alerts[i].ListingID, ComponentType: domain.ComponentRAM}, nil).
+			Once()
+	}
+	mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(nil).Once()
+	for i := range alerts {
+		ms.EXPECT().
+			InsertNotificationAttempt(mock.Anything, alerts[i].ID, true, 0, "").
+			Return(nil).Once()
+	}
+	expectedIDs := make([]string, n)
+	for i := range alerts {
+		expectedIDs[i] = alerts[i].ID
+	}
+	ms.EXPECT().MarkAlertsNotified(mock.Anything, expectedIDs).Return(nil).Once()
+
+	cfg := AlertProcessingConfig{SummaryOnly: true, AlertsURLBase: "https://spt.example.com"}
+	err := ProcessAlerts(context.Background(), ms, mn, cfg)
+	require.NoError(t, err)
+}
+
+func TestProcessAlerts_SummaryMode_NoNewAlerts(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(nil, nil).Once()
+
+	cfg := AlertProcessingConfig{SummaryOnly: true}
+	err := ProcessAlerts(context.Background(), ms, mn, cfg)
+	require.NoError(t, err)
+}
+
+func TestProcessAlerts_SummaryMode_SendFailure(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	mn := notifyMocks.NewMockNotifier(t)
+
+	alerts := []domain.Alert{
+		{ID: "a1", WatchID: "w1", ListingID: "l1", Score: 85},
+		{ID: "a2", WatchID: "w1", ListingID: "l2", Score: 92},
+	}
+	ms.EXPECT().ListPendingAlerts(mock.Anything).Return(alerts, nil).Once()
+	for i := range alerts {
+		ms.EXPECT().
+			GetListingByID(mock.Anything, alerts[i].ListingID).
+			Return(&domain.Listing{ID: alerts[i].ListingID, ComponentType: domain.ComponentRAM}, nil).
+			Once()
+	}
+	sendErr := errors.New("discord 500")
+	mn.EXPECT().SendAlert(mock.Anything, mock.Anything).Return(sendErr).Once()
+	for i := range alerts {
+		ms.EXPECT().
+			InsertNotificationAttempt(mock.Anything, alerts[i].ID, false, 0, sendErr.Error()).
+			Return(nil).Once()
+	}
+	// MarkAlertsNotified MUST NOT be called.
+
+	cfg := AlertProcessingConfig{SummaryOnly: true}
+	err := ProcessAlerts(context.Background(), ms, mn, cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "sending summary alert")
 }

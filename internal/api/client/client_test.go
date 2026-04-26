@@ -186,6 +186,65 @@ func TestClient_UpdateWatch(t *testing.T) {
 	assert.Equal(t, "Updated Watch", result.Name)
 }
 
+// TestClient_UpdateWatch_PartialUpdate exercises the full body shape that
+// `spt watches update` produces after applying a few flag deltas to a
+// fetched watch. The watch arrives at the client method as a complete
+// domain.Watch (not a sparse delta), and the client PUTs every field —
+// the server is the source of truth for "what changed" via diff against
+// its own current row.
+func TestClient_UpdateWatch_PartialUpdate(t *testing.T) {
+	t.Parallel()
+
+	threshold := 32.0
+	in := &domain.Watch{
+		ID:             "w1",
+		Name:           "DDR4 ECC 32GB",
+		SearchQuery:    "DDR4 ECC 32GB RDIMM",
+		CategoryID:     "175759",
+		ComponentType:  domain.ComponentRAM,
+		ScoreThreshold: 80,
+		Enabled:        true,
+		Filters: domain.WatchFilters{
+			AttributeFilters: map[string]domain.AttributeFilter{
+				"capacity_gb": {Equals: threshold},
+			},
+		},
+	}
+
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPut, r.Method)
+		assert.Equal(t, "/api/v1/watches/w1", r.URL.Path)
+
+		err := json.NewDecoder(r.Body).Decode(&got)
+		assert.NoError(t, err)
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(in)
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL)
+	result, err := c.UpdateWatch(context.Background(), in)
+	require.NoError(t, err)
+	require.Equal(t, "w1", result.ID)
+
+	// Every updatable field must round-trip in the PUT body — the server
+	// receives a complete picture of the desired state, not a delta.
+	assert.Equal(t, "DDR4 ECC 32GB", got["name"])
+	assert.Equal(t, "DDR4 ECC 32GB RDIMM", got["search_query"])
+	assert.Equal(t, "175759", got["category_id"])
+	assert.Equal(t, "ram", got["component_type"])
+	assert.InDelta(t, 80.0, got["score_threshold"], 0.001)
+	assert.Equal(t, true, got["enabled"])
+
+	filters, ok := got["filters"].(map[string]any)
+	require.True(t, ok, "filters block must be present in PUT body")
+	attr, ok := filters["attribute_filters"].(map[string]any)
+	require.True(t, ok, "attribute_filters must round-trip")
+	assert.Contains(t, attr, "capacity_gb")
+}
+
 func TestClient_SetWatchEnabled(t *testing.T) {
 	t.Parallel()
 

@@ -33,6 +33,7 @@ type Engine struct {
 	baselineWindowDays int
 	staggerOffset      time.Duration
 	alertsConfig       config.AlertsConfig
+	alertProcessing    AlertProcessingConfig
 	workerCount        int
 }
 
@@ -116,6 +117,15 @@ func WithRateLimiter(rl *ebay.RateLimiter) EngineOption {
 func WithAlertsConfig(cfg config.AlertsConfig) EngineOption {
 	return func(e *Engine) {
 		e.alertsConfig = cfg
+	}
+}
+
+// WithAlertProcessing sets the alert processing config used by
+// ProcessAlerts (SummaryOnly + AlertsURLBase). Default zero value is
+// the per-watch chunked path with no dashboard hyperlink.
+func WithAlertProcessing(cfg AlertProcessingConfig) EngineOption {
+	return func(e *Engine) {
+		e.alertProcessing = cfg
 	}
 }
 
@@ -218,9 +228,69 @@ func (eng *Engine) processExtractionJob(
 		eng.log.Error("scoring failed",
 			"worker", workerID, "listing", listing.EbayID, "error", scoreErr,
 		)
+	} else {
+		// Alerts are evaluated here (post-score) rather than at ingestion
+		// because the listing has no score yet during ingestion.
+		eng.evaluateAlertsForListing(ctx, listing)
 	}
 
 	eng.completeJob(ctx, workerID, job.ID, "")
+}
+
+// RescoreAll re-scores every active listing and evaluates alerts after each
+// successful score. Use this from the operator-facing /api/v1/rescore path
+// (and from RunBaselineRefresh) so a manual rescore can backfill alerts on
+// listings that became deal-worthy after a baseline change.
+func (eng *Engine) RescoreAll(ctx context.Context) (int, error) {
+	const batchSize = 200
+	var cursor string
+	total := 0
+	var errs []error
+
+	for {
+		batch, err := eng.store.ListListingsCursor(ctx, cursor, batchSize)
+		if err != nil {
+			return total, fmt.Errorf("listing by cursor: %w", err)
+		}
+		if len(batch) == 0 {
+			break
+		}
+		for i := range batch {
+			if err := ScoreListing(ctx, eng.store, &batch[i]); err != nil {
+				errs = append(errs, fmt.Errorf("scoring %s: %w", batch[i].ID, err))
+				continue
+			}
+			total++
+			eng.evaluateAlertsForListing(ctx, &batch[i])
+		}
+		cursor = batch[len(batch)-1].ID
+	}
+
+	return total, errors.Join(errs...)
+}
+
+// evaluateAlertsForListing checks every enabled watch whose component_type
+// matches the listing and calls evaluateAlert for each. This is how alerts
+// get created for newly-scored listings — the per-watch ingestion loop
+// can't do it because the listing isn't scored yet at ingest time.
+func (eng *Engine) evaluateAlertsForListing(ctx context.Context, listing *domain.Listing) {
+	if listing.Score == nil {
+		return
+	}
+	watches, err := eng.store.ListWatches(ctx, true)
+	if err != nil {
+		eng.log.Error("listing watches for alert eval failed",
+			"listing", listing.ID, "error", err,
+		)
+		return
+	}
+	for i := range watches {
+		w := &watches[i]
+		if w.ComponentType != listing.ComponentType {
+			continue
+		}
+		eng.evaluateAlert(ctx, w, listing)
+	}
 }
 
 // completeJob marks a queue entry as done, logging on failure.
@@ -296,7 +366,7 @@ func (eng *Engine) RunIngestion(ctx context.Context) error {
 	}
 
 	// Always process alerts, even if budget/daily limit was hit.
-	if err := ProcessAlerts(ctx, eng.store, eng.notifier); err != nil {
+	if err := ProcessAlerts(ctx, eng.store, eng.notifier, eng.alertProcessing); err != nil {
 		eng.log.Error("alert processing failed", "error", err)
 	}
 
@@ -512,7 +582,7 @@ func (eng *Engine) RunBaselineRefresh(ctx context.Context) error {
 		return fmt.Errorf("recomputing baselines: %w", err)
 	}
 
-	_, err := RescoreAll(ctx, eng.store)
+	_, err := eng.RescoreAll(ctx)
 	if err != nil {
 		return fmt.Errorf("re-scoring after baseline refresh: %w", err)
 	}

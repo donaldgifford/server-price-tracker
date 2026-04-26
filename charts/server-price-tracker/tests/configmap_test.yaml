@@ -34,3 +34,41 @@ tests:
       - matchRegex:
           path: data["config.yaml"]
           pattern: "llm:"
+
+  - it: web section enabled by default
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "web:\\s*\\n\\s*enabled: true"
+
+  - it: web section reflects alerts_url_base override
+    set:
+      config.web.alerts_url_base: "https://spt.example.com"
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'alerts_url_base: "https://spt.example.com"'
+
+  - it: web section can be disabled
+    set:
+      config.web.enabled: false
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "enabled: false"
+
+  - it: discord summary_only flag round-trips
+    set:
+      config.notifications.discord.summary_only: true
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "summary_only: true"
+
+  - it: discord inter_chunk_delay round-trips
+    set:
+      config.notifications.discord.inter_chunk_delay: "100ms"
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'inter_chunk_delay: "100ms"'

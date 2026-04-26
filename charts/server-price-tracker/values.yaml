@@ -103,6 +103,22 @@ config:
     discord:
       enabled: true
       webhook_url: "${DISCORD_WEBHOOK_URL}"
+      # Defensive sleep between chunks beyond X-RateLimit-driven waits.
+      # Set to e.g. "100ms" if a busy webhook trips global limits.
+      # Default 0s = no extra delay.
+      inter_chunk_delay: "0s"
+      # Collapse each scheduler tick into one summary embed instead
+      # of per-alert messages. The /alerts page becomes the work
+      # surface. Default false (rich per-alert embeds).
+      summary_only: false
+
+  # Embedded alert review UI at /alerts (DESIGN-0010 / IMPL-0015 Phase 4).
+  web:
+    # Set to false to skip mounting the /alerts route group on this deploy.
+    enabled: true
+    # Absolute base URL used to deep-link from Discord summary embeds back
+    # to the dashboard. Empty = link omitted.
+    alerts_url_base: ""
 
   logging:
     level: info

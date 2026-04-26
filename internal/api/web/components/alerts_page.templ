@@ -1,0 +1,67 @@
+package components
+
+import (
+	"fmt"
+
+	"github.com/donaldgifford/server-price-tracker/internal/store"
+)
+
+// AlertsPageData is the input to AlertsPage. Carries the search/filter
+// values so the form can pre-fill on render and so the pagination links
+// can preserve filter state.
+type AlertsPageData struct {
+	Result    store.AlertReviewResult
+	Query     store.AlertReviewQuery
+	RawQuery  string // original URL query string (used for pagination links)
+}
+
+// AlertsPage is the top-level list view at GET /alerts.
+templ AlertsPage(data AlertsPageData) {
+	@Layout("Alerts") {
+		<form
+			class="filters"
+			method="get"
+			action="/alerts"
+			hx-get="/alerts"
+			hx-trigger="submit, keyup changed delay:300ms from:input[name=q]"
+			hx-target="#alerts-table"
+			hx-swap="outerHTML"
+			hx-push-url="true"
+		>
+			<input
+				type="text"
+				name="q"
+				value={ data.Query.Search }
+				placeholder="Search title (e.g. 'DDR4 32GB ECC')"
+			/>
+			<select name="type">
+				<option value="" selected?={ data.Query.ComponentType == "" }>All types</option>
+				for _, t := range []string{"ram", "drive", "server", "cpu", "nic", "other"} {
+					<option value={ t } selected?={ data.Query.ComponentType == t }>{ t }</option>
+				}
+			</select>
+			<input
+				type="number"
+				name="min_score"
+				value={ fmt.Sprint(data.Query.MinScore) }
+				min="0"
+				max="100"
+				step="1"
+				placeholder="Min score"
+			/>
+			<select name="status">
+				for _, s := range []string{"active", "undismissed", "dismissed", "notified", "all"} {
+					<option value={ s } selected?={ string(data.Query.Status) == s }>{ s }</option>
+				}
+			</select>
+			<select name="sort">
+				for _, s := range []string{"score", "created", "watch"} {
+					<option value={ s } selected?={ data.Query.Sort == s }>{ s }</option>
+				}
+			</select>
+			<button type="submit" class="btn-primary">Search</button>
+		</form>
+
+		@AlertsTable(data.Result, data.RawQuery)
+	}
+}

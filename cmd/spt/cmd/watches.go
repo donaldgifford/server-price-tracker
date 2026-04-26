@@ -22,6 +22,7 @@ func watchCmd() *cobra.Command {
 		watchListCmd(),
 		watchGetCmd(),
 		watchCreateCmd(),
+		watchUpdateCmd(),
 		watchEnableCmd(),
 		watchDisableCmd(),
 		watchDeleteCmd(),

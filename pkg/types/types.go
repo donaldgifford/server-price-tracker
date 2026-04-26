@@ -297,13 +297,14 @@ type PriceBaseline struct {
 
 // Alert represents a triggered notification.
 type Alert struct {
-	ID         string     `json:"id"                    db:"id"`
-	WatchID    string     `json:"watch_id"              db:"watch_id"`
-	ListingID  string     `json:"listing_id"            db:"listing_id"`
-	Score      int        `json:"score"                 db:"score"`
-	Notified   bool       `json:"notified"              db:"notified"`
-	NotifiedAt *time.Time `json:"notified_at,omitempty" db:"notified_at"`
-	CreatedAt  time.Time  `json:"created_at"            db:"created_at"`
+	ID          string     `json:"id"                     db:"id"`
+	WatchID     string     `json:"watch_id"               db:"watch_id"`
+	ListingID   string     `json:"listing_id"             db:"listing_id"`
+	Score       int        `json:"score"                  db:"score"`
+	Notified    bool       `json:"notified"               db:"notified"`
+	NotifiedAt  *time.Time `json:"notified_at,omitempty"  db:"notified_at"`
+	CreatedAt   time.Time  `json:"created_at"             db:"created_at"`
+	DismissedAt *time.Time `json:"dismissed_at,omitempty" db:"dismissed_at"`
 }
 
 // ScoreBreakdown details the per-factor scores for a listing.
@@ -315,4 +316,33 @@ type ScoreBreakdown struct {
 	Quality   float64 `json:"quality"`
 	Time      float64 `json:"time"`
 	Total     int     `json:"total"`
+}
+
+// AlertWithListing is one row of the alert review list, joining alert,
+// listing, and watch fields needed to render a single table row without
+// a follow-up query per row.
+type AlertWithListing struct {
+	Alert     Alert   `json:"alert"`
+	Listing   Listing `json:"listing"`
+	WatchName string  `json:"watch_name"`
+}
+
+// NotificationAttempt is one row from the notification_attempts table.
+type NotificationAttempt struct {
+	ID          string    `json:"id"                    db:"id"`
+	AlertID     string    `json:"alert_id"              db:"alert_id"`
+	AttemptedAt time.Time `json:"attempted_at"          db:"attempted_at"`
+	Succeeded   bool      `json:"succeeded"             db:"succeeded"`
+	HTTPStatus  *int      `json:"http_status,omitempty" db:"http_status"`
+	ErrorText   *string   `json:"error_text,omitempty"  db:"error_text"`
+}
+
+// AlertDetail is the data backing the per-alert detail page. Carries the
+// full listing card, watch context, score breakdown, and notification
+// history for a single alert in one shot.
+type AlertDetail struct {
+	Alert               Alert                 `json:"alert"`
+	Listing             Listing               `json:"listing"`
+	Watch               Watch                 `json:"watch"`
+	NotificationHistory []NotificationAttempt `json:"notification_history"`
 }

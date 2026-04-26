@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/donaldgifford/server-price-tracker/internal/api/handlers"
 	apimw "github.com/donaldgifford/server-price-tracker/internal/api/middleware"
+	"github.com/donaldgifford/server-price-tracker/internal/api/web"
 	"github.com/donaldgifford/server-price-tracker/internal/config"
 	"github.com/donaldgifford/server-price-tracker/internal/ebay"
 	"github.com/donaldgifford/server-price-tracker/internal/engine"
@@ -77,6 +79,11 @@ func startServer(opts *Options) error {
 	// --- Routes ---
 	registerRoutes(humaAPI, pgStore, ebayClient, extractor, eng, rateLimiter)
 
+	if err := registerAlertsUI(e, cfg, pgStore, notifier, slogger); err != nil {
+		workerCancel()
+		return err
+	}
+
 	// Prometheus metrics.
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
@@ -121,6 +128,36 @@ func startServer(opts *Options) error {
 	}
 
 	slogger.Info("server stopped")
+	return nil
+}
+
+// registerAlertsUI mounts the alert review UI under /alerts and the static
+// asset handler under /static/* when web.enabled is true and the store is
+// available. Lives outside Huma because it serves HTML, not JSON on /api/v1.
+func registerAlertsUI(
+	e *echo.Echo,
+	cfg *config.Config,
+	pgStore store.Store,
+	notifier notify.Notifier,
+	logger *slog.Logger,
+) error {
+	if !cfg.Web.Enabled || pgStore == nil {
+		return nil
+	}
+	alertsUI := handlers.NewAlertsUIHandler(handlers.AlertsUIDeps{
+		Store:         pgStore,
+		Notifier:      notifier,
+		AlertsURLBase: cfg.Web.AlertsURLBase,
+	})
+	handlers.RegisterAlertsUIRoutes(e, alertsUI)
+	staticSub, err := fs.Sub(web.StaticFS, "static")
+	if err != nil {
+		return fmt.Errorf("scoping web static FS: %w", err)
+	}
+	e.GET("/static/*", echo.WrapHandler(
+		http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))),
+	))
+	logger.Info("alert review UI enabled", "path", "/alerts")
 	return nil
 }
 
@@ -175,7 +212,7 @@ func registerRoutes(
 		watchH := handlers.NewWatchHandler(s)
 		handlers.RegisterWatchRoutes(humaAPI, watchH)
 
-		rescoreH := handlers.NewRescoreHandler(s)
+		rescoreH := handlers.NewRescoreHandler(eng)
 		handlers.RegisterRescoreRoutes(humaAPI, rescoreH)
 
 		baselinesH := handlers.NewBaselinesHandler(s)
@@ -274,8 +311,14 @@ func buildExtractor(cfg *config.Config, logger *slog.Logger) extract.Extractor {
 
 func buildNotifier(cfg *config.Config, logger *slog.Logger) notify.Notifier {
 	if cfg.Notifications.Discord.Enabled && cfg.Notifications.Discord.WebhookURL != "" {
-		logger.Info("discord notifications enabled")
-		return notify.NewDiscordNotifier(cfg.Notifications.Discord.WebhookURL)
+		opts := []notify.DiscordOption{}
+		if delay := cfg.Notifications.Discord.InterChunkDelay; delay > 0 {
+			opts = append(opts, notify.WithInterChunkDelay(delay))
+			logger.Info("discord notifications enabled", "inter_chunk_delay", delay)
+		} else {
+			logger.Info("discord notifications enabled")
+		}
+		return notify.NewDiscordNotifier(cfg.Notifications.Discord.WebhookURL, opts...)
 	}
 	logger.Info("notifications disabled, using no-op notifier")
 	return notify.NewNoOpNotifier(logger)
@@ -301,6 +344,10 @@ func buildEngine(
 		engine.WithBaselineWindowDays(cfg.Scoring.BaselineWindowDays),
 		engine.WithStaggerOffset(cfg.Schedule.StaggerOffset),
 		engine.WithAlertsConfig(cfg.Alerts),
+		engine.WithAlertProcessing(engine.AlertProcessingConfig{
+			SummaryOnly:   cfg.Notifications.Discord.SummaryOnly,
+			AlertsURLBase: cfg.Web.AlertsURLBase,
+		}),
 	}
 
 	if ac != nil {

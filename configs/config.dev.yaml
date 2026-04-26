@@ -96,6 +96,11 @@ notifications:
     headers:
       Authorization: "Bearer ${WEBHOOK_TOKEN}"
 
+# Embedded alert review UI at /alerts.
+web:
+  enabled: true
+  alerts_url_base: "http://localhost:8080"
+
 logging:
   level: info
   format: text  # text or json

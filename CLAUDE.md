@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Server Price Tracker is an API-first Go service that monitors eBay listings for server hardware deals (RAM, drives, servers, CPUs, NICs). It extracts structured attributes via LLM (Ollama default, Anthropic Claude API optional), scores listings against historical price baselines, and sends deal alerts via Discord webhooks. Two binaries: `server-price-tracker` (API server) and `spt` (CLI client).
 
-**Current state:** MVP implementation is complete. All handlers use Huma v2 typed input/output structs with runtime OpenAPI spec generation. The `spt` CLI client consumes the HTTP API via Cobra + Viper. Scheduler state, extraction queue, and rate limiter state are DB-backed (migrations 002-006). Baselines use active listing prices as a proxy since the eBay Browse API only returns active listings (migration 007). Stale unextracted listings are soft-deactivated via an `active` flag (migration 008). Documentation is managed via `docz` CLI — see `docs/design/`, `docs/impl/`, `docs/rfc/`.
+**Current state:** MVP implementation is complete. All handlers use Huma v2 typed input/output structs with runtime OpenAPI spec generation. The `spt` CLI client consumes the HTTP API via Cobra + Viper. Scheduler state, extraction queue, and rate limiter state are DB-backed (migrations 002-006). Baselines use active listing prices as a proxy since the eBay Browse API only returns active listings (migration 007). Stale unextracted listings are soft-deactivated via an `active` flag (migration 008). Alerts gained a `dismissed_at` column for the alert review UI (migration 009). Documentation is managed via `docz` CLI — see `docs/design/`, `docs/impl/`, `docs/rfc/`.
+
+**Notification & alert review (DESIGN-0008/0009/0010, IMPL-0015):** The Discord notifier chunks batches into ≤10-embed POSTs, parses `X-RateLimit-*` headers for bucket-aware sleeps, and retries non-global 429s once. `Notifier.SendBatchAlert` returns `(sent int, err error)` so the engine records per-ID delivery outcomes (succeeded=true for the first `sent`, false for the rest). The alert review UI at `/alerts` is templ + HTMX + Alpine, gated by `config.web.enabled`. Discord can be flipped to summary mode via `config.notifications.discord.summary_only`: each scheduler tick produces one embed linking back to `<web.alerts_url_base>/alerts`, with the dashboard becoming the work surface. The `spt watches update` subcommand patches watches in place (threshold, filters, etc.) — see `docs/cli/spt_watches_update.md`.
 
 ## Git Workflow
 
@@ -50,6 +52,10 @@ make fmt                      # or: goimports -w . && golines -w .
 
 # Generate mocks (run after changing any interface)
 make mocks                    # or: mockery
+
+# Generate templ components (alert review UI at /alerts)
+make templ-generate           # or: templ generate
+make templ-watch              # rebuild on change during development
 
 # Generate Postman collection with contract tests (requires running server)
 make postman                  # portman fetches /openapi.json from running server
@@ -185,7 +191,7 @@ docs/                         Design and implementation documentation (managed v
 - `pkg/extract/` — `LLMBackend` and `Extractor` interfaces, implementations (Ollama, Anthropic, OpenAI-compatible), extraction orchestrator, prompt templates, response validation.
 
 **Internal (`internal/`)** — application-specific, not importable:
-- `internal/api/` — Echo HTTP server with Huma v2 typed handlers, middleware (Prometheus metrics, request logging, panic recovery), API client for CLI
+- `internal/api/` — Echo HTTP server with Huma v2 typed handlers, middleware (Prometheus metrics, request logging, panic recovery), API client for CLI. Also hosts the alert review UI at `/alerts` (DESIGN-0010): server-rendered HTML via [templ](https://templ.guide) components in `internal/api/web/components/`, [HTMX](https://htmx.org) 1.9 for swap-in-place interactions, [Alpine.js](https://alpinejs.dev) 3.14 for small reactive bits. Generated `*_templ.go` files are gitignored — `make build` runs `templ generate` first. Static assets (htmx.min.js, alpine.min.js, spt.css) ship via `go:embed` in `internal/api/web/embed.go`.
 - `internal/store/` — `Store` interface (datastore abstraction) + `PostgresStore` implementation (raw SQL with pgx, no ORM)
 - `internal/engine/` — Ingestion loop, baseline recomputation, alert evaluation, scheduler. Takes all dependencies as interfaces.
 - `internal/ebay/` — `EbayClient` and `TokenProvider` interfaces + implementations

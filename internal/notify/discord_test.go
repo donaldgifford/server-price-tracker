@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -173,10 +176,243 @@ func TestDiscordNotifier_SendBatchAlert(t *testing.T) {
 	}
 
 	d := NewDiscordNotifier(srv.URL)
-	err := d.SendBatchAlert(context.Background(), alerts, "DDR4 Watch")
+	sent, err := d.SendBatchAlert(context.Background(), alerts, "DDR4 Watch")
 	require.NoError(t, err)
+	assert.Equal(t, 3, sent)
 
 	assert.Len(t, received.Embeds, 3)
+}
+
+// TestSendBatchAlert_Chunking exercises the chunked-send replacement
+// for the old truncation+summary path. For every input size, the
+// notifier should produce ceil(n/10) POSTs, each carrying at most 10
+// embeds, and the cumulative embed count should equal n with zero
+// summary inserts.
+func TestSendBatchAlert_Chunking(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		n           int
+		wantPosts   int
+		wantLast    int
+		wantSentArg int
+	}{
+		{name: "empty batch", n: 0, wantPosts: 0, wantLast: 0, wantSentArg: 0},
+		{name: "single alert", n: 1, wantPosts: 1, wantLast: 1, wantSentArg: 1},
+		{name: "exactly one chunk", n: 10, wantPosts: 1, wantLast: 10, wantSentArg: 10},
+		{name: "two chunks with remainder", n: 15, wantPosts: 2, wantLast: 5, wantSentArg: 15},
+		{name: "two full chunks", n: 20, wantPosts: 2, wantLast: 10, wantSentArg: 20},
+		{name: "deep overflow", n: 100, wantPosts: 10, wantLast: 10, wantSentArg: 100},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var posts []discordWebhookPayload
+			var mu sync.Mutex
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var p discordWebhookPayload
+				assert.NoError(t, json.NewDecoder(r.Body).Decode(&p))
+				mu.Lock()
+				posts = append(posts, p)
+				mu.Unlock()
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer srv.Close()
+
+			alerts := make([]AlertPayload, tt.n)
+			for i := range alerts {
+				alerts[i] = testAlert(85)
+			}
+
+			d := NewDiscordNotifier(srv.URL)
+			sent, err := d.SendBatchAlert(context.Background(), alerts, "DDR4 Watch")
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSentArg, sent)
+
+			require.Len(t, posts, tt.wantPosts)
+			total := 0
+			for i, p := range posts {
+				assert.LessOrEqual(t, len(p.Embeds), maxEmbedsPerMessage,
+					"chunk %d must not exceed Discord's %d-embed cap", i+1, maxEmbedsPerMessage)
+				total += len(p.Embeds)
+			}
+			if tt.wantPosts > 0 {
+				assert.Len(t, posts[tt.wantPosts-1].Embeds, tt.wantLast)
+			}
+			assert.Equal(t, tt.n, total)
+		})
+	}
+}
+
+// TestChunkAlerts is a pure helper test; covers boundary cases
+// without touching HTTP at all.
+func TestChunkAlerts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		n         int
+		size      int
+		wantCount int
+		wantLast  int
+	}{
+		{name: "empty", n: 0, size: 10, wantCount: 0},
+		{name: "single", n: 1, size: 10, wantCount: 1, wantLast: 1},
+		{name: "exactly one chunk", n: 10, size: 10, wantCount: 1, wantLast: 10},
+		{name: "remainder", n: 11, size: 10, wantCount: 2, wantLast: 1},
+		{name: "two full chunks", n: 21, size: 10, wantCount: 3, wantLast: 1},
+		{name: "100 alerts", n: 100, size: 10, wantCount: 10, wantLast: 10},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			alerts := make([]AlertPayload, tt.n)
+			chunks := chunkAlerts(alerts, tt.size)
+			assert.Len(t, chunks, tt.wantCount)
+			if tt.wantCount > 0 {
+				assert.Len(t, chunks[len(chunks)-1], tt.wantLast)
+			}
+		})
+	}
+}
+
+// TestSendBatchAlert_RateLimitWait exercises the bucket-driven sleep.
+// Server's first response carries Remaining=0 and Reset-After=0.05 so
+// the second POST must arrive at least 50ms after the first.
+func TestSendBatchAlert_RateLimitWait(t *testing.T) {
+	t.Parallel()
+
+	var times []time.Time
+	var mu sync.Mutex
+	var posts int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		times = append(times, time.Now())
+		posts++
+		current := posts
+		mu.Unlock()
+		// Drain the body to keep keep-alive happy.
+		_, _ = io.Copy(io.Discard, r.Body)
+
+		if current == 1 {
+			w.Header().Set("X-RateLimit-Remaining", "0")
+			w.Header().Set("X-RateLimit-Reset-After", "0.05")
+		} else {
+			w.Header().Set("X-RateLimit-Remaining", "5")
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	alerts := make([]AlertPayload, 11)
+	for i := range alerts {
+		alerts[i] = testAlert(85)
+	}
+
+	d := NewDiscordNotifier(srv.URL)
+	sent, err := d.SendBatchAlert(context.Background(), alerts, "DDR4 Watch")
+	require.NoError(t, err)
+	assert.Equal(t, 11, sent)
+
+	require.Len(t, times, 2)
+	gap := times[1].Sub(times[0])
+	assert.GreaterOrEqual(t, gap, 45*time.Millisecond,
+		"second POST must wait for bucket reset; got %s", gap)
+}
+
+// TestSendBatchAlert_429Retry verifies a non-global 429 with a usable
+// Retry-After triggers a single retry that succeeds.
+func TestSendBatchAlert_429Retry(t *testing.T) {
+	t.Parallel()
+
+	var posts int
+	var mu sync.Mutex
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		posts++
+		current := posts
+		mu.Unlock()
+		_, _ = io.Copy(io.Discard, r.Body)
+
+		if current == 1 {
+			w.Header().Set("Retry-After", "0.02")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	alerts := []AlertPayload{testAlert(85)}
+	d := NewDiscordNotifier(srv.URL)
+	sent, err := d.SendBatchAlert(context.Background(), alerts, "DDR4 Watch")
+	require.NoError(t, err)
+	assert.Equal(t, 1, sent)
+	assert.Equal(t, 2, posts, "expected one 429 + one retry success")
+}
+
+// TestSendBatchAlert_429Global verifies a global 429 short-circuits
+// without retrying and reports zero alerts sent.
+func TestSendBatchAlert_429Global(t *testing.T) {
+	t.Parallel()
+
+	var posts int
+	var mu sync.Mutex
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		posts++
+		mu.Unlock()
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.Header().Set("X-RateLimit-Global", "true")
+		w.Header().Set("Retry-After", "0.02")
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer srv.Close()
+
+	alerts := []AlertPayload{testAlert(85)}
+	d := NewDiscordNotifier(srv.URL)
+	sent, err := d.SendBatchAlert(context.Background(), alerts, "DDR4 Watch")
+	require.Error(t, err)
+	assert.Equal(t, 0, sent)
+	assert.Equal(t, 1, posts, "global 429 must not retry locally")
+}
+
+// TestSendBatchAlert_InterChunkDelay verifies WithInterChunkDelay
+// inserts the requested gap even when the bucket has capacity.
+func TestSendBatchAlert_InterChunkDelay(t *testing.T) {
+	t.Parallel()
+
+	var times []time.Time
+	var mu sync.Mutex
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		times = append(times, time.Now())
+		mu.Unlock()
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.Header().Set("X-RateLimit-Remaining", "5")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	alerts := make([]AlertPayload, 11)
+	for i := range alerts {
+		alerts[i] = testAlert(85)
+	}
+
+	d := NewDiscordNotifier(srv.URL, WithInterChunkDelay(25*time.Millisecond))
+	sent, err := d.SendBatchAlert(context.Background(), alerts, "DDR4 Watch")
+	require.NoError(t, err)
+	assert.Equal(t, 11, sent)
+
+	require.Len(t, times, 2)
+	gap := times[1].Sub(times[0])
+	assert.GreaterOrEqual(t, gap, 22*time.Millisecond,
+		"inter-chunk delay must apply between chunks; got %s", gap)
 }
 
 func TestDiscordNotifier_NetworkError(t *testing.T) {

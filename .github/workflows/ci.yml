@@ -31,6 +31,13 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Generate templ files
+        # *_templ.go is gitignored (IMPL-0015 Phase 4); golangci-lint's
+        # typecheck pass needs the generated files on disk.
+        run: |
+          go install github.com/a-h/templ/cmd/templ@latest
+          templ generate
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
@@ -46,6 +53,11 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      - name: Install templ
+        # make test-coverage depends on templ-generate, which calls
+        # the templ binary. Make's PATH inherits this step's PATH.
+        run: go install github.com/a-h/templ/cmd/templ@latest
 
       - name: Run unit tests
         run: make test-coverage
@@ -72,11 +84,19 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Generate templ files
+        # govulncheck does a full build; needs *_templ.go on disk.
+        # Inlined govulncheck install + run because the action wrapper
+        # does its own checkout, wiping the generated files.
+        run: |
+          go install github.com/a-h/templ/cmd/templ@latest
+          templ generate
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
       - name: Run govulncheck
-        uses: donaldgifford/govulncheck-action@v1
-        with:
-          go-version-file: go.mod
-          go-package: ./...
+        run: govulncheck ./...
 
   build:
     name: Build
@@ -89,6 +109,11 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      - name: Install templ
+        # The .goreleaser.yml `before` hook also installs templ, but
+        # explicit pre-install keeps the goreleaser step deterministic.
+        run: go install github.com/a-h/templ/cmd/templ@latest
 
       - name: Verify builds for all platforms
         uses: goreleaser/goreleaser-action@v6

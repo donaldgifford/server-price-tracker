@@ -412,6 +412,118 @@ func TestEvaluateAlert_CreateAlertError(t *testing.T) {
 	eng.evaluateAlert(context.Background(), watch, listing)
 }
 
+func TestEvaluateAlertsForListing_FiresForMatchingWatches(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	score := 89
+	listing := &domain.Listing{
+		ID:            "l1",
+		Score:         &score,
+		ComponentType: domain.ComponentRAM,
+		Quantity:      1,
+		Price:         649.99,
+	}
+	watches := []domain.Watch{
+		{ID: "w-ram-low", ComponentType: domain.ComponentRAM, ScoreThreshold: 60},
+		{ID: "w-ram-high", ComponentType: domain.ComponentRAM, ScoreThreshold: 70},
+		{ID: "w-ram-too-high", ComponentType: domain.ComponentRAM, ScoreThreshold: 95},
+		{ID: "w-cpu", ComponentType: domain.ComponentCPU, ScoreThreshold: 60},
+	}
+
+	ms.EXPECT().ListWatches(mock.Anything, true).Return(watches, nil).Once()
+
+	createdFor := map[string]bool{}
+	ms.EXPECT().CreateAlert(mock.Anything, mock.MatchedBy(func(a *domain.Alert) bool {
+		createdFor[a.WatchID] = true
+		return a.ListingID == "l1" && a.Score == 89
+	})).Return(nil).Times(2)
+
+	eng.evaluateAlertsForListing(context.Background(), listing)
+
+	assert.True(t, createdFor["w-ram-low"], "expected alert for w-ram-low (score 89 ≥ 60)")
+	assert.True(t, createdFor["w-ram-high"], "expected alert for w-ram-high (score 89 ≥ 70)")
+	assert.False(t, createdFor["w-ram-too-high"], "should not alert: score 89 < 95")
+	assert.False(t, createdFor["w-cpu"], "should not alert: cpu watch on ram listing")
+}
+
+func TestEvaluateAlertsForListing_SkipsWhenScoreNil(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	listing := &domain.Listing{ID: "l1", Score: nil, ComponentType: domain.ComponentRAM}
+
+	// ListWatches must NOT be called when score is nil — short-circuit.
+	eng.evaluateAlertsForListing(context.Background(), listing)
+}
+
+func TestEvaluateAlertsForListing_LogsListWatchesError(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	score := 90
+	listing := &domain.Listing{ID: "l1", Score: &score, ComponentType: domain.ComponentRAM}
+
+	ms.EXPECT().ListWatches(mock.Anything, true).Return(nil, errors.New("db down")).Once()
+	// CreateAlert must NOT be called when ListWatches fails.
+
+	eng.evaluateAlertsForListing(context.Background(), listing)
+}
+
+func TestEngineRescoreAll_FiresAlerts(t *testing.T) {
+	t.Parallel()
+
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	// One RAM listing with a product key, returned in the first cursor batch.
+	listings := []domain.Listing{
+		{
+			ID:            "l1",
+			ProductKey:    "ram:ddr4:32gb",
+			ComponentType: domain.ComponentRAM,
+			Price:         45.99,
+			Quantity:      1,
+		},
+	}
+	ms.EXPECT().ListListingsCursor(mock.Anything, "", 200).Return(listings, nil).Once()
+	ms.EXPECT().ListListingsCursor(mock.Anything, "l1", 200).Return(nil, nil).Once()
+
+	ms.EXPECT().GetBaseline(mock.Anything, "ram:ddr4:32gb").Return(nil, pgx.ErrNoRows).Once()
+	ms.EXPECT().UpdateScore(mock.Anything, "l1", mock.AnythingOfType("int"), mock.Anything).Return(nil).Once()
+
+	// Watch lookup for alert eval — threshold 0 so any computed score
+	// triggers the alert path (this test verifies plumbing, not scoring math).
+	ms.EXPECT().ListWatches(mock.Anything, true).Return([]domain.Watch{
+		{ID: "w-ram", ComponentType: domain.ComponentRAM, ScoreThreshold: 0},
+	}, nil).Once()
+	ms.EXPECT().CreateAlert(mock.Anything, mock.MatchedBy(func(a *domain.Alert) bool {
+		return a.WatchID == "w-ram" && a.ListingID == "l1"
+	})).Return(nil).Once()
+
+	scored, err := eng.RescoreAll(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, scored)
+}
+
 func TestRunBaselineRefresh_Success(t *testing.T) {
 	t.Parallel()
 
@@ -1239,6 +1351,12 @@ func TestStartExtractionWorkers_ProcessesJob(t *testing.T) {
 	ms.EXPECT().
 		UpdateScore(mock.Anything, "listing-1", mock.AnythingOfType("int"), mock.Anything).
 		Return(nil).Once()
+
+	// Post-score alert evaluation queries enabled watches; return none so
+	// no alerts fire (this test only verifies the worker completes the job).
+	ms.EXPECT().
+		ListWatches(mock.Anything, true).
+		Return(nil, nil).Once()
 
 	done := make(chan struct{})
 	ms.EXPECT().

@@ -1,0 +1,80 @@
+package components
+
+import (
+	"fmt"
+
+	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
+)
+
+// AlertDetailPage is the per-alert triage view at GET /alerts/{id}.
+// Shows the full listing card, score breakdown, watch info, action
+// buttons, and notification history.
+templ AlertDetailPage(d *domain.AlertDetail) {
+	@Layout("Alert " + d.Alert.ID) {
+		<p><a href="/alerts">← Back to alerts</a></p>
+
+		<div class="detail-grid">
+			<div class="card">
+				<h2>Listing</h2>
+				<dl>
+					<dt>Title</dt>
+					<dd>
+						<a href={ templ.URL(d.Listing.ItemURL) } target="_blank" rel="noreferrer">
+							{ d.Listing.Title } ↗
+						</a>
+					</dd>
+					<dt>Score</dt><dd>@ScoreBadge(d.Alert.Score)</dd>
+					<dt>Price</dt><dd>{ money(d.Listing.Price, d.Listing.Currency) }</dd>
+					<dt>Seller</dt>
+					<dd>{ d.Listing.SellerName } ({ fmt.Sprint(d.Listing.SellerFeedback) }, { fmt.Sprintf("%.1f%%", d.Listing.SellerFeedbackPct) })</dd>
+					<dt>Condition</dt><dd>{ string(d.Listing.ConditionNorm) }</dd>
+					<dt>Type</dt><dd>{ string(d.Listing.ComponentType) }</dd>
+					<dt>Created</dt><dd>{ d.Alert.CreatedAt.Format("2006-01-02 15:04:05 MST") }</dd>
+				</dl>
+			</div>
+
+			<div class="card">
+				<h2>Watch</h2>
+				<dl>
+					<dt>Name</dt><dd>{ d.Watch.Name }</dd>
+					<dt>Threshold</dt><dd>{ fmt.Sprint(d.Watch.ScoreThreshold) }</dd>
+					<dt>Component</dt><dd>{ string(d.Watch.ComponentType) }</dd>
+					<dt>Search query</dt><dd>{ d.Watch.SearchQuery }</dd>
+				</dl>
+
+				<div class="actions">
+					<button
+						type="button"
+						class="btn-primary"
+						hx-post={ "/alerts/" + d.Alert.ID + "/retry" }
+						hx-target="#notification-history"
+						hx-swap="outerHTML"
+					>
+						Retry Discord
+					</button>
+					if d.Alert.DismissedAt == nil {
+						<button
+							type="button"
+							hx-post={ "/alerts/" + d.Alert.ID + "/dismiss" }
+							hx-swap="none"
+							onclick="window.location='/alerts'"
+						>
+							Dismiss
+						</button>
+					} else {
+						<button
+							type="button"
+							hx-post={ "/alerts/" + d.Alert.ID + "/restore" }
+							hx-swap="none"
+							onclick="window.location='/alerts'"
+						>
+							Restore
+						</button>
+					}
+				</div>
+			</div>
+		</div>
+
+		@NotificationHistory(d.NotificationHistory)
+	}
+}

@@ -1,0 +1,175 @@
+:root {
+  --color-bg: #0e1116;
+  --color-surface: #161b22;
+  --color-border: #30363d;
+  --color-text: #c9d1d9;
+  --color-muted: #8b949e;
+  --color-link: #58a6ff;
+
+  /* Score colors mirror the Discord embed colors. */
+  --score-green: #2ECC71;
+  --score-yellow: #F1C40F;
+  --score-orange: #E67E22;
+  --score-grey: #6e7681;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 0;
+}
+
+a { color: var(--color-link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+header.spt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.75rem 1rem;
+  background: var(--color-surface);
+}
+
+header.spt-header h1 {
+  font-size: 1.05rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.filters {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.filters input[type="text"],
+.filters input[type="number"],
+.filters select {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+}
+
+.filters input[type="text"] { min-width: 16rem; }
+
+table.alerts {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+table.alerts th,
+table.alerts td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+table.alerts thead th {
+  background: #1f242c;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+table.alerts tbody tr:last-child td { border-bottom: none; }
+table.alerts tbody tr:hover { background: #1c222a; }
+
+.score-badge {
+  display: inline-block;
+  min-width: 2.5rem;
+  text-align: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 700;
+  color: #1a1f25;
+}
+.score-badge.score-green { background: var(--score-green); }
+.score-badge.score-yellow { background: var(--score-yellow); }
+.score-badge.score-orange { background: var(--score-orange); }
+.score-badge.score-grey { background: var(--score-grey); color: var(--color-text); }
+
+button,
+.btn {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.4rem 0.85rem;
+  cursor: pointer;
+  font: inherit;
+}
+button:hover:not([disabled]),
+.btn:hover { border-color: var(--color-link); color: var(--color-link); }
+button[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary { background: var(--color-link); color: #0e1116; border-color: var(--color-link); }
+.btn-primary:hover { color: #0e1116; opacity: 0.9; }
+
+.pagination {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+  color: var(--color-muted);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+.detail-grid .card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 1rem;
+}
+.detail-grid .card h2 { margin-top: 0; font-size: 1rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.detail-grid .card dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 0.75rem; }
+.detail-grid .card dt { color: var(--color-muted); }
+
+.notification-history {
+  margin-top: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 1rem;
+}
+.notification-history h2 { margin-top: 0; font-size: 1rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.notification-history .attempt { padding: 0.35rem 0; border-bottom: 1px solid var(--color-border); display: flex; gap: 0.75rem; align-items: center; }
+.notification-history .attempt:last-child { border-bottom: none; }
+.notification-history .ok { color: var(--score-green); }
+.notification-history .err { color: #f85149; }
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
