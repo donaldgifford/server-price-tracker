@@ -399,7 +399,7 @@ const (
 		a.created_at, a.dismissed_at,
 		l.id, l.ebay_item_id, l.title, l.item_url, l.image_url, l.price,
 		l.currency, l.shipping_cost, l.listing_type, l.seller_name,
-		l.seller_feedback, l.seller_feedback_pct, l.seller_top_rated,
+		l.seller_feedback_score, l.seller_feedback_pct, l.seller_top_rated,
 		l.condition_raw, l.condition_norm, l.component_type, l.quantity,
 		l.attributes, l.extraction_confidence, l.product_key, l.score,
 		l.score_breakdown, l.active, l.listed_at, l.sold_at, l.sold_price,
