@@ -213,8 +213,8 @@ already-misclassified historical listings.
 - [x] `make lint` (0 issues), `make fmt`, `go test ./internal/engine/`,
   `go test ./internal/metrics/`, `go test ./tools/dashgen/...` all
   pass.
-- [ ] Commit with `feat(metrics): add alerts-created counter; doc(sql):
-  add accessory backfill helper`.
+- [x] Commit with `feat(metrics): add alerts-created counter and
+  backfill SQL helper` (commit `a6aaf02`).
 
 #### Success Criteria
 
@@ -237,12 +237,11 @@ prod move.
 
 #### Tasks
 
-- [ ] Push the branch and open PR with `patch` label. Title:
+- [x] Push the branch and open PR #46 with `patch` label. Title:
   `fix(scoring): reduce alert noise via accessory pre-classifier and
   priceScore recalibration`.
-- [ ] PR description references DESIGN-0011 + IMPL-0016, includes the
-  migration plan bullets and the pre/post `psql` distribution query so a
-  reviewer can run the validation themselves.
+- [x] PR description references DESIGN-0011 + IMPL-0016 and includes the
+  pre/post `psql` distribution query.
 - [ ] Confirm all 11 CI checks green; merge to main.
 - [ ] Wait for the auto-tagged release + chart appVersion bump CI to
   publish the dev image to GHCR.
