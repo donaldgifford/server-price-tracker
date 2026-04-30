@@ -90,39 +90,36 @@ distribution from the moment of deploy.
 
 #### Tasks
 
-- [ ] Create `pkg/extract/preclassify.go` with:
+- [x] Create `pkg/extract/preclassify.go` with:
   - `accessoryPatterns []*regexp.Regexp` — backplane, caddy/tray/sled,
     rails, bezels, brackets, risers, heatsinks, fan assembly, cable, gpu
     riser. Patterns per DESIGN-0011 Part A.
-  - `primaryComponentPatterns []*regexp.Regexp` — `\b(ddr[345]?|nvme|sas|
-    sata|xeon|epyc|intel|amd)\b` and similar primary-component keywords
-    that should defer to the LLM when present alongside an accessory hint.
+  - `primaryComponentPatterns []*regexp.Regexp` — DDR2-5, RDIMM family,
+    NVMe/SAS/SATA/SCSI, SSD/HDD, Xeon/EPYC/Opteron/Threadripper,
+    capacity markers (`\d+gb|\d+tb`), and form factors (`\d+u`). Form
+    factor was added during implementation so "4U server with rails"
+    defers to the LLM while the production R740xd backplane example
+    (no form factor in title) still routes to `other`.
   - `IsAccessoryOnly(title string) bool` — lowercases title, returns true
     iff `accessoryPatterns` match AND `primaryComponentPatterns` does not.
   - Unexported helper `matchesAny(s string, ps []*regexp.Regexp) bool`.
-- [ ] Hook the short-circuit into `(*LLMExtractor).ClassifyAndExtract` at
-  `pkg/extract/extractor.go:185`. When `IsAccessoryOnly(title)` is true,
-  return `(domain.ComponentOther, map[string]any{"confidence": 0.95},
-  nil)` immediately — do not call `Classify` or `Extract`. Confidence is
-  0.95 (not 1.0) because a regex match is qualitatively different from
-  an LLM emitting a confident answer; comment the literal explaining
-  the distinction. Log at `Info` level with key
-  `accessory_short_circuit=true` so we can grep deploy logs.
-- [ ] Write `pkg/extract/preclassify_test.go` (table-driven, `t.Parallel`):
-  - Pure accessories — backplane title, caddy title, rack rails, bezel,
-    GPU riser, heatsink, fan assembly, mounting bracket → `true`.
-  - Primary-component titles — "Dell R740xd Server", "Cisco UCS C220 M5",
-    "Samsung 32GB DDR4 ECC RDIMM" → `false`.
-  - Mixed titles — "Dell R740 Server with rack rails included",
-    "1TB NVMe SSD in 2.5\" tray" → `false` (primary keyword wins).
-  - Casing — "BACKPLANE", "Backplane", "backPLANE" → all `true`.
-  - Empty string and titles with only whitespace → `false`.
-- [ ] Extend `pkg/extract/extractor_test.go::TestClassifyAndExtract` with a
-  new sub-test asserting that an accessory title returns
-  `(ComponentOther, {confidence: 0.95}, nil)` and the mock backend records
-  zero `Generate` calls. Use the existing mockery mock pattern.
-- [ ] Run `make lint` → fix any violations.
-- [ ] Run `make fmt` and `make test-coverage` → ensure passing.
+- [x] Hook the short-circuit into `(*LLMExtractor).ClassifyAndExtract`.
+  When `IsAccessoryOnly(title)` is true, return
+  `(domain.ComponentOther, map[string]any{"confidence": 0.95}, nil)`
+  immediately — do not call `Classify` or `Extract`. Confidence is 0.95
+  via `accessoryShortCircuitConfidence` const with explanatory doc
+  comment. Log at `Info` level with key `accessory_short_circuit=true`.
+- [x] Write `pkg/extract/preclassify_test.go` (table-driven, `t.Parallel`)
+  covering pure accessories, primary-component titles, mixed titles,
+  casing, empty / whitespace, and unrelated titles. 30 cases, 100%
+  coverage on `preclassify.go`.
+- [x] Extend `pkg/extract/extractor_test.go::TestLLMExtractor_ClassifyAndExtract`
+  with a "accessory short-circuit skips llm" sub-test that supplies no
+  `Generate` mock expectations — mockery fails the test if the LLM is
+  called. Asserts `attrs["confidence"] == 0.95`.
+- [x] Run `make lint` → 0 issues.
+- [x] Run `make fmt` and `make test-coverage` → green; preclassify.go
+  coverage 100%, package coverage 91.6%.
 - [ ] Commit with `feat(extract): add accessory title pre-classifier`.
 
 #### Success Criteria

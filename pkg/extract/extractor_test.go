@@ -519,6 +519,16 @@ func TestLLMExtractor_ClassifyAndExtract(t *testing.T) {
 			wantErr:    true,
 			wantErrMsg: "extracting",
 		},
+		{
+			name: "accessory short-circuit skips llm",
+			title: "DELL EMC POWEREDGE R740xd 24 BAY SFF SERVER BACKPLANE " +
+				"K2Y8N7 58D2W P1MJ3",
+			setupMock: func(_ *extractMocks.MockLLMBackend) {
+				// No Generate expectations — mockery fails the test if
+				// the LLM is called.
+			},
+			wantType: domain.ComponentOther,
+		},
 	}
 
 	for _, tt := range tests {
@@ -545,6 +555,10 @@ func TestLLMExtractor_ClassifyAndExtract(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantType, ct)
 			require.NotNil(t, attrs)
+			if ct == domain.ComponentOther {
+				assert.Equal(t, 0.95, attrs["confidence"],
+					"short-circuit must mark confidence at 0.95")
+			}
 		})
 	}
 }
