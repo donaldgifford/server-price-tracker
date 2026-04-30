@@ -242,7 +242,8 @@ prod move.
   priceScore recalibration`.
 - [x] PR description references DESIGN-0011 + IMPL-0016 and includes the
   pre/post `psql` distribution query.
-- [ ] Confirm all 11 CI checks green; merge to main.
+- [x] Confirm all 11 CI checks green on PR #46.
+- [ ] Merge to main (operator action — destructive against shared `main`).
 - [ ] Wait for the auto-tagged release + chart appVersion bump CI to
   publish the dev image to GHCR.
 - [ ] Deploy the new image to the dev cluster.
