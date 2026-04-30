@@ -86,6 +86,28 @@ func AlertsQueryLatency() *timeseries.PanelBuilder {
 		DrawStyle(common.GraphDrawStyleLine)
 }
 
+// AlertsCreatedByComponent shows the rate of alert insertions broken down
+// by component_type. Pre/post DESIGN-0011 noise reduction we expect this
+// rate to drop materially while not zeroing out — operators read it to
+// confirm the curve change held.
+func AlertsCreatedByComponent() *timeseries.PanelBuilder {
+	return timeseries.NewPanelBuilder().
+		Title("Alerts Created Rate by Component").
+		Description("Rate of alert insertions per second, broken down by component type").
+		Datasource(DSRef()).
+		Height(TSHeight).
+		Span(TSWidth).
+		WithTarget(PromQuery(
+			`sum by (component_type) (rate(spt_alerts_created_total{job="server-price-tracker"}[5m]))`,
+			"{{component_type}}", "A",
+		)).
+		FillOpacity(10).
+		LineWidth(2).
+		Thresholds(ThresholdsGreenOnly()).
+		ColorScheme(ColorSchemePaletteClassic()).
+		DrawStyle(common.GraphDrawStyleLine)
+}
+
 // NotificationFailures returns a stat panel showing notification failures
 // in the past 24 hours.
 func NotificationFailures() *stat.PanelBuilder {

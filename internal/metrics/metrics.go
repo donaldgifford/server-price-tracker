@@ -214,6 +214,20 @@ var (
 		Help:      "Alerts fired broken down by watch name. Cardinality bounded by number of watches (typically <20).",
 	}, []string{"watch"})
 
+	// AlertsCreatedTotal counts alert rows inserted by the engine, labeled
+	// by component type. Distinct from AlertsFiredTotal (which increments
+	// on successful Discord delivery) — this reflects the engine's
+	// decision-to-alert independent of notifier outcomes, which is the
+	// signal we want when measuring whether DESIGN-0011's noise reduction
+	// actually moved the needle.
+	AlertsCreatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "alerts_created_total",
+		Help: "Alerts inserted into the alerts table by the engine, " +
+			"labeled by component type. Increments before notification " +
+			"delivery so it reflects engine decisions, not Discord outcomes.",
+	}, []string{"component_type"})
+
 	NotificationFailuresTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: namespace,
 		Name:      "notification_failures_total",

@@ -41,6 +41,7 @@ var KnownMetrics = map[string]bool{
 	// Alert metrics.
 	"spt_alerts_fired_total":          true,
 	"spt_alerts_fired_by_watch":       true,
+	"spt_alerts_created_total":        true,
 	"spt_notification_failures_total": true,
 
 	// Alert review UI metrics (DESIGN-0010).

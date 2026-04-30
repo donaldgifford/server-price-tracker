@@ -476,7 +476,9 @@ func (eng *Engine) evaluateAlert(
 
 	if err := eng.store.CreateAlert(ctx, alert); err != nil {
 		eng.log.Error("creating alert failed", "listing", listing.ID, "error", err)
+		return
 	}
+	metrics.AlertsCreatedTotal.WithLabelValues(string(listing.ComponentType)).Inc()
 }
 
 // SyncQuota calls the eBay Analytics API to update Prometheus gauge metrics

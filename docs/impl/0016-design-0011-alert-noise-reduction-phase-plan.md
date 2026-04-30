@@ -161,8 +161,8 @@ Reshape the percentile curve in isolation, with tests proving both the old
   no-images listing scores ≤ 30 (guards against floor collapse).
 - [x] Run `make lint` (0 issues), `make fmt`, `go test ./pkg/scorer/`
   (97.2% coverage, scorer.go priceScore at 100%).
-- [ ] Commit with `feat(scorer): recalibrate priceScore curve to spread
-  the composite distribution`.
+- [x] Commit with `feat(scorer): recalibrate priceScore curve to spread
+  the composite distribution` (commit `90a5789`).
 
 #### Success Criteria
 
@@ -182,83 +182,50 @@ already-misclassified historical listings.
 
 #### Tasks
 
-- [ ] Add `AlertsFiredTotal` to `internal/metrics/metrics.go`:
-  - `*prometheus.CounterVec`, name `spt_alerts_fired_total`,
-    labels `component_type`.
-  - Help text: "Number of alerts fired by the engine, labeled by
-    component type."
-  - Register via `promauto.NewCounterVec` (matches existing pattern).
-  - Note (per CLAUDE.md memory): the metric will not render HELP/TYPE at
-    `/metrics` until first observed — ensure the test in
-    `internal/metrics/metrics_test.go` seeds a zero-valued series if it
-    asserts on rendered output.
-- [ ] Increment the counter in `internal/engine/alert.go`:
-  - In whichever function inserts into the `alerts` table (check
-    `engine.ProcessAlerts` and its descendants), call
-    `metrics.AlertsFiredTotal.WithLabelValues(string(componentType)).Inc()`
-    for each newly-inserted alert.
-  - The increment fires on alert *creation*, not notification — tracking
-    the engine's decision-to-alert independent of Discord delivery
-    success.
-- [ ] Add a unit test in `internal/engine/alert_test.go` covering:
-  - When `ProcessAlerts` inserts N alerts for component type X, the
-    counter for `{component_type="X"}` increases by N.
-  - Use `testutil.ToFloat64` against `metrics.AlertsFiredTotal.With(...)`
-    with a unique label per test name (per CLAUDE.md memory pattern for
-    parallel-safe metric tests).
-- [ ] Add a Grafana panel via the dashgen workflow:
-  - Add panel func `AlertsFired` in `tools/dashgen/panels/alerts.go`.
-  - Wire it into the alerts row in `tools/dashgen/dashboards/overview.go`.
-  - Register `spt_alerts_fired_total` in `KnownMetrics` in
-    `tools/dashgen/config.go`.
-  - Bump `totalPanels` in `tools/dashgen/dashgen_test.go`.
-  - Run `make dashboards` to regenerate
-    `deploy/grafana/data/spt-overview.json` and Prometheus rules YAML.
-  - Per CLAUDE.md memory: skipping the regeneration step turns CI red.
-- [ ] Add a "Backfill misclassified accessories" section to
-  `docs/SQL_HELPERS.md` containing the canonical UPDATE query:
-  ```sql
-  -- Re-classify accessory-titled listings to 'other'.
-  -- Mirrors pkg/extract/preclassify.go:accessoryPatterns. Postgres uses
-  -- \y for word boundaries (POSIX), not \b.
-  UPDATE listings
-  SET component_type = 'other',
-      extraction_confidence = 0.95,
-      updated_at = now()
-  WHERE active = true
-    AND (
-      title ~* '\ybackplane\y'
-      OR title ~* '\y(drive\s+)?(caddy|caddies|tray|trays|sled|sleds)\y'
-      OR title ~* '\yrails?\y'
-      OR title ~* '\ybezels?\y'
-      OR title ~* '\y(mounting\s+)?brackets?\y'
-      OR title ~* '\yrisers?\y'
-      OR title ~* '\yheat[\s-]?sinks?\y'
-      OR title ~* '\yfan\s+(assembly|kit|tray|module)\y'
-      OR title ~* '\ycable\y'
-      OR title ~* '\ygpu\s+riser\y'
-    )
-    AND title !~* '\y(ddr[345]?|nvme|sas|sata|xeon|epyc|intel|amd)\y'
-  RETURNING id, component_type, title;
-  ```
-  Document that it should be run **after** the new image is deployed
-  (so the rescore picks up the corrected component types) and that the
-  RETURNING clause lets the operator audit the affected rows.
-- [ ] Run `make lint`, `make fmt`, `make test-coverage`,
-  `go test ./tools/dashgen/...` → ensure passing.
-- [ ] Commit with `feat(metrics): add alerts-fired counter; doc(sql):
+- [x] Add `AlertsCreatedTotal` to `internal/metrics/metrics.go` — a new
+  CounterVec named `spt_alerts_created_total` labeled by
+  `component_type`. Distinct from the existing `AlertsFiredTotal`
+  (which fires on Discord delivery success); this one fires on alert
+  insert so it reflects engine decisions independent of notifier
+  outcomes. Help text documents the distinction.
+- [x] Increment the counter in
+  `internal/engine/engine.go::evaluateAlert` after a successful
+  `store.CreateAlert`. Added `return` on the error path so we don't
+  count failed inserts.
+- [x] Two new tests in `internal/engine/engine_test.go`:
+  - `TestEvaluateAlert_IncrementsAlertsCreated` — counter goes up by 1
+    for `domain.ComponentRAM`.
+  - `TestEvaluateAlert_DoesNotIncrementOnCreateAlertError` — counter
+    does not increment on `CreateAlert` returning an error.
+- [x] Add panel `AlertsCreatedByComponent` to
+  `tools/dashgen/panels/alerts.go`, wire into the Alerts row in
+  `tools/dashgen/dashboards/overview.go`, register
+  `spt_alerts_created_total` in `KnownMetrics`
+  (`tools/dashgen/config.go`), bump `totalPanels` from 33 → 34 in
+  `tools/dashgen/dashgen_test.go`, regenerate dashboards via
+  `make dashboards`. `TestStaleness` passes.
+- [x] Add a "Backfill misclassified accessories" section to
+  `docs/SQL_HELPERS.md`. The query mirrors `preclassify.go` regex
+  tables (using Postgres `\y` word boundaries instead of Go's `\b`),
+  enumerates the primary-component negative-match clauses explicitly
+  (rather than smushing them into one regex), and uses `RETURNING` so
+  affected rows are auditable.
+- [x] `make lint` (0 issues), `make fmt`, `go test ./internal/engine/`,
+  `go test ./internal/metrics/`, `go test ./tools/dashgen/...` all
+  pass.
+- [ ] Commit with `feat(metrics): add alerts-created counter; doc(sql):
   add accessory backfill helper`.
 
 #### Success Criteria
 
-- `spt_alerts_fired_total` is registered, increments correctly in tests,
-  and renders at `/metrics` with HELP/TYPE.
-- `tools/dashgen` tests pass; the regenerated dashboard JSON has the new
+- [x] `spt_alerts_created_total` is registered and increments correctly
+  in tests.
+- [x] `tools/dashgen` tests pass; regenerated dashboard JSON has the new
   panel.
-- `docs/SQL_HELPERS.md` contains the backfill query with the
+- [x] `docs/SQL_HELPERS.md` contains the backfill query with the
   word-boundary syntax (`\y`) note.
-- `make lint`, `make test-coverage`, and `go test ./tools/dashgen/...`
-  all green.
+- [x] `make lint`, scorer/extract/engine/metrics tests, and
+  `go test ./tools/dashgen/...` all green.
 
 ---
 

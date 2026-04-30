@@ -1838,6 +1838,52 @@
           "type": "timeseries",
           "targets": [
             {
+              "expr": "sum by (component_type) (rate(spt_alerts_created_total{job=\"server-price-tracker\"}[5m]))",
+              "legendFormat": "{{component_type}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Alerts Created Rate by Component",
+          "description": "Rate of alert insertions per second, broken down by component type",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 18,
+            "y": 103
+          },
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "timeseries",
+          "targets": [
+            {
               "expr": "spt:notification_duration:p95_5m",
               "legendFormat": "p95",
               "refId": "A"
@@ -1853,8 +1899,8 @@
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 18,
-            "y": 103
+            "x": 0,
+            "y": 111
           },
           "repeatDirection": "h",
           "fieldConfig": {
@@ -1908,7 +1954,7 @@
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 0,
+            "x": 12,
             "y": 111
           },
           "repeatDirection": "h",
@@ -1970,8 +2016,8 @@
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 12,
-            "y": 111
+            "x": 0,
+            "y": 119
           },
           "repeatDirection": "h",
           "fieldConfig": {

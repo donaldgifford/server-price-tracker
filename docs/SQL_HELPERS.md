@@ -39,6 +39,50 @@ ORDER BY first_seen_at DESC;
 UPDATE listings SET active = false WHERE id = '<uuid>';
 ```
 
+### Backfill misclassified accessories (DESIGN-0011 / IMPL-0016 Phase 3)
+
+The regex pre-classifier (`pkg/extract/preclassify.go`) only affects new
+ingestions. To clean up historical rows the LLM already mis-bucketed as
+`server` / `drive` / `ram`, run the UPDATE below after deploying the new
+image so subsequent rescores pick up the corrected `component_type`.
+
+Postgres uses `\y` for word boundaries in POSIX regex (not `\b`), and the
+patterns mirror `accessoryPatterns` and `primaryComponentPatterns` in
+`preclassify.go`. The `RETURNING` clause makes the change auditable.
+
+```sql
+UPDATE listings
+SET component_type = 'other',
+    extraction_confidence = 0.95,
+    updated_at = now()
+WHERE active = true
+  AND (
+    title ~* '\ybackplane\y'
+    OR title ~* '\y(drive\s+)?(caddy|caddies|tray|trays|sled|sleds)\y'
+    OR title ~* '\yrails?\y'
+    OR title ~* '\ybezels?\y'
+    OR title ~* '\y(mounting\s+)?brackets?\y'
+    OR title ~* '\yrisers?\y'
+    OR title ~* '\yheat[\s-]?sinks?\y'
+    OR title ~* '\yfan\s+(assembly|kit|tray|module)\y'
+    OR title ~* '\ycable\y'
+    OR title ~* '\ygpu\s+riser\y'
+  )
+  AND title !~* '\yddr[2345]\y'
+  AND title !~* '\y(rdimm|udimm|lrdimm|fbdimm|sodimm)\y'
+  AND title !~* '\y(nvme|sas|sata|scsi)\y'
+  AND title !~* '\yssd\y'
+  AND title !~* '\yhdd\y'
+  AND title !~* '\y(xeon|epyc|opteron|threadripper)\y'
+  AND title !~* '\y(\d+gb|\d+tb)\y'
+  AND title !~* '\y\d+u\y'
+RETURNING id, component_type, title;
+```
+
+After the UPDATE, trigger `POST /api/v1/rescore` so the rescore reads the
+corrected component types and recomputes scores against the right
+baselines.
+
 ### See all listings of one type
 
 ```sql
