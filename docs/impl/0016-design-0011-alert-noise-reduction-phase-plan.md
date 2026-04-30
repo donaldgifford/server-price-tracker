@@ -120,17 +120,19 @@ distribution from the moment of deploy.
 - [x] Run `make lint` → 0 issues.
 - [x] Run `make fmt` and `make test-coverage` → green; preclassify.go
   coverage 100%, package coverage 91.6%.
-- [ ] Commit with `feat(extract): add accessory title pre-classifier`.
+- [x] Commit with `feat(extract): add accessory title pre-classifier`
+  (commit `4c0797c`).
 
 #### Success Criteria
 
-- `go build ./...` succeeds.
-- `go test ./pkg/extract/...` passes; `preclassify.go` reaches ≥90%
-  coverage (target per CLAUDE.md: ≥90% on `pkg/`).
-- The new `TestClassifyAndExtract` sub-test confirms zero LLM calls on the
-  short-circuit path.
-- `make lint` clean.
-- All existing extractor tests still pass — the short-circuit is additive.
+- [x] `go build ./...` succeeds.
+- [x] `go test ./pkg/extract/...` passes; `preclassify.go` reaches 100%
+  coverage (target ≥90%).
+- [x] The new `TestClassifyAndExtract` sub-test confirms zero LLM calls
+  on the short-circuit path.
+- [x] `make lint` clean.
+- [x] All existing extractor tests still pass — the short-circuit is
+  additive.
 
 ---
 
@@ -142,37 +144,33 @@ Reshape the percentile curve in isolation, with tests proving both the old
 
 #### Tasks
 
-- [ ] Modify `pkg/scorer/scorer.go::priceScore` (current `lerp` boundaries
-  are `100, 85`, `85, 50`, `50, 25`, `25, 0`). Change to `100, 70`,
-  `70, 30`, `30, 10`, `10, 0` per DESIGN-0011 Part B.
-- [ ] Update boundary-value assertions in `pkg/scorer/scorer_test.go` to
-  match the new curve (any test that pinned a specific score at P25 / P50
-  / P75 needs re-baselining).
-- [ ] Add a new test `TestScore_TypicalListing_Composite` in
-  `pkg/scorer/scorer_test.go`:
-  - Inputs: median price, top-rated seller, used_working, has images,
-    has item specifics, 200-char description, BIN, single quantity.
-  - Assert `Breakdown.Total` is in `[55, 65]` (target 60, ±5 for rounding).
-- [ ] Add a new test `TestScore_GoodDeal_Composite`:
-  - Inputs: price ≤ P10, top-rated seller, used_working, has images,
-    item specifics, 500-char description, listed within last 2 hours.
-  - Assert `Breakdown.Total >= 90`.
-- [ ] Add a new test `TestScore_BadListing_Composite`:
-  - Inputs: price at P75, low-feedback seller, for_parts condition, no
-    images, single quantity, BIN, not new.
-  - Assert `Breakdown.Total <= 30` — guards against the curve collapsing
-    everything to 0 at the bottom end.
-- [ ] Run `make lint`, `make fmt`, `make test-coverage` → ensure passing.
-- [ ] Commit with `feat(scorer): recalibrate priceScore curve to spread the
-  composite distribution`.
+- [x] Modify `pkg/scorer/scorer.go::priceScore` lerp boundaries from
+  `100, 85` / `85, 50` / `50, 25` / `25, 0` to `100, 70` / `70, 30` /
+  `30, 10` / `10, 0` per DESIGN-0011 Part B. Add explanatory doc
+  comment.
+- [x] Update boundary-value assertions in `pkg/scorer/scorer_test.go::
+  TestScore_WithBaseline` and `TestScore_CompositeCalculation` to match
+  the new curve (P25 → 70, P50 → 30, P75 → 10).
+- [x] Add `TestScore_TypicalListing_Composite` — median listing scores
+  in `[55, 65]`. Uses helper `recalibrationBaseline()` for the shared
+  fixture.
+- [x] Add `TestScore_GoodDeal_Composite` — below-P10 listing with full
+  quality + new listing scores ≥ 90. Bumped `DescriptionLen` to 600 so
+  the quality factor lands in the top bucket (`> 500`).
+- [x] Add `TestScore_BadListing_Composite` — at-P75 / for_parts /
+  no-images listing scores ≤ 30 (guards against floor collapse).
+- [x] Run `make lint` (0 issues), `make fmt`, `go test ./pkg/scorer/`
+  (97.2% coverage, scorer.go priceScore at 100%).
+- [ ] Commit with `feat(scorer): recalibrate priceScore curve to spread
+  the composite distribution`.
 
 #### Success Criteria
 
-- `go test ./pkg/scorer/...` passes.
-- `pkg/scorer/scorer.go` coverage stays ≥90%.
-- The three new composite-score tests demonstrate the spread DESIGN-0011
-  predicts (60 / 90+ / ≤30).
-- No changes outside `pkg/scorer/` — this phase is purely numeric.
+- [x] `go test ./pkg/scorer/...` passes.
+- [x] `pkg/scorer/scorer.go` coverage stays ≥90% (actual 97.2%).
+- [x] The three new composite-score tests demonstrate the spread
+  DESIGN-0011 predicts (60 / 90+ / ≤30).
+- [x] No changes outside `pkg/scorer/` — this phase is purely numeric.
 
 ---
 

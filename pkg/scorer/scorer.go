@@ -115,18 +115,24 @@ func Score(data *ListingData, baseline *Baseline, w Weights) Breakdown {
 }
 
 // priceScore maps unit price to a 0-100 score based on percentile position.
+//
+// The curve is intentionally aggressive: only listings at or below P10 score
+// 100, the median P50 listing scores 30, and P75 scores 10. This spread keeps
+// the composite score for a "typical" eBay listing around 60 instead of the
+// noise-floor 88-89 produced by the original gentler curve. See DESIGN-0011
+// Part B for the calibration math.
 func priceScore(unitPrice float64, b *Baseline) float64 {
 	switch {
 	case unitPrice <= b.P10:
 		return 100
 	case unitPrice <= b.P25:
-		return lerp(unitPrice, b.P10, b.P25, 100, 85)
+		return lerp(unitPrice, b.P10, b.P25, 100, 70)
 	case unitPrice <= b.P50:
-		return lerp(unitPrice, b.P25, b.P50, 85, 50)
+		return lerp(unitPrice, b.P25, b.P50, 70, 30)
 	case unitPrice <= b.P75:
-		return lerp(unitPrice, b.P50, b.P75, 50, 25)
+		return lerp(unitPrice, b.P50, b.P75, 30, 10)
 	case unitPrice <= b.P90:
-		return lerp(unitPrice, b.P75, b.P90, 25, 0)
+		return lerp(unitPrice, b.P75, b.P90, 10, 0)
 	default:
 		return 0
 	}
