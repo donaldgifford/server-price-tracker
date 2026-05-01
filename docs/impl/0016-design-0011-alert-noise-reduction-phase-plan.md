@@ -446,8 +446,8 @@ encoding if barebone-vs-configured segmentation alone isn't enough.
     ```
 - [x] Run `make lint` (0 issues), `make fmt`, `go test ./pkg/extract/`
   (passing, 100% coverage on `server_tier.go`).
-- [ ] Commit with `feat(extract): add server config tier to product
-  key for baseline segmentation`.
+- [x] Commit with `feat(extract): add server config tier to product
+  key for baseline segmentation` (commit `569ef69`).
 
 #### Success Criteria
 
