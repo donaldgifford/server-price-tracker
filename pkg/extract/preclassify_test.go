@@ -93,6 +93,50 @@ func TestIsAccessoryOnly(t *testing.T) {
 
 		// No accessory and no primary keyword
 		{"unrelated", "Apple MacBook Pro 16-inch", false},
+
+		// Compound accessory wins over primary keyword (post-deploy fix).
+		{
+			name: "sas cable beats sas primary",
+			title: "Dell NMRJN Poweredge R740XD 24HDD SFF H350 H750 " +
+				"SAS Cable",
+			want: true,
+		},
+		{
+			name:  "nvme ssd backplane beats nvme/ssd primaries",
+			title: "Dell PowerEdge R640 10 Bay 2.5\" NVME SSD Backplane Board MWY54",
+			want:  true,
+		},
+
+		// New primary signals route real barebone servers to LLM even
+		// when an accessory keyword (heatsink, tray, bezel, …) appears.
+		{
+			name:  "barebone server defers",
+			title: "Dell PowerEdge R640 10-Bay SFF Barebone Server 2 x HeatSink H330 2 x 1100W PSU",
+			want:  false,
+		},
+		{
+			name:  "chassis defers",
+			title: "Dell PowerEdge R940 24 x 2.5\" Server Chassis, 4x heatsinks, 2x PSU",
+			want:  false,
+		},
+		{
+			name:  "xeon model SKU defers",
+			title: "DELL R740XD 18LFF 2x Gold 5118 2.3GHZ=24Cores 3x HD Tray H730P",
+			want:  false,
+		},
+		{
+			name:  "idrac defers",
+			title: "Dell PowerEdge R640 8bay (2) sinks, 8-HP fans,8-trays, H740P, Idrac 9 Ent, 2xPsu",
+			want:  false,
+		},
+		{
+			// Original failure mode must remain caught — 24 BAY in a
+			// backplane title should still route to other.
+			name: "production backplane stays accessory",
+			title: "DELL EMC POWEREDGE R740xd 24 BAY SFF SERVER BACKPLANE " +
+				"K2Y8N7 58D2W P1MJ3",
+			want: true,
+		},
 	}
 
 	for _, tt := range tests {
