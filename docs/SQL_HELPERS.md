@@ -83,6 +83,70 @@ After the UPDATE, trigger `POST /api/v1/rescore` so the rescore reads the
 corrected component types and recomputes scores against the right
 baselines.
 
+### Recompute server product keys with tier suffix (IMPL-0016 Phase 6)
+
+After deploying the server-tier change, existing server listings still
+have the old product_key format (`server:dell:r740xd:sff`). They need
+the new tier suffix (`:barebone`/`:partial`/`:configured`) before
+baselines can rebucket and rescore can do useful work.
+
+The simplest path mirrors `pkg/extract/server_tier.go::DetectServerTier`
+in SQL. Postgres uses `\y` for word boundaries, not `\b`.
+
+```sql
+UPDATE listings
+SET product_key = product_key || ':' || (
+  CASE
+    WHEN title ~* '\y(bar(e)?bone|cto)\y' THEN 'barebone'
+    WHEN title ~* '\y(no|w/o|without|no/?)\s*(cpu|ram|memory|hdd?s?|drives?|os)\y' THEN 'barebone'
+    WHEN (
+      title ~* '\y(gold|silver|platinum|bronze)\s+\d{4}\y'
+      OR title ~* '\yxeon\s+(e[357]|d|w|gold|silver|platinum|bronze)[-\s]*\d'
+      OR title ~* '\yepyc\s+\d{4}'
+    ) AND (
+      title ~* '\yddr[2345]\y'
+      OR title ~* '\y(rdimm|udimm|lrdimm|fbdimm|sodimm)\y'
+      OR title ~* '\y\d+\s*gb\s+(ram|memory|ecc|reg|rdimm)\y'
+    ) THEN 'configured'
+    ELSE 'partial'
+  END
+),
+updated_at = now()
+WHERE active = true
+  AND component_type = 'server'
+  AND product_key NOT LIKE '%:barebone'
+  AND product_key NOT LIKE '%:partial'
+  AND product_key NOT LIKE '%:configured'
+RETURNING id, product_key;
+```
+
+After committing:
+
+1. `POST /api/v1/baselines/refresh` — populate per-tier baselines.
+2. `POST /api/v1/rescore` — apply new baselines to existing listings.
+
+To audit the tier distribution:
+
+```sql
+SELECT
+  CASE
+    WHEN product_key LIKE '%:barebone' THEN 'barebone'
+    WHEN product_key LIKE '%:configured' THEN 'configured'
+    WHEN product_key LIKE '%:partial' THEN 'partial'
+    ELSE 'unknown'
+  END AS tier,
+  percentile_cont(0.50) WITHIN GROUP (ORDER BY score) AS p50,
+  percentile_cont(0.90) WITHIN GROUP (ORDER BY score) AS p90,
+  COUNT(*) AS n
+FROM listings
+WHERE active = true AND component_type = 'server'
+GROUP BY tier ORDER BY tier;
+```
+
+Expect barebone P50 to be materially lower than configured P50 — the
+whole point of segmentation is that barebone shells stop scoring 100
+against fully-configured baselines.
+
 ### See all listings of one type
 
 ```sql

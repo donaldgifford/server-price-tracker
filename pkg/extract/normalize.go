@@ -26,6 +26,14 @@ func NormalizeExtraction(componentType domain.ComponentType, title string, attrs
 		normalizeCapacityGB(attrs)
 		NormalizeRAMSpeed(title, attrs)
 	}
+
+	if componentType == domain.ComponentServer {
+		// Title-derived tier is authoritative — overwrites any LLM
+		// guess. Anchors barebone shells to their own price baseline
+		// so they stop scoring 100 against fully-configured servers.
+		// See IMPL-0016 Phase 6.
+		attrs["tier"] = DetectServerTier(title)
+	}
 }
 
 // stripPlaceholderEnums removes optional enum fields whose value is a

@@ -364,7 +364,7 @@ encoding if barebone-vs-configured segmentation alone isn't enough.
 
 #### Tasks
 
-- [ ] Add tier detection in a new `pkg/extract/server_tier.go`:
+- [x] Add tier detection in a new `pkg/extract/server_tier.go`:
   - `barebonePatterns` — `\bbar(e)?bone\b`,
     `\b(no|w/o|without)\s+(cpu|ram|memory|hdd?s?|drives?)\b`,
     `\bcto\b` (configure-to-order). Multiple matches strengthen
@@ -381,7 +381,7 @@ encoding if barebone-vs-configured segmentation alone isn't enough.
     - `partial` — exactly one of CPU/RAM present
     - default to `unknown` when nothing matches (treated as `partial`
       downstream — neither cleanly barebone nor cleanly configured)
-- [ ] Wire into `pkg/extract/normalize.go::NormalizeExtraction`:
+- [x] Wire into `pkg/extract/normalize.go::NormalizeExtraction`:
   ```go
   if componentType == domain.ComponentServer {
       attrs["tier"] = DetectServerTier(title)
@@ -389,7 +389,7 @@ encoding if barebone-vs-configured segmentation alone isn't enough.
   ```
   Run before validation so the tier is available when building the
   product key.
-- [ ] Update `pkg/extract/productkey.go` server case to append tier:
+- [x] Update `pkg/extract/productkey.go` server case to append tier:
   ```go
   case "server":
       return fmt.Sprintf("server:%s:%s:%s:%s",
@@ -401,27 +401,32 @@ encoding if barebone-vs-configured segmentation alone isn't enough.
   ```
 - [ ] Add `tier` to the server extraction prompt schema in
   `pkg/extract/prompts.go` and `pkg/extract/validate.go` (optional
-  enum: `barebone | partial | configured`). Even though we derive it
-  from title regex, declaring it in the schema lets the LLM emit a
-  hint that NormalizeExtraction can accept or override.
-- [ ] Tests:
-  - `pkg/extract/server_tier_test.go` — table-driven cases covering
-    explicit "Barebone Server", "No CPU/RAM/HDDs", "CTO Server",
-    fully-configured listings ("R740xd 2x Xeon Gold 5118 64GB 2x SSD"),
-    partial ("R640 with Xeon Silver 4110 No RAM"), and ambiguous
-    titles ("Dell R740xd Server").
-  - Extend `pkg/extract/productkey_test.go` server cases to assert the
-    tier suffix is included.
-  - Ensure `NormalizeExtraction` server-tier wiring is exercised in
-    `pkg/extract/normalize_test.go`.
-- [ ] Migration after deploy:
-  - Re-extract or recompute `product_key` for all active server
-    listings — easiest path is a one-shot SQL UPDATE that runs the
-    same product-key formula in Postgres. Add to
-    `docs/SQL_HELPERS.md`. Alternative: hit `/api/v1/reextract` per
-    CLAUDE.md memory (handles `component_type IS NOT NULL`).
-  - Trigger `POST /api/v1/baselines/refresh` so per-tier baselines
-    populate from the freshly bucketed listings.
+  enum: `barebone | partial | configured`). **Skipped for now** —
+  `NormalizeExtraction` overwrites any LLM-emitted tier with the
+  title-derived value, so adding it to the prompt schema is purely
+  cosmetic. Defer until we have a reason to expose tier in the API
+  response shape.
+- [x] Tests:
+  - `pkg/extract/server_tier_test.go` — 16 table-driven cases covering
+    barebone (explicit + misspellings + CTO), configured, partial,
+    ambiguous, and adversarial drive-capacity-not-RAM cases. 100%
+    coverage on the new file.
+  - `pkg/extract/productkey_test.go` server cases updated for the new
+    `:tier` suffix; added barebone + missing-tier-defaults-to-unknown
+    cases.
+  - `pkg/extract/normalize_test.go` — added
+    `TestNormalizeExtraction_ServerTier` (table-driven barebone /
+    configured / partial) and
+    `TestNormalizeExtraction_ServerTierOverridesLLM` (title-derived
+    tier wins over any LLM-emitted hint).
+- [x] Migration documentation: SQL helper added to
+  `docs/SQL_HELPERS.md` ("Recompute server product keys with tier
+  suffix") that mirrors `DetectServerTier` logic in Postgres regex.
+  Includes the post-recompute baseline-refresh + rescore steps and a
+  per-tier distribution audit query.
+- [ ] Migration execution after deploy (operator-run):
+  - Run the SQL UPDATE in `docs/SQL_HELPERS.md`.
+  - Trigger `POST /api/v1/baselines/refresh`.
   - Trigger `POST /api/v1/rescore`.
   - Capture pre/post distribution split by tier:
     ```sql
@@ -439,8 +444,8 @@ encoding if barebone-vs-configured segmentation alone isn't enough.
     WHERE active = true AND component_type = 'server'
     GROUP BY tier ORDER BY tier;
     ```
-- [ ] Run `make lint`, `make fmt`, `make test-coverage`. Coverage
-  target ≥90% on new file.
+- [x] Run `make lint` (0 issues), `make fmt`, `go test ./pkg/extract/`
+  (passing, 100% coverage on `server_tier.go`).
 - [ ] Commit with `feat(extract): add server config tier to product
   key for baseline segmentation`.
 
