@@ -30,6 +30,7 @@ created: 2026-04-30
 - [Testing Strategy](#testing-strategy)
 - [Migration / Rollout Plan](#migration--rollout-plan)
 - [Open Questions](#open-questions)
+- [Follow-ups](#follow-ups)
 - [References](#references)
 <!--toc:end-->
 
