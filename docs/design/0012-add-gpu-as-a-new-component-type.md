@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0012
 title: "Add GPU as a new component type"
-status: Draft
+status: Accepted
 author: Donald Gifford
 created: 2026-05-01
 ---
@@ -10,19 +10,30 @@ created: 2026-05-01
 
 # DESIGN 0012: Add GPU as a new component type
 
-**Status:** Draft **Author:** Donald Gifford **Date:** 2026-05-01
+**Status:** Accepted **Author:** Donald Gifford **Date:** 2026-05-01
 
 <!--toc:start-->
-
 - [Overview](#overview)
 - [Goals and Non-Goals](#goals-and-non-goals)
+  - [Goals](#goals)
+  - [Non-Goals](#non-goals)
 - [Background](#background)
 - [Detailed Design](#detailed-design)
+  - [1. Enum addition](#1-enum-addition)
+  - [2. Extraction prompt](#2-extraction-prompt)
+  - [3. Validation](#3-validation)
+  - [4. Product key](#4-product-key)
+  - [5. Classifier prompt](#5-classifier-prompt)
+  - [6. Pre-classifier primaries](#6-pre-classifier-primaries)
+  - [7. Normalisation](#7-normalisation)
+  - [8. Sample watch (cold-start threshold)](#8-sample-watch-cold-start-threshold)
 - [API / Interface Changes](#api--interface-changes)
 - [Data Model](#data-model)
 - [Testing Strategy](#testing-strategy)
 - [Migration / Rollout Plan](#migration--rollout-plan)
 - [Open Questions](#open-questions)
+- [Implementation Notes](#implementation-notes)
+  - [Sample search strings for design validation (open question 1)](#sample-search-strings-for-design-validation-open-question-1)
 - [References](#references)
 <!--toc:end-->
 
@@ -116,7 +127,7 @@ New `gpuTmpl` in `pkg/extract/prompts.go`. Schema:
 ```json
 {
   "manufacturer": "NVIDIA" | "AMD" | "Intel",
-  "family": "Tesla" | "Quadro" | "RTX" | "GeForce" | "A-series" | "L-series" | "H-series" | "Radeon Pro" | "Instinct" | "Arc" | null,
+  "family": string | null,
   "model": string,
   "vram_gb": integer (1-256),
   "memory_type": "GDDR5" | "GDDR6" | "GDDR6X" | "HBM2" | "HBM2e" | "HBM3" | null,
@@ -142,8 +153,11 @@ rest are optional with `null` allowed.
 - `model`: required non-empty string. Free-form because models proliferate fast
   (P40, P100, V100, A30, A40, A100, L40, H100, MI100, MI210, …).
 - `vram_gb`: required, 1–256. Bounded high to allow future cards.
-- `family`, `memory_type`, `interface`, `form_factor`, `cooling`: optional
-  enums.
+- `family`: optional **free-form string**. No enum check at validation
+  time — the normaliser (Section 7) collapses common spellings to
+  canonical lowercase tokens for product-key construction. Sturdiest to
+  NVIDIA renaming a family (which they do every couple generations).
+- `memory_type`, `interface`, `form_factor`, `cooling`: optional enums.
 - `tdp_watts`: optional, 15–700 (low bound covers entry workstation cards; high
   bound covers H100 SXM at 700W).
 
@@ -205,10 +219,26 @@ validation, mirroring the RAM/CPU repairs:
 - **VRAM unit confusion** — if `vram_gb` lands in 1024–262144, divide by 1024
   (treat as MB). If it lands in 1000–256000, divide by 1000. Same pattern as
   `capacity_gb` repair for RAM.
-- **Family inference from model** — when `family` is null but `model` matches
-  a known prefix, fill it: `P\d{2,3}|V100|K\d{2}` → `Tesla`,
-  `^A\d{1,3}$` → `A-series`, `^L\d{1,3}$` → `L-series`,
-  `^H\d{1,3}$` → `H-series`, `^MI\d{2,3}$` → `Instinct`.
+- **Family canonicalisation** — `family` is free-form per validation,
+  but the normaliser collapses common spellings to canonical
+  lowercase tokens for product-key construction. Map (case-insensitive,
+  whitespace-trimmed):
+  - `tesla` → `tesla`
+  - `quadro` → `quadro`
+  - `geforce` → `geforce`
+  - `rtx`, `rtx-pro` → `rtx`
+  - `a-series`, `a series`, `ampere` → `a-series`
+  - `l-series`, `l series`, `lovelace` → `l-series`
+  - `h-series`, `h series`, `hopper` → `h-series`
+  - `radeon pro`, `radeonpro` → `radeon-pro`
+  - `instinct` → `instinct`
+  - `arc`, `arc pro` → `arc`
+  - anything else → lowercased + spaces collapsed to hyphen
+    (forward-compat for new families).
+- **Family inference from model** — when `family` is null *after*
+  canonicalisation, infer from model prefix: `P\d{2,3}|V100|K\d{2}` →
+  `tesla`, `^A\d{1,3}$` → `a-series`, `^L\d{1,3}$` → `l-series`,
+  `^H\d{1,3}$` → `h-series`, `^MI\d{2,3}$` → `instinct`.
 - **Power-of-2 VRAM rounding** — round to nearest valid sku (8, 12, 16, 24,
   32, 40, 48, 80, 96, 128) when within ±1 GB. Defends against `vram_gb=23`
   for a 24GB card.
@@ -283,18 +313,11 @@ landed for baselines to compute.
 
 ## Open Questions
 
-1. **Family enumeration** — _pending sample inspection._ Operator is
-   pulling a sample of listings via the search strings in
-   `Implementation Notes` to check whether sellers consistently
-   disambiguate Quadro RTX 4000 vs RTX A4000 vs RTX 4000 Ada in titles.
-   Three candidate resolutions:
-   - **(a) Free-form string + normaliser** (preferred) — sturdiest to
-     NVIDIA renaming; product-key construction collapses common spellings.
-   - **(b) Hard enum** — safer at validation time but breaks when a new
-     family ships.
-   - **(c) Skip family entirely** — product key becomes
-     `gpu:<manufacturer>:<model>:<vram>gb`. Simplest. Viable if model+VRAM
-     is unique enough in practice (sample inspection will tell us).
+1. **Family enumeration** — _resolved: free-form string + normaliser
+   (option a)._ See Section 3 for validation (no enum check at validate
+   time) and Section 7 for the canonicalisation map. Sturdiest to NVIDIA
+   renaming a family; the canonicalisation step keeps product-key
+   grouping stable across spelling variants.
 
 2. **Bundled GPUs in server listings** — _resolved: leave as `server`._
    "Dell R740 with 2x Tesla P40" stays in the server bucket. Future

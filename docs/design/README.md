@@ -42,5 +42,5 @@ docz create design "Your Design Title"
 | DESIGN-0009 | Discord notifier rate limiting and embed chunking | Implemented | 2026-04-26 | Donald Gifford | [0009-discord-notifier-rate-limiting-and-embed-chunking.md](0009-discord-notifier-rate-limiting-and-embed-chunking.md) |
 | DESIGN-0010 | Alert review UI with pagination and search | Implemented | 2026-04-26 | Donald Gifford | [0010-alert-review-ui-with-pagination-and-search.md](0010-alert-review-ui-with-pagination-and-search.md) |
 | DESIGN-0011 | Reduce alert noise via scoring recalibration and accessory pre-classifier | Draft | 2026-04-30 | Donald Gifford | [0011-reduce-alert-noise-via-scoring-recalibration-and-accessory-pre.md](0011-reduce-alert-noise-via-scoring-recalibration-and-accessory-pre.md) |
-| DESIGN-0012 | Add GPU as a new component type | Draft | 2026-05-01 | Donald Gifford | [0012-add-gpu-as-a-new-component-type.md](0012-add-gpu-as-a-new-component-type.md) |
+| DESIGN-0012 | Add GPU as a new component type | Accepted | 2026-05-01 | Donald Gifford | [0012-add-gpu-as-a-new-component-type.md](0012-add-gpu-as-a-new-component-type.md) |
 <!-- END DOCZ AUTO-GENERATED -->
