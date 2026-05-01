@@ -424,10 +424,11 @@ func ProductKey(componentType string, attrs map[string]any) string {
             driveType(attrs), // ssd, 7k2, 10k, 15k
         )
     case "server":
-        return fmt.Sprintf("server:%s:%s:%s",
+        return fmt.Sprintf("server:%s:%s:%s:%s",
             normalizeStr(attrs["manufacturer"]),
             normalizeStr(attrs["model"]),
             normalizeStr(attrs["drive_form_factor"]),
+            normalizeStr(attrs["tier"]), // barebone | partial | configured (DESIGN-0011 / IMPL-0016 Phase 6)
         )
     case "cpu":
         return fmt.Sprintf("cpu:%s:%s:%s",
