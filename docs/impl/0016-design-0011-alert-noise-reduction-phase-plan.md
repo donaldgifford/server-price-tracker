@@ -24,6 +24,7 @@ created: 2026-04-30
   - [Phase 3: Alerts-fired metric + backfill SQL helper](#phase-3-alerts-fired-metric--backfill-sql-helper)
   - [Phase 4: PR + dev deploy + rescore + backfill validation](#phase-4-pr--dev-deploy--rescore--backfill-validation)
   - [Phase 5: Production rollout + 24h watch](#phase-5-production-rollout--24h-watch)
+  - [Phase 6 (post-work): Server config tier in product key](#phase-6-post-work-server-config-tier-in-product-key)
 - [File Changes](#file-changes)
 - [Testing Plan](#testing-plan)
 - [Open Questions](#open-questions)
@@ -324,6 +325,160 @@ decide whether the change holds or needs follow-up retuning.
 - At least one alert in the 24h window flagged a listing the user
   considers a genuine deal.
 - DESIGN-0011 + IMPL-0016 frontmatter updated to reflect the outcome.
+
+---
+
+### Phase 6 (post-work): Server config tier in product key
+
+Surfaced during dev validation: even with the pre-classifier and curve
+recalibration in place, *barebone* server listings (no CPU, no RAM, no
+HDDs — sold as chassis-plus-PSU shells) consistently scored 80+ and fired
+alerts. A single $200 R740xd shell got bucketed against fully-configured
+R740xd listings priced $1500+, landed near the bucket's P10, and earned
+a near-perfect price score.
+
+This isn't a misclassification — those listings *are* servers. It's a
+**baseline-segmentation** problem: the server product key collapses every
+configuration into one bucket, so barebone shells systematically look
+like "great deals" against a baseline dominated by populated systems.
+
+#### Why before component-level encoding
+
+Two paths considered:
+
+1. **Coarse tier flag** *(this phase)* — derive `barebone` / `partial` /
+   `configured` from title regex, append to product key. ~50 lines of
+   code, no new attributes to extract, baselines warm up fast (we have
+   ~339 server listings; even split three ways each tier still has
+   100+).
+2. **Component-level encoding** — parse actual CPU model, RAM total, HDD
+   count from titles; either embed in the product key (fragments
+   baselines into combinations that never warm up) or do composite-price
+   math (subtract typical CPU/RAM/HDD prices to get chassis-only price,
+   score residual against chassis-only baseline). Much more involved and
+   needs its own DESIGN doc.
+
+The coarse tier is the 80/20 fix. We start there, observe whether
+alert noise drops further, and only escalate to component-level
+encoding if barebone-vs-configured segmentation alone isn't enough.
+
+#### Tasks
+
+- [ ] Add tier detection in a new `pkg/extract/server_tier.go`:
+  - `barebonePatterns` — `\bbar(e)?bone\b`,
+    `\b(no|w/o|without)\s+(cpu|ram|memory|hdd?s?|drives?)\b`,
+    `\bcto\b` (configure-to-order). Multiple matches strengthen
+    confidence but a single match suffices.
+  - `cpuPresentPatterns` — `\b(xeon|epyc|opteron|threadripper)\b`,
+    `\b(gold|silver|platinum|bronze)\s+\d{4}\b` (Xeon model SKUs).
+  - `ramPresentPatterns` — `\b\d+gb\b` (paired with RAM context — at
+    least 8GB to filter out drive-capacity false positives), or
+    `\bddr[2345]\b`.
+  - `DetectServerTier(title string) string` — returns `barebone`,
+    `partial`, or `configured`:
+    - `barebone` — any barebone pattern matches
+    - `configured` — both CPU AND RAM present
+    - `partial` — exactly one of CPU/RAM present
+    - default to `unknown` when nothing matches (treated as `partial`
+      downstream — neither cleanly barebone nor cleanly configured)
+- [ ] Wire into `pkg/extract/normalize.go::NormalizeExtraction`:
+  ```go
+  if componentType == domain.ComponentServer {
+      attrs["tier"] = DetectServerTier(title)
+  }
+  ```
+  Run before validation so the tier is available when building the
+  product key.
+- [ ] Update `pkg/extract/productkey.go` server case to append tier:
+  ```go
+  case "server":
+      return fmt.Sprintf("server:%s:%s:%s:%s",
+          normalizeStr(attrs["manufacturer"]),
+          normalizeStr(attrs["model"]),
+          normalizeStr(attrs["drive_form_factor"]),
+          normalizeStr(attrs["tier"]),
+      )
+  ```
+- [ ] Add `tier` to the server extraction prompt schema in
+  `pkg/extract/prompts.go` and `pkg/extract/validate.go` (optional
+  enum: `barebone | partial | configured`). Even though we derive it
+  from title regex, declaring it in the schema lets the LLM emit a
+  hint that NormalizeExtraction can accept or override.
+- [ ] Tests:
+  - `pkg/extract/server_tier_test.go` — table-driven cases covering
+    explicit "Barebone Server", "No CPU/RAM/HDDs", "CTO Server",
+    fully-configured listings ("R740xd 2x Xeon Gold 5118 64GB 2x SSD"),
+    partial ("R640 with Xeon Silver 4110 No RAM"), and ambiguous
+    titles ("Dell R740xd Server").
+  - Extend `pkg/extract/productkey_test.go` server cases to assert the
+    tier suffix is included.
+  - Ensure `NormalizeExtraction` server-tier wiring is exercised in
+    `pkg/extract/normalize_test.go`.
+- [ ] Migration after deploy:
+  - Re-extract or recompute `product_key` for all active server
+    listings — easiest path is a one-shot SQL UPDATE that runs the
+    same product-key formula in Postgres. Add to
+    `docs/SQL_HELPERS.md`. Alternative: hit `/api/v1/reextract` per
+    CLAUDE.md memory (handles `component_type IS NOT NULL`).
+  - Trigger `POST /api/v1/baselines/refresh` so per-tier baselines
+    populate from the freshly bucketed listings.
+  - Trigger `POST /api/v1/rescore`.
+  - Capture pre/post distribution split by tier:
+    ```sql
+    SELECT
+      CASE
+        WHEN product_key LIKE '%:barebone' THEN 'barebone'
+        WHEN product_key LIKE '%:configured' THEN 'configured'
+        WHEN product_key LIKE '%:partial' THEN 'partial'
+        ELSE 'unknown'
+      END AS tier,
+      percentile_cont(0.50) WITHIN GROUP (ORDER BY score) AS p50,
+      percentile_cont(0.90) WITHIN GROUP (ORDER BY score) AS p90,
+      COUNT(*) AS n
+    FROM listings
+    WHERE active = true AND component_type = 'server'
+    GROUP BY tier ORDER BY tier;
+    ```
+- [ ] Run `make lint`, `make fmt`, `make test-coverage`. Coverage
+  target ≥90% on new file.
+- [ ] Commit with `feat(extract): add server config tier to product
+  key for baseline segmentation`.
+
+#### Success Criteria
+
+- `DetectServerTier` table-driven tests cover the three tiers plus
+  ambiguous fallback, with ≥90% coverage on `server_tier.go`.
+- Post-deploy + post-baseline-refresh, the per-tier P50 query shows
+  separation: barebone P50 should land 20+ points lower than
+  configured P50 (barebones are systematically cheaper, so their own
+  baseline reflects that, and barebones stop scoring 100 against the
+  configured baseline).
+- The original failure case ("R740xd Barebone Server with 2x Heatsink
+  2x 1100W PSU") at $400 stops firing as a deal alert because its
+  `product_key` ends `:barebone` and its $400 price is now near the
+  median of the barebone bucket, not the P10 of the configured bucket.
+
+#### Risks / Tradeoffs
+
+- **Cold start per-tier baselines**: splitting the existing 339 server
+  listings three ways gives ~110 per tier — above the
+  `MinBaselineSamples=10` threshold but smaller buckets are noisier.
+  If baselines stay cold (`<10 samples`) for any tier+chassis combo,
+  `priceScore` falls back to neutral 50, which is fine.
+- **Tier detection false positives** (regex says `barebone` for a
+  configured listing) inflate the barebone bucket's P10/P25 → real
+  barebones score lower → fewer barebone alerts than they deserve.
+  Probably acceptable.
+- **Tier detection false negatives** (regex misses a barebone) leave
+  the listing in `partial` or `unknown` → status quo problem
+  perpetuates for those rows. Better to err toward false negatives
+  than false positives — keeps the barebone bucket's percentiles
+  honest.
+- **Ambiguous "unknown" tier** — if regex finds neither CPU nor RAM
+  signal and no barebone marker, the title may be too short to tell.
+  Default to `partial` so it doesn't pollute either extreme. Monitor
+  the `:unknown` row count over time; if it's large, refine the
+  regexes.
 
 ---
 
