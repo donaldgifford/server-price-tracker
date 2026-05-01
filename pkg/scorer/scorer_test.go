@@ -89,25 +89,25 @@ func TestScore_WithBaseline(t *testing.T) {
 		{
 			name:       "between P10 and P25",
 			unitPrice:  25.0,
-			wantPrice:  85,
+			wantPrice:  70,
 			comparison: "gt",
 		},
 		{
-			name:       "at P25 gets 85",
+			name:       "at P25 gets 70",
 			unitPrice:  30.0,
-			wantPrice:  85,
+			wantPrice:  70,
 			comparison: "eq",
 		},
 		{
-			name:       "at P50 gets 50",
+			name:       "at P50 gets 30",
 			unitPrice:  50.0,
-			wantPrice:  50,
+			wantPrice:  30,
 			comparison: "eq",
 		},
 		{
-			name:       "at P75 gets 25",
+			name:       "at P75 gets 10",
 			unitPrice:  70.0,
-			wantPrice:  25,
+			wantPrice:  10,
 			comparison: "eq",
 		},
 		{
@@ -524,7 +524,7 @@ func TestScore_CompositeCalculation(t *testing.T) {
 	b := Score(data, baseline, w)
 
 	// Verify per-factor scores
-	assert.InDelta(t, 50.0, b.Price, 0.01)   // at P50
+	assert.InDelta(t, 30.0, b.Price, 0.01)   // at P50 (post-recalibration)
 	assert.InDelta(t, 100.0, b.Seller, 0.01) // 5000fb + 99.5%
 	assert.Equal(t, 100.0, b.Condition)      // new
 	assert.Equal(t, 50.0, b.Quantity)        // single item
@@ -558,4 +558,88 @@ func TestScorer_TimeScore_OldBuyItNow(t *testing.T) {
 	t.Parallel()
 	data := &ListingData{}
 	assert.Equal(t, 30.0, timeScore(data))
+}
+
+// recalibrationBaseline mirrors a representative percentile distribution for
+// a populated component category — used by the post-DESIGN-0011 composite
+// scenario tests below to guard the "typical / good / bad" spread.
+func recalibrationBaseline() *Baseline {
+	return &Baseline{
+		P10:         20,
+		P25:         30,
+		P50:         50,
+		P75:         70,
+		P90:         100,
+		SampleCount: 50,
+	}
+}
+
+// TestScore_TypicalListing_Composite asserts the median listing's composite
+// score lands near 60 after the priceScore recalibration (DESIGN-0011 Part B).
+// Pre-recalibration this scenario produced ~88 — the noise floor that made
+// every listing alert.
+func TestScore_TypicalListing_Composite(t *testing.T) {
+	t.Parallel()
+
+	data := &ListingData{
+		UnitPrice:         50.0, // at P50
+		SellerFeedback:    5000,
+		SellerFeedbackPct: 99.5,
+		SellerTopRated:    true,
+		Condition:         "used_working",
+		Quantity:          1,
+		HasImages:         true,
+		HasItemSpecifics:  true,
+		DescriptionLen:    200,
+	}
+
+	b := Score(data, recalibrationBaseline(), DefaultWeights())
+
+	assert.GreaterOrEqual(t, b.Total, 55, "typical listing should score >= 55")
+	assert.LessOrEqual(t, b.Total, 65, "typical listing should score <= 65")
+}
+
+// TestScore_GoodDeal_Composite asserts a genuinely-good deal still earns
+// >= 90, preserving headroom for alert thresholds at 80.
+func TestScore_GoodDeal_Composite(t *testing.T) {
+	t.Parallel()
+
+	data := &ListingData{
+		UnitPrice:         15.0, // below P10
+		SellerFeedback:    5000,
+		SellerFeedbackPct: 99.5,
+		SellerTopRated:    true,
+		Condition:         "used_working",
+		Quantity:          1,
+		HasImages:         true,
+		HasItemSpecifics:  true,
+		DescriptionLen:    600, // > 500 to land in the top quality bucket
+		IsNewListing:      true,
+	}
+
+	b := Score(data, recalibrationBaseline(), DefaultWeights())
+
+	assert.GreaterOrEqual(t, b.Total, 90, "good deal should score >= 90")
+}
+
+// TestScore_BadListing_Composite guards against the recalibrated curve
+// collapsing every below-median listing to zero. A deliberately weak listing
+// should land below 30 but not at 0.
+func TestScore_BadListing_Composite(t *testing.T) {
+	t.Parallel()
+
+	data := &ListingData{
+		UnitPrice:         70.0, // at P75
+		SellerFeedback:    100,
+		SellerFeedbackPct: 95.0,
+		Condition:         "for_parts",
+		Quantity:          1,
+		HasImages:         false,
+		HasItemSpecifics:  false,
+		DescriptionLen:    20,
+	}
+
+	b := Score(data, recalibrationBaseline(), DefaultWeights())
+
+	assert.LessOrEqual(t, b.Total, 30, "bad listing should score <= 30")
 }

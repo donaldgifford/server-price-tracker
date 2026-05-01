@@ -63,7 +63,7 @@ func TestBuildOverviewDashboard(t *testing.T) {
 			totalPanels += len(p.RowPanel.Panels)
 		}
 	}
-	assert.Equal(t, 33, totalPanels)
+	assert.Equal(t, 34, totalPanels)
 
 	// Validate PromQL and metrics.
 	result := validate.Dashboard(dash, KnownMetrics)

@@ -99,14 +99,36 @@ func TestProductKey(t *testing.T) {
 			want: "drive:sata:3.5:4tb:7k2",
 		},
 		{
-			name:          "Server Dell R740xd",
+			name:          "Server Dell R740xd configured",
+			componentType: "server",
+			attrs: map[string]any{
+				"manufacturer":      "Dell",
+				"model":             "R740xd",
+				"drive_form_factor": "SFF",
+				"tier":              "configured",
+			},
+			want: "server:dell:r740xd:sff:configured",
+		},
+		{
+			name:          "Server Dell R740xd barebone",
+			componentType: "server",
+			attrs: map[string]any{
+				"manufacturer":      "Dell",
+				"model":             "R740xd",
+				"drive_form_factor": "SFF",
+				"tier":              "barebone",
+			},
+			want: "server:dell:r740xd:sff:barebone",
+		},
+		{
+			name:          "Server with no tier defaults to unknown suffix",
 			componentType: "server",
 			attrs: map[string]any{
 				"manufacturer":      "Dell",
 				"model":             "R740xd",
 				"drive_form_factor": "SFF",
 			},
-			want: "server:dell:r740xd:sff",
+			want: "server:dell:r740xd:sff:unknown",
 		},
 		{
 			name:          "CPU Intel Xeon",
@@ -164,7 +186,7 @@ func TestProductKey(t *testing.T) {
 			name:          "empty attrs defaults to unknown/zero",
 			componentType: "server",
 			attrs:         map[string]any{},
-			want:          "server:unknown:unknown:unknown",
+			want:          "server:unknown:unknown:unknown:unknown",
 		},
 	}
 

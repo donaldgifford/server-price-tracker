@@ -313,6 +313,75 @@ func TestEvaluateAlert_ScoreAboveThreshold(t *testing.T) {
 	eng.evaluateAlert(context.Background(), watch, listing)
 }
 
+// TestEvaluateAlert_IncrementsAlertsCreated guards the counter wired into
+// evaluateAlert that DESIGN-0011 / IMPL-0016 Phase 3 added. Uses the
+// listing's ComponentType as the metric label and reads the global counter
+// directly — not parallel because the global vec is shared.
+func TestEvaluateAlert_IncrementsAlertsCreated(t *testing.T) {
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	score := 90
+	listing := &domain.Listing{
+		ID:            "l1",
+		Score:         &score,
+		ComponentType: domain.ComponentRAM,
+	}
+	watch := &domain.Watch{
+		ID:             "w1",
+		ScoreThreshold: 80,
+	}
+
+	ms.EXPECT().CreateAlert(mock.Anything, mock.Anything).Return(nil).Once()
+
+	before := ptestutil.ToFloat64(
+		metrics.AlertsCreatedTotal.WithLabelValues(string(domain.ComponentRAM)),
+	)
+	eng.evaluateAlert(context.Background(), watch, listing)
+	after := ptestutil.ToFloat64(
+		metrics.AlertsCreatedTotal.WithLabelValues(string(domain.ComponentRAM)),
+	)
+	assert.InDelta(t, 1, after-before, 0.1,
+		"AlertsCreatedTotal{ram} should increment by 1")
+}
+
+// TestEvaluateAlert_DoesNotIncrementOnCreateAlertError guards that we don't
+// double-count failed inserts.
+func TestEvaluateAlert_DoesNotIncrementOnCreateAlertError(t *testing.T) {
+	ms := storeMocks.NewMockStore(t)
+	me := ebayMocks.NewMockEbayClient(t)
+	mx := extractMocks.NewMockExtractor(t)
+	mn := notifyMocks.NewMockNotifier(t)
+	eng := newTestEngine(ms, me, mx, mn)
+
+	score := 90
+	listing := &domain.Listing{
+		ID:            "l1",
+		Score:         &score,
+		ComponentType: domain.ComponentDrive,
+	}
+	watch := &domain.Watch{
+		ID:             "w1",
+		ScoreThreshold: 80,
+	}
+
+	ms.EXPECT().CreateAlert(mock.Anything, mock.Anything).
+		Return(errors.New("db down")).Once()
+
+	before := ptestutil.ToFloat64(
+		metrics.AlertsCreatedTotal.WithLabelValues(string(domain.ComponentDrive)),
+	)
+	eng.evaluateAlert(context.Background(), watch, listing)
+	after := ptestutil.ToFloat64(
+		metrics.AlertsCreatedTotal.WithLabelValues(string(domain.ComponentDrive)),
+	)
+	assert.InDelta(t, 0, after-before, 0.1,
+		"counter must not increment when CreateAlert returns an error")
+}
+
 func TestEvaluateAlert_ScoreBelowThreshold(t *testing.T) {
 	t.Parallel()
 

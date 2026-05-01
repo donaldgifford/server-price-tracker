@@ -181,12 +181,30 @@ func (e *LLMExtractor) Extract(
 	return attrs, nil
 }
 
+// accessoryShortCircuitConfidence is the extraction_confidence assigned to
+// listings routed to ComponentOther by the regex pre-classifier. Held below
+// 1.0 because a regex match is qualitatively different from a confident LLM
+// answer; downstream consumers can still distinguish regex hits from genuine
+// LLM-confident extractions if they care.
+const accessoryShortCircuitConfidence = 0.95
+
 // ClassifyAndExtract classifies the title and then extracts attributes.
+// Bare server-part accessories (backplanes, caddies, rails, etc.) are
+// short-circuited to ComponentOther without calling the LLM — see
+// IsAccessoryOnly and DESIGN-0011.
 func (e *LLMExtractor) ClassifyAndExtract(
 	ctx context.Context,
 	title string,
 	itemSpecifics map[string]string,
 ) (domain.ComponentType, map[string]any, error) {
+	if IsAccessoryOnly(title) {
+		e.log.Info("accessory short-circuit",
+			"title", title, "accessory_short_circuit", true)
+		return domain.ComponentOther, map[string]any{
+			"confidence": accessoryShortCircuitConfidence,
+		}, nil
+	}
+
 	ct, err := e.Classify(ctx, title)
 	if err != nil {
 		return "", nil, fmt.Errorf("classifying: %w", err)

@@ -165,8 +165,9 @@ type WebhookConfig struct {
 
 // AlertsConfig defines alert behavior.
 type AlertsConfig struct {
-	ReAlertsEnabled  bool          `yaml:"re_alerts_enabled"`  // default: false
-	ReAlertsCooldown time.Duration `yaml:"re_alerts_cooldown"` // default: 24h
+	// ReAlertsCooldown suppresses re-alerts on the same (watch, listing) within
+	// this window. Default: 24h. Set to 0 to disable the cooldown entirely.
+	ReAlertsCooldown time.Duration `yaml:"re_alerts_cooldown"`
 }
 
 // LoggingConfig defines logging settings.

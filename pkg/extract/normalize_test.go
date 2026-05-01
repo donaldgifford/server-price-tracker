@@ -160,3 +160,57 @@ func TestNormalizeExtraction_NonRAMSkipsRAMOnly(t *testing.T) {
 	extract.NormalizeExtraction(domain.ComponentDrive, "irrelevant", attrs)
 	assert.Equal(t, 32768, attrs["capacity_gb"])
 }
+
+// TestNormalizeExtraction_ServerTier asserts that title-derived tier
+// is written into attrs for server listings (IMPL-0016 Phase 6).
+func TestNormalizeExtraction_ServerTier(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		title string
+		want  string
+	}{
+		{
+			name:  "barebone shell",
+			title: "Dell PowerEdge R740XD 24-Bay SFF Barebone Server",
+			want:  extract.ServerTierBarebone,
+		},
+		{
+			name:  "configured",
+			title: "Dell R740 2x Xeon Gold 5118 64GB DDR4 RAM",
+			want:  extract.ServerTierConfigured,
+		},
+		{
+			name:  "ambiguous defaults to partial",
+			title: "Dell PowerEdge R740XD Server",
+			want:  extract.ServerTierPartial,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			attrs := map[string]any{}
+			extract.NormalizeExtraction(domain.ComponentServer, tt.title, attrs)
+			assert.Equal(t, tt.want, attrs["tier"], "title=%q", tt.title)
+		})
+	}
+}
+
+// TestNormalizeExtraction_ServerTierOverridesLLM guards that the
+// title-derived tier always wins over an LLM-emitted tier value —
+// the LLM can't see the full title context as reliably as a regex.
+func TestNormalizeExtraction_ServerTierOverridesLLM(t *testing.T) {
+	t.Parallel()
+
+	attrs := map[string]any{
+		"tier": "configured", // hypothetical LLM guess
+	}
+	extract.NormalizeExtraction(
+		domain.ComponentServer,
+		"Dell PowerEdge R640 Barebone No CPU/RAM/HDD",
+		attrs,
+	)
+	assert.Equal(t, extract.ServerTierBarebone, attrs["tier"])
+}

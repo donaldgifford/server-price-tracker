@@ -572,7 +572,7 @@ func TestProcessAlerts_BatchPartialFailure(t *testing.T) {
 	require.NoError(t, err) // ProcessAlerts absorbs per-watch errors
 }
 
-func TestEvaluateAlert_ReAlertsDisabled_NoDuplicateWhilePending(t *testing.T) {
+func TestEvaluateAlert_CooldownZero_SkipsRecentCheck(t *testing.T) {
 	t.Parallel()
 
 	ms := storeMocks.NewMockStore(t)
@@ -584,7 +584,7 @@ func TestEvaluateAlert_ReAlertsDisabled_NoDuplicateWhilePending(t *testing.T) {
 	listing := &domain.Listing{ID: "l1", Score: &score}
 	watch := testWatch() // threshold is 75
 
-	// Re-alerts disabled (default): HasRecentAlert must NOT be called.
+	// Cooldown=0 (test default): HasRecentAlert must NOT be called.
 	// CreateAlert is called (partial unique index prevents duplicate pending alerts).
 	ms.EXPECT().
 		CreateAlert(mock.Anything, mock.MatchedBy(func(a *domain.Alert) bool {
@@ -596,7 +596,7 @@ func TestEvaluateAlert_ReAlertsDisabled_NoDuplicateWhilePending(t *testing.T) {
 	eng.evaluateAlert(context.Background(), watch, listing)
 }
 
-func TestEvaluateAlert_ReAlertsEnabled_SkipsCooldownListing(t *testing.T) {
+func TestEvaluateAlert_CooldownActive_SkipsRecentListing(t *testing.T) {
 	t.Parallel()
 
 	ms := storeMocks.NewMockStore(t)
@@ -616,7 +616,6 @@ func TestEvaluateAlert_ReAlertsEnabled_SkipsCooldownListing(t *testing.T) {
 
 	eng := newTestEngine(ms, me, mx, mn)
 	eng.alertsConfig = config.AlertsConfig{
-		ReAlertsEnabled:  true,
 		ReAlertsCooldown: 24 * time.Hour,
 	}
 	eng.evaluateAlert(context.Background(), watch, listing)
@@ -675,7 +674,7 @@ func TestSendBatch_AllAlreadyNotified(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEvaluateAlert_ReAlertsEnabled_AllowsAfterCooldown(t *testing.T) {
+func TestEvaluateAlert_CooldownActive_AllowsAfterWindow(t *testing.T) {
 	t.Parallel()
 
 	ms := storeMocks.NewMockStore(t)
@@ -695,7 +694,6 @@ func TestEvaluateAlert_ReAlertsEnabled_AllowsAfterCooldown(t *testing.T) {
 
 	eng := newTestEngine(ms, me, mx, mn)
 	eng.alertsConfig = config.AlertsConfig{
-		ReAlertsEnabled:  true,
 		ReAlertsCooldown: 24 * time.Hour,
 	}
 	eng.evaluateAlert(context.Background(), watch, listing)

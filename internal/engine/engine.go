@@ -451,8 +451,9 @@ func (eng *Engine) evaluateAlert(
 		return
 	}
 
-	// When re-alerts are enabled, skip listings notified within the cooldown window.
-	if eng.alertsConfig.ReAlertsEnabled {
+	// Skip listings notified within the cooldown window. A cooldown of 0
+	// disables the check (escape hatch for "alert every cycle" workflows).
+	if eng.alertsConfig.ReAlertsCooldown > 0 {
 		recent, err := eng.store.HasRecentAlert(
 			ctx, w.ID, listing.ID, eng.alertsConfig.ReAlertsCooldown,
 		)
@@ -476,7 +477,9 @@ func (eng *Engine) evaluateAlert(
 
 	if err := eng.store.CreateAlert(ctx, alert); err != nil {
 		eng.log.Error("creating alert failed", "listing", listing.ID, "error", err)
+		return
 	}
+	metrics.AlertsCreatedTotal.WithLabelValues(string(listing.ComponentType)).Inc()
 }
 
 // SyncQuota calls the eBay Analytics API to update Prometheus gauge metrics
