@@ -299,40 +299,43 @@ ON CONFLICT DO NOTHING;
 
 ### Baseline coverage by product key
 
+`price_baselines` columns are `sample_count` (int) and `p10/p25/p50/p75/p90`
+(numeric, USD). No `_cents` suffix — values are dollars.
+
 ```sql
-SELECT product_key, sample_size, p50_price_cents, updated_at
+SELECT product_key, sample_count, p50, updated_at
 FROM price_baselines
-ORDER BY sample_size DESC
+ORDER BY sample_count DESC
 LIMIT 20;
 ```
 
 ### Cold (low-sample) baselines
 
 ```sql
-SELECT product_key, sample_size, updated_at
+SELECT product_key, sample_count, updated_at
 FROM price_baselines
-WHERE sample_size < 5
+WHERE sample_count < 5
 ORDER BY updated_at DESC;
 ```
 
 ### GPU baseline maturity check (IMPL-0017 Phase 6)
 
 After deploying GPU support, the `gpu:<manufacturer>:<family>:<model>:<vram>gb`
-bucket starts empty. Until at least one key reaches `sample_size >= 10` the
+bucket starts empty. Until at least one key reaches `sample_count >= 10` the
 price factor stays neutral (50) and composite scores cluster ~60. Use this
 query to decide when to tighten the GPU watch threshold from the cold-start
 default (65) to the production setting (80).
 
 ```sql
-SELECT product_key, sample_size, p50_price_cents / 100.0 AS p50_usd, updated_at
+SELECT product_key, sample_count, p50 AS p50_usd, updated_at
 FROM price_baselines
 WHERE product_key LIKE 'gpu:%'
-ORDER BY sample_size DESC;
+ORDER BY sample_count DESC;
 ```
 
-When the top row has `sample_size >= 10`, scoring becomes non-neutral —
+When the top row has `sample_count >= 10`, scoring becomes non-neutral —
 bump the watch threshold via
-`spt watches update --id <id> --score-threshold 80`.
+`spt watches update <id> --threshold 80`.
 
 The same shape works for any future component type by swapping the
 `'gpu:%'` prefix.
