@@ -347,7 +347,7 @@ not `other`) before approving prod.
   Verify product_keys look right (`gpu:nvidia:tesla:p40:24gb`),
   attributes are populated, no "unknown:unknown:..." keys outside
   cold-start expectations.
-- [ ] Spot-check the `other` bucket for *missed* GPUs:
+- [ ] Spot-check the `other` bucket for _missed_ GPUs:
   ```sql
   SELECT id, title FROM listings
   WHERE component_type = 'other'
@@ -512,7 +512,7 @@ All implementation-level questions resolved before Phase 1.
 
    _Deferred enhancement (filed as Phase 3 follow-up, see Section 3
    sub-task)_: a model→VRAM lookup table for high-value
-   *single-variant* cards (P40=24, P100-PCIe=16, K80=24, MI100=32).
+   _single-variant_ cards (P40=24, P100-PCIe=16, K80=24, MI100=32).
    Multi-variant cards (A100 ships in 40 and 80, V100 in 16 and 32,
    MI210 in 64 only but MI250 in 128) need title-text inference and
    aren't covered by a static table. Skip in Phase 1; revisit if the

@@ -313,23 +313,23 @@ landed for baselines to compute.
 
 ## Open Questions
 
-1. **Family enumeration** — _resolved: free-form string + normaliser
-   (option a)._ See Section 3 for validation (no enum check at validate
+1. **Family enumeration** — *resolved: free-form string + normaliser
+   (option a).* See Section 3 for validation (no enum check at validate
    time) and Section 7 for the canonicalisation map. Sturdiest to NVIDIA
    renaming a family; the canonicalisation step keeps product-key
    grouping stable across spelling variants.
 
-2. **Bundled GPUs in server listings** — _resolved: leave as `server`._
+2. **Bundled GPUs in server listings** — *resolved: leave as `server`.*
    "Dell R740 with 2x Tesla P40" stays in the server bucket. Future
    enhancement (out of scope here): a quality factor that boosts a
    server's score when GPUs are detected, so a server with included GPUs
    beats an otherwise-equivalent server without. Filed as a follow-up,
    not part of this design.
 
-3. **Watch threshold default** — _resolved: seed at 65 and bump later._
+3. **Watch threshold default** — *resolved: seed at 65 and bump later.*
    See Section 8. Operator revisits after ~1 week.
 
-4. **Normalisation** — _resolved: ship with normalisation._ See Section 7.
+4. **Normalisation** — *resolved: ship with normalisation.* See Section 7.
    VRAM unit repair, family inference from model, and power-of-2 rounding
    land in the first PR.
 

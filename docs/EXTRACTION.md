@@ -442,6 +442,13 @@ func ProductKey(componentType string, attrs map[string]any) string {
             attrInt(attrs, "port_count"),
             normalizeStr(attrs["port_type"]),
         )
+    case "gpu":
+        return fmt.Sprintf("gpu:%s:%s:%s:%dgb",
+            normalizeStr(attrs["manufacturer"]),
+            normalizeStr(attrs["family"]), // canonicalised by NormalizeGPUExtraction
+            normalizeStr(attrs["model"]),
+            pkInt(attrs, "vram_gb"),
+        ) // DESIGN-0012 / IMPL-0017
     default:
         return fmt.Sprintf("other:%s", componentType)
     }
@@ -487,6 +494,22 @@ After parsing the JSON response from any backend, validate per component type:
 - `speed`: one of 1GbE, 10GbE, 25GbE, 40GbE, 100GbE (required)
 - `port_count`: 1–8 (required)
 - `port_type`: one of SFP+, SFP28, QSFP+, QSFP28, RJ45, BaseT (optional)
+
+### GPU
+
+- `manufacturer`: one of NVIDIA, AMD, Intel (required)
+- `model`: non-empty string (required)
+- `vram_gb`: 1–256 (required)
+- `family`: free-form string (optional, no enum check). The
+  normaliser canonicalises common spellings to lowercase tokens
+  (`tesla`, `quadro`, `geforce`, `rtx`, `a-series`, `l-series`,
+  `h-series`, `radeon-pro`, `instinct`, `arc`) for stable
+  product-key construction.
+- `memory_type`: one of GDDR5, GDDR6, GDDR6X, HBM2, HBM2e, HBM3 (optional)
+- `interface`: one of PCIe 3.0/4.0/5.0 x16, SXM2, SXM4, SXM5 (optional)
+- `tdp_watts`: 15–700 (optional)
+- `form_factor`: one of single_slot, dual_slot, triple_slot, FHFL, HHHL, LP (optional)
+- `cooling`: one of passive, active, blower (optional)
 
 ### All Types
 
@@ -554,6 +577,33 @@ markdown fences despite the prompt's "no markdown" instruction.
 `stripJSONFences` (in `pkg/extract/extractor.go`) removes the surrounding
 fences before `json.Unmarshal`. Bare JSON passes through unchanged. This
 runs before normalization since the JSON has to parse first.
+
+### GPU normalisation (DESIGN-0012 / IMPL-0017)
+
+`NormalizeGPUExtraction` in `pkg/extract/gpu_normalize.go` runs before
+validation when `componentType == ComponentGPU`. Three repairs:
+
+1. **VRAM unit confusion** — `vram_gb` returned as MB or KB. If the
+   value lands in 1024–262144, divide by 1024. If 1000–256000,
+   divide by 1000. Same pattern as RAM `capacity_gb` repair.
+2. **Family canonicalisation** — `family` is validated as free-form
+   string. Common spellings (`Tesla`/`tesla`/`TESLA`, `Ampere`,
+   `Hopper`, `Radeon Pro`) collapse to canonical lowercase tokens
+   (`tesla`, `a-series`, `h-series`, `radeon-pro`) so the product
+   key remains stable across spellings.
+3. **Family inference from model** — if `family` is empty after
+   canonicalisation, infer from a high-confidence model prefix:
+   `^(P40|P100|V100|K80|M40|M60|T4)$` → `tesla`,
+   `^A(10|30|40|100)$` → `a-series`,
+   `^L(4|40|40S)$` → `l-series`,
+   `^H(100|200)$` → `h-series`,
+   `^MI(50|60|100|210|250|300)$` → `instinct`.
+   Ambiguous prefixes (P4000, RTX 4000) deliberately don't match —
+   better to leave family empty than mis-infer.
+4. **VRAM rounding** — snap `vram_gb` to the nearest known SKU
+   (`[8, 12, 16, 24, 32, 40, 48, 80, 96, 128]`) when within ±1 GB.
+   Out-of-list values (14, 20, 28) stay unchanged so legitimate
+   odd-VRAM cards aren't corrupted.
 
 ## Classifier Behavior — Accessories
 
