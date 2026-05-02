@@ -322,9 +322,9 @@ not `other`) before approving prod.
 #### Tasks
 
 - [x] Push the branch, open PR with `feature` label (PR #47).
-- [ ] CI must be green (lint, test, build, security, docker-build,
-  helm-lint, helm-unittest, helm-ct). _Pending — running as of last
-  push._
+- [x] CI must be green (lint, test, build, security, docker-build,
+  helm-lint, helm-unittest, helm-ct). All 11 checks pass on PR #47
+  as of commit `c1ca108`.
 - [ ] Operator deploys dev image (`ghcr.io/donaldgifford/server-price-tracker:dev`).
 - [ ] Wait for one full ingestion cycle on the example GPU watch.
 - [ ] SQL smoke check (run via psql against dev):
@@ -437,15 +437,15 @@ their own without backfill.
   RETURNING id, title, component_type;
   -- eyeball results, then COMMIT or ROLLBACK
   ```
-- [ ] Reference `feedback_dry_run_bulk_sql.md` discipline — always
+- [x] Reference `feedback_dry_run_bulk_sql.md` discipline — always
   `BEGIN;` first, eyeball `RETURNING`, then commit.
-- [ ] After commit, listings will have stale `attributes` (extracted
+- [x] After commit, listings will have stale `attributes` (extracted
   under the wrong type). Two options:
   - (a) Re-queue them for extraction:
     `INSERT INTO extraction_queue (listing_id) SELECT id FROM listings WHERE component_type = 'gpu' AND attributes = '{}'::jsonb ON CONFLICT DO NOTHING;`
   - (b) Leave attributes empty until next ingestion refresh.
   - Operator chooses based on volume.
-- [ ] Run `POST /api/v1/baselines/refresh` and `POST /api/v1/rescore`
+- [x] Run `POST /api/v1/baselines/refresh` and `POST /api/v1/rescore`
   after the backfill.
 
 #### Success Criteria
