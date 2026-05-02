@@ -1,0 +1,18 @@
+---
+# spt CLI config — copy to ~/.spt.yaml or pass via `spt --config <path>`.
+#
+# Resolution order (highest → lowest):
+#   1. Command-line flags (--server, --output)
+#   2. Environment variables (SPT_SERVER, SPT_OUTPUT)
+#   3. This config file
+#   4. Built-in defaults (server=http://localhost:8080, output=table)
+
+# API server base URL. Use the Helm release URL in prod, the dev URL or
+# a port-forwarded localhost in dev.
+server: http://localhost:8080
+# server: https://spt.fartlab.dev
+# server: https://spt-dev.fartlab.dev
+
+# Output format for list-style commands. Valid: "table" (default), "json".
+# `json` is useful for piping through jq.
+output: table

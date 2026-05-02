@@ -214,3 +214,26 @@ func TestNormalizeExtraction_ServerTierOverridesLLM(t *testing.T) {
 	)
 	assert.Equal(t, extract.ServerTierBarebone, attrs["tier"])
 }
+
+// TestNormalizeExtraction_GPUNormalizesViaSwitch confirms that the
+// GPU normalisation hook runs from inside NormalizeExtraction, not
+// just when called directly. Covers the integration path.
+func TestNormalizeExtraction_GPUNormalizesViaSwitch(t *testing.T) {
+	t.Parallel()
+
+	attrs := map[string]any{
+		"vram_gb":      24576, // MB — should snap to 24
+		"family":       "Tesla",
+		"model":        "P40",
+		"manufacturer": "NVIDIA",
+		"condition":    "new",
+		"confidence":   0.95,
+	}
+	extract.NormalizeExtraction(
+		domain.ComponentGPU,
+		"NVIDIA Tesla P40 24GB",
+		attrs,
+	)
+	assert.Equal(t, 24, attrs["vram_gb"])
+	assert.Equal(t, "tesla", attrs["family"])
+}

@@ -14,13 +14,15 @@ const classifyTmpl = `Classify this eBay listing into exactly one component type
 
 Title: {{.Title}}
 
-Types: ram, drive, server, cpu, nic, other
+Types: ram, drive, server, cpu, nic, gpu, other
 
 Rules:
 - Pick the type of the actual item being sold, not what it is for or compatible with.
 - Accessories and parts that are not themselves the component go to "other". Examples: drive caddies/trays, rack rails, bezels, brackets, mounting kits, cables, fans, heatsinks, risers, backplanes (when sold alone), power supplies (when sold alone).
 - Only pick "drive" for actual storage drives (HDD/SSD/NVMe), not drive accessories.
 - Only pick "server" for complete or barebones server chassis, not individual server parts.
+- Pick "gpu" for actual graphics cards / accelerators (Tesla, Quadro, RTX, A/L/H-series, Radeon Pro, Instinct, Arc).
+- "gpu riser", "GPU bracket", and "GPU power cable" stay in "other" (they are accessories, not the GPU itself).
 
 Respond with ONLY a single word from the list above. No explanation, no parentheses, no extra text.`
 
@@ -213,6 +215,43 @@ Schema:
   "confidence": float (0.0-1.0)
 }`
 
+// gpuTmpl is the GPU extraction prompt template.
+const gpuTmpl = `Extract structured attributes from this eBay server GPU / accelerator listing.
+Respond ONLY with a valid JSON object. No markdown, no explanation.
+
+Rules:
+- For enum fields, you MUST use one of the listed values exactly. Never return null for enum fields.
+- "manufacturer": derive from the brand token in the title (NVIDIA, AMD, Intel). Never null.
+- "model": the card model token (e.g. "P40", "A100", "MI210", "RTX A4000"). Never null.
+- "vram_gb": VRAM capacity in GB as an integer. Convert any "24GB" / "24 GB" / "24-GB" to 24. Never null.
+- "family": short product line name as a free-form string (e.g. "Tesla", "Quadro", "RTX",
+  "Ampere", "Hopper", "Instinct", "Radeon Pro", "Arc"). May be null if truly indeterminate.
+- "condition": if the listing does not specify, use "unknown".
+- "confidence": always return a float between 0.0 and 1.0. Never null.
+- "quantity": default to 1 unless the title explicitly indicates a lot or bundle.
+- Only use null for optional string/integer/boolean fields that truly cannot be determined.
+
+Title: {{.Title}}
+Item Specifics: {{.ItemSpecifics}}
+
+Schema:
+{
+  "manufacturer": "NVIDIA" | "AMD" | "Intel",
+  "family": string | null,
+  "model": string,
+  "vram_gb": integer (1-256),
+  "memory_type": "GDDR5" | "GDDR6" | "GDDR6X" | "HBM2" | "HBM2e" | "HBM3" | null,
+  "interface": "PCIe 3.0 x16" | "PCIe 4.0 x16" | "PCIe 5.0 x16" | "SXM2" | "SXM4" | "SXM5" | null,
+  "tdp_watts": integer (15-700) | null,
+  "form_factor": "single_slot" | "dual_slot" | "triple_slot" | "FHFL" | "HHHL" | "LP" | null,
+  "cooling": "passive" | "active" | "blower" | null,
+  "power_connectors": string | null,
+  "part_number": string | null,
+  "quantity": integer,
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
+  "confidence": float (0.0-1.0)
+}`
+
 // PromptData holds the template variables for extraction prompts.
 type PromptData struct {
 	Title         string
@@ -229,6 +268,7 @@ func init() {
 		domain.ComponentServer: template.Must(template.New("server").Parse(serverTmpl)),
 		domain.ComponentCPU:    template.Must(template.New("cpu").Parse(cpuTmpl)),
 		domain.ComponentNIC:    template.Must(template.New("nic").Parse(nicTmpl)),
+		domain.ComponentGPU:    template.Must(template.New("gpu").Parse(gpuTmpl)),
 	}
 }
 

@@ -35,6 +35,8 @@ func ValidateExtraction(
 		return validateCPU(attrs)
 	case domain.ComponentNIC:
 		return validateNIC(attrs)
+	case domain.ComponentGPU:
+		return validateGPU(attrs)
 	default:
 		return nil
 	}
@@ -266,6 +268,86 @@ func validateNIC(attrs map[string]any) error {
 	if pt, ok := attrString(attrs, "port_type"); ok {
 		if !slices.Contains(validNICPortTypes, pt) {
 			return fmt.Errorf("port_type %q: %w", pt, ErrInvalidEnum)
+		}
+	}
+
+	return nil
+}
+
+var (
+	validGPUManufacturers = []string{"NVIDIA", "AMD", "Intel"}
+	validGPUMemoryTypes   = []string{"GDDR5", "GDDR6", "GDDR6X", "HBM2", "HBM2e", "HBM3"}
+	validGPUInterfaces    = []string{
+		"PCIe 3.0 x16", "PCIe 4.0 x16", "PCIe 5.0 x16",
+		"SXM2", "SXM4", "SXM5",
+	}
+	validGPUFormFactors = []string{
+		"single_slot", "dual_slot", "triple_slot",
+		"FHFL", "HHHL", "LP",
+	}
+	validGPUCoolings = []string{"passive", "active", "blower"}
+)
+
+func validateGPU(attrs map[string]any) error {
+	if err := validateGPURequired(attrs); err != nil {
+		return err
+	}
+	return validateGPUOptional(attrs)
+}
+
+func validateGPURequired(attrs map[string]any) error {
+	mfr, ok := attrString(attrs, "manufacturer")
+	if !ok {
+		return fmt.Errorf("manufacturer: %w", ErrMissingField)
+	}
+	if !slices.Contains(validGPUManufacturers, mfr) {
+		return fmt.Errorf("manufacturer %q: %w", mfr, ErrInvalidEnum)
+	}
+
+	model, ok := attrString(attrs, "model")
+	if !ok || model == "" {
+		return fmt.Errorf("model: %w", ErrMissingField)
+	}
+
+	vram, ok := attrInt(attrs, "vram_gb")
+	if !ok {
+		return fmt.Errorf("vram_gb: %w", ErrMissingField)
+	}
+	if vram < 1 || vram > 256 {
+		return fmt.Errorf("vram_gb %d: %w (must be 1-256)", vram, ErrOutOfRange)
+	}
+
+	return nil
+}
+
+func validateGPUOptional(attrs map[string]any) error {
+	if mt, ok := attrString(attrs, "memory_type"); ok {
+		if !slices.Contains(validGPUMemoryTypes, mt) {
+			return fmt.Errorf("memory_type %q: %w", mt, ErrInvalidEnum)
+		}
+	}
+
+	if iface, ok := attrString(attrs, "interface"); ok {
+		if !slices.Contains(validGPUInterfaces, iface) {
+			return fmt.Errorf("interface %q: %w", iface, ErrInvalidEnum)
+		}
+	}
+
+	if tdp, ok := attrInt(attrs, "tdp_watts"); ok {
+		if tdp < 15 || tdp > 700 {
+			return fmt.Errorf("tdp_watts %d: %w (must be 15-700)", tdp, ErrOutOfRange)
+		}
+	}
+
+	if ff, ok := attrString(attrs, "form_factor"); ok {
+		if !slices.Contains(validGPUFormFactors, ff) {
+			return fmt.Errorf("form_factor %q: %w", ff, ErrInvalidEnum)
+		}
+	}
+
+	if c, ok := attrString(attrs, "cooling"); ok {
+		if !slices.Contains(validGPUCoolings, c) {
+			return fmt.Errorf("cooling %q: %w", c, ErrInvalidEnum)
 		}
 	}
 

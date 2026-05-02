@@ -171,10 +171,59 @@ func TestProductKey(t *testing.T) {
 			want: "nic:25gbe:2p:sfp28",
 		},
 		{
-			name:          "unknown type",
+			name:          "unknown type falls through to other",
+			componentType: "psu",
+			attrs:         map[string]any{},
+			want:          "other:psu",
+		},
+		{
+			name:          "GPU NVIDIA Tesla P40 24GB",
+			componentType: "gpu",
+			attrs: map[string]any{
+				"manufacturer": "NVIDIA",
+				"family":       "Tesla",
+				"model":        "P40",
+				"vram_gb":      24,
+			},
+			want: "gpu:nvidia:tesla:p40:24gb",
+		},
+		{
+			name:          "GPU AMD Instinct MI210 64GB",
+			componentType: "gpu",
+			attrs: map[string]any{
+				"manufacturer": "AMD",
+				"family":       "Instinct",
+				"model":        "MI210",
+				"vram_gb":      64,
+			},
+			want: "gpu:amd:instinct:mi210:64gb",
+		},
+		{
+			name:          "GPU family null falls back to unknown",
+			componentType: "gpu",
+			attrs: map[string]any{
+				"manufacturer": "NVIDIA",
+				"model":        "A100",
+				"vram_gb":      80,
+			},
+			want: "gpu:nvidia:unknown:a100:80gb",
+		},
+		{
+			name:          "GPU vram_gb from float64",
+			componentType: "gpu",
+			attrs: map[string]any{
+				"manufacturer": "NVIDIA",
+				"family":       "Tesla",
+				"model":        "V100",
+				"vram_gb":      float64(32),
+			},
+			want: "gpu:nvidia:tesla:v100:32gb",
+		},
+		{
+			name:          "GPU empty attrs defaults to unknown/0",
 			componentType: "gpu",
 			attrs:         map[string]any{},
-			want:          "other:gpu",
+			want:          "gpu:unknown:unknown:unknown:0gb",
 		},
 		{
 			name:          "nil attrs defaults to unknown/zero",

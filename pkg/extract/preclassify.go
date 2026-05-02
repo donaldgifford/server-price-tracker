@@ -61,6 +61,10 @@ var primaryComponentPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`\bchassis\b`),                               // "Server Chassis"
 	regexp.MustCompile(`\b(gold|silver|platinum|bronze)\s+\d{4}\b`), // Xeon Gold 5118, Silver 4110, ...
 	regexp.MustCompile(`\bidrac\b`),                                 // Dell management controller
+	// GPU brand/family tokens (DESIGN-0012) — a real GPU paired with an
+	// accessory keyword ("Tesla P40 + heatsink") should defer to the LLM
+	// rather than short-circuit to "other".
+	regexp.MustCompile(`\b(tesla|quadro|rtx\s+a\d+|a100|h100|l40|mi\d{3}|radeon\s+pro)\b`),
 }
 
 // IsAccessoryOnly reports whether the title describes a bare server-part

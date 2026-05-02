@@ -442,6 +442,13 @@ func ProductKey(componentType string, attrs map[string]any) string {
             attrInt(attrs, "port_count"),
             normalizeStr(attrs["port_type"]),
         )
+    case "gpu":
+        return fmt.Sprintf("gpu:%s:%s:%s:%dgb",
+            normalizeStr(attrs["manufacturer"]),
+            normalizeStr(attrs["family"]), // canonicalised by NormalizeGPUExtraction
+            normalizeStr(attrs["model"]),
+            pkInt(attrs, "vram_gb"),
+        ) // DESIGN-0012 / IMPL-0017
     default:
         return fmt.Sprintf("other:%s", componentType)
     }
@@ -487,6 +494,22 @@ After parsing the JSON response from any backend, validate per component type:
 - `speed`: one of 1GbE, 10GbE, 25GbE, 40GbE, 100GbE (required)
 - `port_count`: 1–8 (required)
 - `port_type`: one of SFP+, SFP28, QSFP+, QSFP28, RJ45, BaseT (optional)
+
+### GPU
+
+- `manufacturer`: one of NVIDIA, AMD, Intel (required)
+- `model`: non-empty string (required)
+- `vram_gb`: 1–256 (required)
+- `family`: free-form string (optional, no enum check). The
+  normaliser canonicalises common spellings to lowercase tokens
+  (`tesla`, `quadro`, `geforce`, `rtx`, `a-series`, `l-series`,
+  `h-series`, `radeon-pro`, `instinct`, `arc`) for stable
+  product-key construction.
+- `memory_type`: one of GDDR5, GDDR6, GDDR6X, HBM2, HBM2e, HBM3 (optional)
+- `interface`: one of PCIe 3.0/4.0/5.0 x16, SXM2, SXM4, SXM5 (optional)
+- `tdp_watts`: 15–700 (optional)
+- `form_factor`: one of single_slot, dual_slot, triple_slot, FHFL, HHHL, LP (optional)
+- `cooling`: one of passive, active, blower (optional)
 
 ### All Types
 
@@ -554,6 +577,48 @@ markdown fences despite the prompt's "no markdown" instruction.
 `stripJSONFences` (in `pkg/extract/extractor.go`) removes the surrounding
 fences before `json.Unmarshal`. Bare JSON passes through unchanged. This
 runs before normalization since the JSON has to parse first.
+
+### GPU normalisation (DESIGN-0012 / IMPL-0017)
+
+`NormalizeGPUExtraction` in `pkg/extract/gpu_normalize.go` runs before
+validation when `componentType == ComponentGPU`. Four steps:
+
+1. **VRAM unit confusion** — `vram_gb` returned as MB or KB. If the
+   value lands in 1024–262144, divide by 1024. If 1000–256000,
+   divide by 1000. Same pattern as RAM `capacity_gb` repair.
+2. **Model canonicalisation** — `CanonicalizeGPUModel` strips brand
+   prefix and normalises spelling, so the LLM's "RTX 3090", "rtx_3090",
+   "rtx3090", and "3090" all collapse to `3090`. Ti and Super
+   separators normalise too: `3090_ti` / `3090-ti` / `"3090 ti"` →
+   `3090ti`. Without this, RTX 3090 listings fragment across 7+
+   product keys (observed 510 listings split across 7 keys in dev).
+   Note: `3090` and `3090ti` stay distinct because they're different
+   SKUs (different chip cores, different MSRP).
+3. **Family resolution (model inference > LLM family)** — patterns
+   operate on the canonical model from step 2:
+   `^(p40|p100|v100|k80|m40|m60|t4)$` → `tesla`,
+   `^a(10|30|40|100)$` → `a-series`,
+   `^l(4|40|40s)$` → `l-series`,
+   `^h(100|200)$` → `h-series`,
+   `^mi(50|60|100|210|250|300)$` → `instinct`,
+   `^[2-5]0\d{2}(ti|super)?$` → `geforce-rtx` (consumer 20/30/40/50
+   series),
+   `^a[2-6]000$` → `quadro-rtx` (workstation RTX A-series, formerly
+   Quadro RTX).
+   For known canonical models the inference list is the source of
+   truth and *overrides* whatever the LLM put in the family field —
+   the LLM is non-deterministic between legacy brand ("Tesla") and
+   architectural family ("Ampere"/"A-series") for the same SKU and
+   that fragments baselines.
+   For ambiguous models (P4000, RTX 4000) inference returns empty and
+   the LLM-supplied family is canonicalised instead: common spellings
+   (`Tesla`/`tesla`/`TESLA`, `Ampere`, `Hopper`, `Radeon Pro`) collapse
+   to canonical lowercase tokens (`tesla`, `a-series`, `h-series`,
+   `radeon-pro`).
+4. **VRAM rounding** — snap `vram_gb` to the nearest known SKU
+   (`[8, 12, 16, 24, 32, 40, 48, 80, 96, 128]`) when within ±1 GB.
+   Out-of-list values (14, 20, 28) stay unchanged so legitimate
+   odd-VRAM cards aren't corrupted.
 
 ## Classifier Behavior — Accessories
 

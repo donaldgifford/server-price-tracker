@@ -101,6 +101,7 @@ var validComponentTypes = map[string]domain.ComponentType{
 	"server": domain.ComponentServer,
 	"cpu":    domain.ComponentCPU,
 	"nic":    domain.ComponentNIC,
+	"gpu":    domain.ComponentGPU,
 	"other":  domain.ComponentOther,
 }
 
