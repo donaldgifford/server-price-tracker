@@ -301,7 +301,8 @@ test that exercises the full flow (classify → extract → product key
 - [x] Update existing "invalid type from LLM" test which used `gpu`
   as a placeholder — now uses `psu` (still invalid, real edge case).
 - [x] Run `make fmt`, `make lint`, `go test ./...`.
-- [ ] Commit `feat(extract): gpu integration smoke test and classify map entry`.
+- [x] Commit `feat(extract): gpu integration smoke test and classify map entry`
+  (commit `47ff329`).
 
 #### Success Criteria
 
@@ -320,9 +321,10 @@ not `other`) before approving prod.
 
 #### Tasks
 
-- [ ] Push the branch, open PR with `feature` label.
+- [x] Push the branch, open PR with `feature` label (PR #47).
 - [ ] CI must be green (lint, test, build, security, docker-build,
-  helm-lint, helm-unittest, helm-ct).
+  helm-lint, helm-unittest, helm-ct). _Pending — running as of last
+  push._
 - [ ] Operator deploys dev image (`ghcr.io/donaldgifford/server-price-tracker:dev`).
 - [ ] Wait for one full ingestion cycle on the example GPU watch.
 - [ ] SQL smoke check (run via psql against dev):
