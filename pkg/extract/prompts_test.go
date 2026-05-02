@@ -23,8 +23,17 @@ func TestRenderClassifyPrompt(t *testing.T) {
 			title: "Samsung 32GB DDR4 ECC",
 			wantSubs: []string{
 				"Title: Samsung 32GB DDR4 ECC",
-				"ram, drive, server, cpu, nic, other",
+				"ram, drive, server, cpu, nic, gpu, other",
 				"Respond with ONLY a single word from the list above",
+			},
+		},
+		{
+			name:  "gpu routing guidance present",
+			title: "NVIDIA Tesla P40 24GB",
+			wantSubs: []string{
+				`Pick "gpu" for actual graphics cards`,
+				"Tesla, Quadro, RTX",
+				`"gpu riser", "GPU bracket"`,
 			},
 		},
 		{
@@ -130,6 +139,22 @@ func TestRenderExtractPrompt(t *testing.T) {
 				"port_count",
 				"port_type",
 				"firmware_protocol",
+			},
+		},
+		{
+			name:          "GPU prompt",
+			componentType: domain.ComponentGPU,
+			title:         "NVIDIA Tesla P40 24GB GDDR5 GPU Accelerator",
+			specs:         map[string]string{"Brand": "NVIDIA", "Model": "Tesla P40"},
+			wantSubs: []string{
+				"Title: NVIDIA Tesla P40 24GB GDDR5 GPU Accelerator",
+				"Brand: NVIDIA",
+				"vram_gb",
+				`"manufacturer"`,
+				`"family"`,
+				`"memory_type"`,
+				"NVIDIA",
+				"Tesla",
 			},
 		},
 		{

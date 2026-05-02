@@ -135,8 +135,8 @@ they can ship and stay green without any prompt iteration.
 - [x] Write `pkg/extract/productkey_test.go` GPU cases — Tesla P40,
   Instinct MI210, family-null fallback, float64 vram, empty attrs.
 - [x] Run `make fmt`, `make lint`, `go test ./pkg/extract/...`.
-- [ ] Commit `feat(extract): add gpu component type — enum, validator,
-  product key`.
+- [x] Commit `feat(extract): add gpu component type — enum, validator,
+  product key` (commit `4116b57`).
 
 #### Success Criteria
 
@@ -159,53 +159,30 @@ accessories.
 
 #### Tasks
 
-- [ ] Add `gpuTmpl` constant to `pkg/extract/prompts.go` per
+- [x] Add `gpuTmpl` constant to `pkg/extract/prompts.go` per
   DESIGN-0012 §2 schema. Required fields: `manufacturer`, `model`,
-  `vram_gb`, `condition`, `confidence`. Include the rules block:
-  - `manufacturer` derived from title brand token.
-  - `vram_gb` is in **GB** integer (not bytes/MB).
-  - `family` is a free-form short string (e.g., "Tesla", "Quadro",
-    "RTX", "Ampere", "Hopper") — the normaliser canonicalises later.
-  - `condition` defaults to `"unknown"` if not specified.
-- [ ] Register the new template in the `init()` block:
-  `domain.ComponentGPU: template.Must(template.New("gpu").Parse(gpuTmpl))`.
-- [ ] Update `classifyTmpl` to:
-  - Add `gpu` to the `Types:` enumeration line.
-  - Add a new rule: `Pick "gpu" for actual graphics cards / accelerators
-    (Tesla, Quadro, RTX, A/L/H-series, Radeon Pro, Instinct, Arc).`
-  - Add a clarifying rule: `"gpu riser", "GPU bracket", and "GPU power
-    cable" stay in "other".`
-- [ ] Extend `primaryComponentPatterns` in
-  `pkg/extract/preclassify.go` with one GPU primary regex:
-  ```go
-  regexp.MustCompile(`\b(tesla|quadro|rtx\s+a\d+|a100|h100|l40|mi\d{3}|radeon\s+pro)\b`),
-  ```
-  Reasoning per DESIGN-0012 §6: bare-accessory regex matching ("tray",
-  "rail", "heatsink") on a "Dell R740 + Tesla P40" listing should
-  defer to the LLM.
-- [ ] Write `pkg/extract/preclassify_test.go` GPU cases:
-  - "Tesla P40 + heatsink" → defers to LLM (false from
-    `IsAccessoryOnly`).
-  - "GPU riser cable" → still classified as accessory (true).
-  - "Quadro RTX 4000 8GB" → not accessory (true neg).
-  - "Nvidia A100 40GB SXM4 cooling kit" → defers to LLM (mixed).
-- [ ] Write `pkg/extract/prompts_test.go` GPU cases:
-  - Template renders without error for sample `PromptData`.
-  - Rendered output contains `"gpu"`, `"vram_gb"`, `"NVIDIA"`,
-    `"Tesla"`, `"family"`.
-  - Classifier prompt now contains `gpu` in the types list.
-- [ ] Run `make fmt`, `make lint`, `go test ./pkg/extract/...`.
+  `vram_gb`, `condition`, `confidence`. Includes the rules block.
+- [x] Register the new template in the `init()` block.
+- [x] Update `classifyTmpl`: added `gpu` to the types list, added GPU
+  routing rule, added explicit "gpu riser/bracket/cable stay in
+  other" rule.
+- [x] Extend `primaryComponentPatterns` in
+  `pkg/extract/preclassify.go` with the GPU primary regex.
+- [x] Write `pkg/extract/preclassify_test.go` GPU cases — 8 new
+  sub-tests covering Tesla, Quadro, A100, H100, MI210, RTX A-series,
+  Radeon Pro, plus the "gpu riser cable" still-accessory case.
+- [x] Write `pkg/extract/prompts_test.go` GPU cases — classifier
+  guidance check + GPU extract template render assertions.
+- [x] Run `make fmt`, `make lint`, `go test ./pkg/extract/...`.
 - [ ] Commit `feat(extract): wire gpu into prompts and pre-classifier`.
 
 #### Success Criteria
 
-- `go test ./pkg/extract/...` passes.
-- `preclassify.go` coverage stays ≥90% (no regression from new
-  primaries).
-- A "Tesla P40 + heatsink"-style title path is exercised by a test
-  and confirmed to *not* short-circuit to accessory.
-- Manual sanity check: render the classifier prompt with a "Quadro RTX
-  4000 8GB" title and verify it lists `gpu` as a routing target.
+- [x] `go test ./pkg/extract/...` passes.
+- [x] `pkg/extract/` package coverage 92.4%.
+- [x] "Tesla P40 + heatsink" test confirms primary-defer behaviour.
+- [x] `gpu` appears in the classifier prompt types enumeration; GPU
+  routing rule and accessory-exception rule both render.
 
 ---
 

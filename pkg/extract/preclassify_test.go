@@ -137,6 +137,53 @@ func TestIsAccessoryOnly(t *testing.T) {
 				"K2Y8N7 58D2W P1MJ3",
 			want: true,
 		},
+
+		// GPU primaries (DESIGN-0012 / IMPL-0017 Phase 2). Real GPU
+		// listings paired with accessory keywords should defer to the
+		// LLM, not short-circuit to "other". Bare-accessory listings
+		// (gpu riser, GPU bracket) stay caught by the existing rules.
+		{
+			name:  "tesla gpu with heatsink defers",
+			title: "NVIDIA Tesla P40 24GB GPU + heatsink for server",
+			want:  false,
+		},
+		{
+			name:  "quadro gpu defers",
+			title: "NVIDIA Quadro RTX 4000 8GB GDDR6 workstation",
+			want:  false,
+		},
+		{
+			name:  "a100 gpu in tray defers",
+			title: "NVIDIA A100 80GB SXM4 GPU with cooling tray",
+			want:  false,
+		},
+		{
+			name:  "h100 gpu defers",
+			title: "NVIDIA H100 80GB PCIe GPU accelerator",
+			want:  false,
+		},
+		{
+			name:  "mi210 gpu defers",
+			title: "AMD Instinct MI210 64GB HBM2e GPU",
+			want:  false,
+		},
+		{
+			name:  "rtx a-series gpu defers",
+			title: "NVIDIA RTX A4000 16GB workstation GPU",
+			want:  false,
+		},
+		{
+			name:  "radeon pro gpu defers",
+			title: "AMD Radeon Pro W6800 32GB workstation card",
+			want:  false,
+		},
+		{
+			// Bare gpu accessory still routes to "other" — no GPU brand
+			// token, just the accessory keyword.
+			name:  "gpu riser cable still accessory",
+			title: "PCIe x16 GPU riser cable for mining",
+			want:  true,
+		},
 	}
 
 	for _, tt := range tests {
