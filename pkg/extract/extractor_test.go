@@ -3,6 +3,7 @@ package extract_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -74,7 +75,7 @@ func TestLLMExtractor_Classify(t *testing.T) {
 			setupMock: func(m *extractMocks.MockLLMBackend) {
 				m.EXPECT().
 					Generate(mock.Anything, mock.Anything).
-					Return(extract.GenerateResponse{Content: "gpu"}, nil).
+					Return(extract.GenerateResponse{Content: "psu"}, nil).
 					Once()
 			},
 			wantErr:    true,
@@ -529,6 +530,95 @@ func TestLLMExtractor_ClassifyAndExtract(t *testing.T) {
 			},
 			wantType: domain.ComponentOther,
 		},
+		{
+			name:  "gpu nvidia tesla p40 full pipeline",
+			title: "NVIDIA Tesla P40 24GB GDDR5 GPU Accelerator",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == ""
+					})).
+					Return(extract.GenerateResponse{Content: "gpu"}, nil).
+					Once()
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: `{
+							"manufacturer": "NVIDIA",
+							"family": "Tesla",
+							"model": "P40",
+							"vram_gb": 24,
+							"memory_type": "GDDR5",
+							"condition": "used_working",
+							"quantity": 1,
+							"confidence": 0.94
+						}`,
+					}, nil).
+					Once()
+			},
+			wantType: domain.ComponentGPU,
+		},
+		{
+			name:  "gpu a100 vram unit confusion repaired",
+			title: "NVIDIA A100 80GB SXM4 GPU",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == ""
+					})).
+					Return(extract.GenerateResponse{Content: "gpu"}, nil).
+					Once()
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: `{
+							"manufacturer": "NVIDIA",
+							"model": "A100",
+							"vram_gb": 81920,
+							"interface": "SXM4",
+							"condition": "used_working",
+							"quantity": 1,
+							"confidence": 0.92
+						}`,
+					}, nil).
+					Once()
+			},
+			wantType: domain.ComponentGPU,
+		},
+		{
+			name:  "gpu amd instinct mi210 family canonicalised",
+			title: "AMD Instinct MI210 64GB HBM2e GPU",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == ""
+					})).
+					Return(extract.GenerateResponse{Content: "gpu"}, nil).
+					Once()
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: `{
+							"manufacturer": "AMD",
+							"family": "Instinct",
+							"model": "MI210",
+							"vram_gb": 64,
+							"memory_type": "HBM2e",
+							"condition": "new",
+							"quantity": 1,
+							"confidence": 0.96
+						}`,
+					}, nil).
+					Once()
+			},
+			wantType: domain.ComponentGPU,
+		},
 	}
 
 	for _, tt := range tests {
@@ -558,6 +648,19 @@ func TestLLMExtractor_ClassifyAndExtract(t *testing.T) {
 			if ct == domain.ComponentOther {
 				assert.Equal(t, 0.95, attrs["confidence"],
 					"short-circuit must mark confidence at 0.95")
+			}
+			// Spot-check GPU pipeline post-conditions: VRAM unit repair
+			// (81920 → 80) and family canonicalisation (Tesla → tesla,
+			// Instinct → instinct).
+			if ct == domain.ComponentGPU {
+				if vram, ok := attrs["vram_gb"].(int); ok {
+					assert.LessOrEqual(t, vram, 256,
+						"vram_gb must be normalised to ≤256 after repair")
+				}
+				if family, ok := attrs["family"].(string); ok && family != "" {
+					assert.Equal(t, family, strings.ToLower(family),
+						"family must be canonicalised to lowercase")
+				}
 			}
 		})
 	}

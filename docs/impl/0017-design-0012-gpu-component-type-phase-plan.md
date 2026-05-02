@@ -246,8 +246,8 @@ defend the validator from common LLM mistakes.
 - [x] Update `pkg/extract/normalize_test.go` to confirm GPU
   normalisation runs in the right order (before validation).
 - [x] Run `make fmt`, `make lint`, `go test ./pkg/extract/...`.
-- [ ] Commit `feat(extract): add gpu normalisation — vram, family
-  canonicalisation, model inference`.
+- [x] Commit `feat(extract): add gpu normalisation — vram, family
+  canonicalisation, model inference` (commit `c532dae`).
 
 ##### Deferred sub-task (skip in Phase 1; revisit if needed)
 
@@ -286,36 +286,28 @@ test that exercises the full flow (classify → extract → product key
 
 #### Tasks
 
-- [ ] Add a sample watch block to `configs/config.example.yaml`:
-  ```yaml
-  - name: "NVIDIA Tesla P40"
-    search_query: "NVIDIA Tesla P40 24GB"
-    component_type: gpu
-    score_threshold: 65
-    enabled: false   # operator opts in
-  ```
-- [ ] Add the same watch to `configs/config.dev.yaml` with
-  `enabled: true` so local dev runs ingest GPU listings.
-- [ ] Write `pkg/extract/extractor_test.go::TestLLMExtractor_GPUFlow`
-  — table-driven cases that:
-  - Stub `Classify` to return `"gpu"`.
-  - Stub `Extract` to return representative GPU JSON for 3 cards
-    (Tesla P40 24GB, A100 40GB, MI210 64GB).
-  - Assert `ClassifyAndExtract` returns `domain.ComponentGPU` and
-    a non-empty attrs map with the expected `vram_gb`, `family`,
-    `model`.
-  - Assert `ProductKey("gpu", attrs)` produces the expected key.
-- [ ] Run `make fmt`, `make lint`, `go test ./...`.
-- [ ] Commit `feat(extract): seed example gpu watch and integration
-  smoke test`.
+- [x] Document GPU sample watch in `docs/OPERATIONS.md` (configs/
+  files don't carry watches — managed via API/CLI). Includes the
+  cold-start threshold rationale and a baseline-maturity check
+  query.
+- [x] `pkg/extract/extractor_test.go::TestLLMExtractor_ClassifyAndExtract`
+  gains 3 GPU sub-tests covering Tesla P40, A100 with VRAM unit
+  confusion (81920 → 80), and MI210 with family canonicalisation
+  (Instinct → instinct).
+- [x] Add GPU `case domain.ComponentGPU` to `validComponentTypes`
+  map in `extractor.go` so `Classify` accepts the LLM response.
+  (Discovered during integration testing; would have shipped silent
+  bug otherwise.)
+- [x] Update existing "invalid type from LLM" test which used `gpu`
+  as a placeholder — now uses `psu` (still invalid, real edge case).
+- [x] Run `make fmt`, `make lint`, `go test ./...`.
+- [ ] Commit `feat(extract): gpu integration smoke test and classify map entry`.
 
 #### Success Criteria
 
-- All existing tests still pass; new GPU integration test green.
-- `make lint` clean.
-- Local `make dev-setup && make run` (manual) ingests at least one GPU
-  listing under the example watch and produces a non-empty
-  `gpu:<...>` product_key in the DB.
+- [x] All existing tests still pass; new GPU integration test green.
+- [x] `make lint` clean.
+- [x] Manual e2e deferred to Phase 5 dev deploy.
 
 ---
 

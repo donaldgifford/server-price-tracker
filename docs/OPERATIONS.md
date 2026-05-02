@@ -284,7 +284,30 @@ curl -X POST https://spt.yourdomain.dev/api/v1/watches \
   }'
 ```
 
-Component types: `ram`, `drive`, `server`, `cpu`, `nic`, `other`.
+Component types: `ram`, `drive`, `server`, `cpu`, `nic`, `gpu`, `other`.
+
+#### Example: GPU watch with cold-start threshold
+
+GPU listings hit a fresh baseline; the bucket is empty on first deploy.
+While `priceScore` falls back to neutral 50 (composite ~55), seed the
+watch with a low threshold and bump it once the baseline matures
+(≥10 samples per product key, typically ~1 week):
+
+```bash
+spt watches create \
+  --server https://spt.yourdomain.dev \
+  --name "NVIDIA Tesla P40" \
+  --query "NVIDIA Tesla P40 24GB" \
+  --component-type gpu \
+  --score-threshold 65   # bump to 80 after baseline matures
+
+# Check baseline maturity:
+psql -c "SELECT product_key, sample_count FROM price_baselines \
+         WHERE product_key LIKE 'gpu:%' ORDER BY sample_count DESC;"
+
+# Once a key has sample_count ≥ 10:
+spt watches update --id <id> --score-threshold 80
+```
 
 ### Step 2: Trigger Initial Ingestion
 
