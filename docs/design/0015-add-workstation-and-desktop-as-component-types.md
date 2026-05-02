@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0015
 title: "Add workstation and desktop as component types"
-status: Draft
+status: Accepted
 author: Donald Gifford
 created: 2026-05-02
 ---
@@ -9,7 +9,7 @@ created: 2026-05-02
 
 # DESIGN 0015: Add workstation and desktop as component types
 
-**Status:** Draft
+**Status:** Accepted
 **Author:** Donald Gifford
 **Date:** 2026-05-02
 
@@ -254,18 +254,19 @@ Mirrors IMPL-0017's testing structure:
    needed in practice.
 
 2. **Tier suffix on workstation product key (v1 vs. follow-up).**
-   Should `workstation:dell:precision:t7920` start gaining a
-   `barebone|partial|configured` suffix immediately, or only if
-   intra-model variance proves noisy? Current lean: defer to v2,
-   ship v1 flat. T7920 barebone vs. fully-configured can vary 3-4x
-   so this may need to be reopened quickly.
+   Resolved as **defer to v2**. Ship v1 flat
+   (`workstation:dell:precision:t7920`). T7920 barebone vs. fully-
+   configured can vary 3-4x so this may need to be reopened quickly
+   if baseline noise is high; tier suffix mirrors the existing
+   `pkg/extract/server_tier.go` pattern when it does.
 
-3. **GPU-bundled handling for `desktop`.** Many desktops are sold
-   with a discrete GPU pre-installed (especially refurbished gaming
-   PCs that overlap with the desktop bucket). Same baseline-pollution
-   concern as workstations. Options: tier suffix, bundle filter at
-   ingest, or just accept the noise. Recommend deferring until we
-   see real `desktop` data.
+3. **GPU-bundled handling for `desktop`.** Resolved as **defer
+   until we see real `desktop` data**. Many desktops are sold with
+   a discrete GPU pre-installed (especially refurbished gaming
+   PCs that overlap with the desktop bucket); the same baseline-
+   pollution concern as workstations applies. Once we have a few
+   weeks of `desktop` listings, decide between tier suffix, bundle
+   filter, or accepting the noise.
 
 4. **Workstation watch examples.** Resolved. Separate watches per
    chassis line (matches the per-line-watches pattern that worked
@@ -294,12 +295,10 @@ Mirrors IMPL-0017's testing structure:
    alerting initially if volume is low; bucket exists for tracking
    first.
 
-6. **PR shape.** Combined design + implementation covering both
-   types in one branch (recommended), or sequential (workstation
-   first, desktop second)? Both types share infrastructure (one
-   migration, one prompt update, one set of tests), so one PR is
-   cleaner. Two PRs only if the workstation prompt needs iteration
-   that would gate desktop work.
+6. **PR shape.** Resolved as **one combined PR**. Both types share
+   infrastructure (one migration, one prompt update, one set of
+   tests). If workstation prompt iteration ends up gating desktop
+   work in practice, we'll split mid-flight; default is combined.
 
 ## References
 
