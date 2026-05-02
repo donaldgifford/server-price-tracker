@@ -1,7 +1,7 @@
 ---
 id: IMPL-0017
 title: "DESIGN-0012 GPU component type phase plan"
-status: Draft
+status: In Progress
 author: Donald Gifford
 created: 2026-05-01
 ---
@@ -9,7 +9,7 @@ created: 2026-05-01
 
 # IMPL 0017: DESIGN-0012 GPU component type phase plan
 
-**Status:** Draft
+**Status:** In Progress
 **Author:** Donald Gifford
 **Date:** 2026-05-01
 
@@ -27,6 +27,7 @@ created: 2026-05-01
     - [Success Criteria](#success-criteria-1)
   - [Phase 3: Normalisation (canonicalisation, family inference, VRAM repairs)](#phase-3-normalisation-canonicalisation-family-inference-vram-repairs)
     - [Tasks](#tasks-2)
+      - [Deferred sub-task (skip in Phase 1; revisit if needed)](#deferred-sub-task-skip-in-phase-1-revisit-if-needed)
     - [Success Criteria](#success-criteria-2)
   - [Phase 4: Sample watch + integration smoke](#phase-4-sample-watch--integration-smoke)
     - [Tasks](#tasks-3)
@@ -242,8 +243,15 @@ defend the validator from common LLM mistakes.
     `h-series`, `radeon-pro`, `instinct`, `arc`). Unknown values fall
     through as lowercased + spaces-to-hyphens.
   - `DetectGPUFamilyFromModel(model string) string` — regex-based
-    inference: `^P\d{2,3}$|^V100$|^K\d{2}$` → `tesla`, `^A\d{1,3}$`
-    → `a-series`, etc. Returns empty string if no match.
+    inference, **tightened to high-confidence patterns only** per
+    Open Q5:
+    - `tesla`: `^(P40|P100|V100|K80|M40|M60|T4)$`
+    - `a-series`: `^A(10|30|40|100)$`
+    - `l-series`: `^L(4|40|40S)$`
+    - `h-series`: `^H(100|200)$`
+    - `instinct`: `^MI(50|60|100|210|250|300)$`
+    Returns empty string for unknown / ambiguous (P4000, RTX 4000,
+    etc.) — better to leave `family` blank than mis-infer.
   - `NormalizeGPUExtraction(attrs map[string]any)` — top-level entry
     point that performs:
     1. **VRAM unit confusion**: if `vram_gb` is in 1024–262144,
@@ -253,8 +261,10 @@ defend the validator from common LLM mistakes.
     3. **Family inference**: if `family` is empty after canonicalisation
        and `model` is non-empty, fill from
        `DetectGPUFamilyFromModel(model)`.
-    4. **VRAM rounding**: round `vram_gb` to nearest valid SKU (8, 12,
-       16, 24, 32, 40, 48, 80, 96, 128) when within ±1 GB of one.
+    4. **VRAM rounding**: round `vram_gb` to nearest valid SKU
+       (`[8, 12, 16, 24, 32, 40, 48, 80, 96, 128]`) **only when
+       within ±1 GB of one**. Out-of-list values (14, 20, 28, etc.)
+       stay unchanged — defends legitimate oddball-VRAM cards.
 - [ ] Hook `NormalizeGPUExtraction` into
   `pkg/extract/normalize.go::NormalizeExtraction` under
   `case domain.ComponentGPU:`. Run before the existing common
@@ -271,12 +281,33 @@ defend the validator from common LLM mistakes.
     model `"A100"` → `"a-series"`; model `"MI210"` → `"instinct"`;
     model `"unknown-x"` → empty (no inference).
   - VRAM rounding: 23 → 24, 25 → 24, 39 → 40, 81 → 80, 13 → 12,
-    7 → 8, 15 → 16, exact (24, 80, etc.) → unchanged.
+    7 → 8, 15 → 16, exact (24, 80, etc.) → unchanged. Out-of-list
+    cases stay unchanged: 14 → 14, 20 → 20, 28 → 28.
 - [ ] Update `pkg/extract/normalize_test.go` to confirm GPU
   normalisation runs in the right order (before validation).
 - [ ] Run `make fmt`, `make lint`, `go test ./pkg/extract/...`.
 - [ ] Commit `feat(extract): add gpu normalisation — vram, family
   canonicalisation, model inference`.
+
+##### Deferred sub-task (skip in Phase 1; revisit if needed)
+
+Per Open Q3, when `vram_gb` is missing the listing fails validation.
+If post-deploy telemetry shows a meaningful "stuck unextracted" rate
+on cards we care about, add a `LookupVRAMByModel(model string) int`
+helper to `gpu_normalize.go` covering single-variant cards only:
+
+| Model | VRAM (GB) |
+|-------|-----------|
+| P40 | 24 |
+| P100-PCIe | 16 |
+| K80 | 24 (12 per GPU × 2; treat as one unit) |
+| MI100 | 32 |
+| H100-PCIe | 80 |
+| H200 | 141 |
+
+**Multi-variant cards excluded** — A100 (40/80), V100 (16/32),
+MI250 (64/128) need title-text inference and aren't covered by a
+static lookup. Defer until there's evidence the table would help.
 
 #### Success Criteria
 
@@ -513,69 +544,57 @@ their own without backfill.
 
 ## Open Questions
 
-These are **implementation-level** questions (the design's open
-questions are all resolved). Operator review requested before starting
-Phase 1:
+All implementation-level questions resolved before Phase 1.
 
-1. **Should family canonicalisation live in `gpu_normalize.go` (new
-   file) or extend `normalize.go`?** Existing pattern: RAM normalisation
-   has its own file (`pc4.go`), server has `server_tier.go`. Proposal:
-   new file `gpu_normalize.go` for consistency. Confirm.
+1. **Family canonicalisation file placement** — _resolved: new file
+   `gpu_normalize.go`._ Mirrors the existing per-type pattern
+   (`pc4.go` for RAM, `server_tier.go` for server).
 
-2. **Where does the GPU primary regex go in `preclassify.go`?**
-   Option (a): append a single line to `primaryComponentPatterns`
-   (simpler, one list to scan when reading code). Option (b): create
-   a dedicated `gpuPrimaryPatterns` slice and merge at use site
-   (clearer intent, more boilerplate). Proposal: (a) — keeps the
-   existing single-list architecture.
+2. **GPU primary regex placement in `preclassify.go`** — _resolved:
+   append to existing `primaryComponentPatterns` (option a)._ One list
+   to read; consistent with existing architecture.
 
-3. **Required `vram_gb` failure mode**: design says `vram_gb` is
-   required. If the LLM can't determine it (title="Tesla P40" with
-   no GB marker), validation will fail and the listing stays
-   unextracted. Acceptable, or should we relax `vram_gb` to optional
-   and let product-key default to `0gb` for those rows? Proposal:
-   keep required. The bucket should hold proper data; cold-start
-   listings with unknown VRAM aren't useful for baselines anyway.
+3. **Required `vram_gb` failure mode** — _resolved: keep required at
+   validation._ Cards without VRAM in the title fail validation and
+   stay unextracted.
 
-4. **VRAM rounding boundary**: `±1 GB` covers typical mismatches
-   (23→24, 81→80). But what about a 14GB VRAM card (exists in some
-   workstation cards)? It would round to 16, breaking the product
-   key. Proposal: keep ±1; add an exact-match list of known
-   real-world SKUs (8, 12, 16, 24, 32, 40, 48, 80, 96, 128) and only
-   round when within ±1 of one. 14 isn't in the list, so it stays
-   14. Same for any other oddball value.
+   _Deferred enhancement (filed as Phase 3 follow-up, see Section 3
+   sub-task)_: a model→VRAM lookup table for high-value
+   *single-variant* cards (P40=24, P100-PCIe=16, K80=24, MI100=32).
+   Multi-variant cards (A100 ships in 40 and 80, V100 in 16 and 32,
+   MI210 in 64 only but MI250 in 128) need title-text inference and
+   aren't covered by a static table. Skip in Phase 1; revisit if the
+   "stuck unextracted" rate is high enough to matter.
 
-5. **Family inference regex precision**: the proposed
-   `^P\d{2,3}$` for Tesla matches `P40`, `P100`, `P4000`. But
-   `P4000` is a *Quadro* P4000, not a Tesla. Need a more precise
-   regex like `^P(40|100|6|6000)$|^V100$`. Or, since the LLM is
-   supposed to fill `family` reliably, treat inference as a
-   last-ditch fallback that's deliberately conservative — only
-   match the most-confident prefixes (`P40`, `P100`, `V100`). The
-   risk of a wrong inference (`P4000` → `tesla` for a Quadro card)
-   is worse than no inference (`unknown` segment in product key).
-   Proposal: tighten the inference regex to high-confidence
-   patterns only.
+4. **VRAM rounding boundary** — _resolved: ±1 GB only when within
+   range of a known SKU._ Valid SKUs are
+   `[8, 12, 16, 24, 32, 40, 48, 80, 96, 128]`. Out-of-list values
+   (14, 20, 28) stay unchanged — the product key gets the literal
+   number, e.g., `14gb`. Defends against both LLM mis-rounding and
+   over-eager normalisation of legitimate odd-VRAM cards.
 
-6. **Sample watch threshold timing**: design says bump 65 → 80
-   "after ~1 week or when sample_count ≥ 10". Should the threshold
-   bump be automated (a job that runs daily and updates watches
-   when their bucket matures), or stay manual? Proposal: manual for
-   now. Automation is easy to add later if it becomes a recurring
-   chore.
+5. **Family inference regex precision** — _resolved: tighten to
+   high-confidence patterns only._ Initial set:
+   - `tesla`: `^(P40|P100|V100|K80|M40|M60|T4)$`
+   - `a-series`: `^A(10|30|40|100)$`
+   - `l-series`: `^L(4|40|40S)$`
+   - `h-series`: `^H(100|200)$`
+   - `instinct`: `^MI(50|60|100|210|250|300)$`
+   No inference for ambiguous prefixes (P4000, RTX 4000, etc.) — let
+   `family` stay empty and the product key uses `unknown` for that
+   segment.
 
-7. **Phase 7 trigger**: should backfill be automatic (run as part of
-   the migration on first deploy) or operator-gated (run only if
-   Phase 6 baselines aren't maturing fast enough)? Proposal: gated.
-   `feedback_dry_run_bulk_sql.md` showed that even careful regex
-   backfills can have surprising false-positive rates; better to
-   leave it to operator discretion.
+6. **Sample watch threshold timing** — _resolved: manual._ Operator
+   bumps via `spt watches update` after Phase 6 baseline-maturity
+   check. Automation is a future enhancement.
 
-8. **Discord embed for `gpu`**: existing notifier renders embeds with
-   `{Name: "Type", Value: alert.ComponentType}` — does "gpu" render
-   cleanly in Discord, or should we display "GPU" (uppercased)? This
-   is cosmetic. Proposal: leave as-is; if it looks wrong post-deploy,
-   small follow-up to capitalise the type label.
+7. **Phase 7 trigger** — _resolved: operator-gated._ Backfill SQL is
+   documented but only run if Phase 6 baselines aren't maturing fast
+   enough. `feedback_dry_run_bulk_sql.md` discipline applies.
+
+8. **Discord embed casing for `gpu`** — _resolved: leave as-is._ The
+   existing label rendering shows the lowercased ComponentType; if it
+   looks wrong post-deploy, capitalising the label is a tiny follow-up.
 
 ## Dependencies
 
