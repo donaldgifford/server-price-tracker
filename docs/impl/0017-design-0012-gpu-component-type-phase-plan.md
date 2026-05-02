@@ -399,7 +399,7 @@ bucket. Bump the watch threshold from 65 → 80 once the baseline reaches
   non-neutral.
 - [ ] Bump the GPU watch threshold from 65 → 80 via
   `spt watches update --id <id> --score-threshold 80`.
-- [ ] Document the production transition in
+- [x] Document the production transition in
   `docs/SQL_HELPERS.md` ("GPU baseline maturity check") so the
   operator has a reusable query.
 
@@ -423,7 +423,7 @@ their own without backfill.
 
 #### Tasks
 
-- [ ] Add a "Backfill misclassified GPUs (IMPL-0017 Phase 7)" section
+- [x] Add a "Backfill misclassified GPUs (IMPL-0017 Phase 7)" section
   to `docs/SQL_HELPERS.md` with the SQL pattern that mirrors the new
   `primaryComponentPatterns` GPU regex (Postgres regex uses `\y` for
   word boundaries):

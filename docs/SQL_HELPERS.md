@@ -147,6 +147,57 @@ Expect barebone P50 to be materially lower than configured P50 — the
 whole point of segmentation is that barebone shells stop scoring 100
 against fully-configured baselines.
 
+### Backfill misclassified GPUs (IMPL-0017 Phase 7)
+
+Historical listings classified as `other` whose titles match the GPU
+primary regex in `pkg/extract/preclassify.go::primaryComponentPatterns`
+can be promoted to `component_type = 'gpu'` so the new bucket matures
+faster. **Optional** — skip if natural ingestion fills baselines in a
+reasonable window.
+
+The pattern mirrors the Go regex; Postgres uses `\y` for word boundaries.
+Always `BEGIN;` first, eyeball `RETURNING`, then `COMMIT` or `ROLLBACK`
+(per `feedback_dry_run_bulk_sql.md`).
+
+```sql
+BEGIN;
+UPDATE listings
+SET component_type = 'gpu',
+    updated_at = now()
+WHERE component_type = 'other'
+  AND active = true
+  AND title ~* '\y(tesla|quadro|rtx\s+a\d+|a100|h100|l40|mi\d{3}|radeon\s+pro)\y'
+RETURNING id, title, component_type;
+-- inspect results, then either:
+COMMIT;
+-- or:
+ROLLBACK;
+```
+
+Re-promoted rows still carry stale `attributes` extracted under the wrong
+type. Two follow-up options:
+
+1. **Re-queue for extraction** (preferred when volume is small):
+   ```sql
+   INSERT INTO extraction_queue (listing_id)
+   SELECT id FROM listings
+   WHERE component_type = 'gpu' AND (attributes = '{}'::jsonb OR attributes IS NULL)
+   ON CONFLICT DO NOTHING;
+   ```
+2. **Leave attributes empty** — next ingestion cycle will refresh on its
+   own. Cheaper, but baselines stay sparse longer.
+
+After the backfill, run:
+
+```bash
+curl -X POST https://spt.fartlab.dev/api/v1/baselines/refresh
+curl -X POST https://spt.fartlab.dev/api/v1/rescore
+```
+
+The same template works for any future ComponentType addition: copy the
+new primary regex out of `preclassify.go`, swap `'gpu'` for the new
+type, and run inside a transaction.
+
 ### See all listings of one type
 
 ```sql
@@ -263,6 +314,28 @@ FROM price_baselines
 WHERE sample_size < 5
 ORDER BY updated_at DESC;
 ```
+
+### GPU baseline maturity check (IMPL-0017 Phase 6)
+
+After deploying GPU support, the `gpu:<manufacturer>:<family>:<model>:<vram>gb`
+bucket starts empty. Until at least one key reaches `sample_size >= 10` the
+price factor stays neutral (50) and composite scores cluster ~60. Use this
+query to decide when to tighten the GPU watch threshold from the cold-start
+default (65) to the production setting (80).
+
+```sql
+SELECT product_key, sample_size, p50_price_cents / 100.0 AS p50_usd, updated_at
+FROM price_baselines
+WHERE product_key LIKE 'gpu:%'
+ORDER BY sample_size DESC;
+```
+
+When the top row has `sample_size >= 10`, scoring becomes non-neutral —
+bump the watch threshold via
+`spt watches update --id <id> --score-threshold 80`.
+
+The same shape works for any future component type by swapping the
+`'gpu:%'` prefix.
 
 ---
 
