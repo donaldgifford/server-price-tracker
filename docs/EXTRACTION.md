@@ -581,26 +581,30 @@ runs before normalization since the JSON has to parse first.
 ### GPU normalisation (DESIGN-0012 / IMPL-0017)
 
 `NormalizeGPUExtraction` in `pkg/extract/gpu_normalize.go` runs before
-validation when `componentType == ComponentGPU`. Three repairs:
+validation when `componentType == ComponentGPU`. Three steps:
 
 1. **VRAM unit confusion** — `vram_gb` returned as MB or KB. If the
    value lands in 1024–262144, divide by 1024. If 1000–256000,
    divide by 1000. Same pattern as RAM `capacity_gb` repair.
-2. **Family canonicalisation** — `family` is validated as free-form
-   string. Common spellings (`Tesla`/`tesla`/`TESLA`, `Ampere`,
-   `Hopper`, `Radeon Pro`) collapse to canonical lowercase tokens
-   (`tesla`, `a-series`, `h-series`, `radeon-pro`) so the product
-   key remains stable across spellings.
-3. **Family inference from model** — if `family` is empty after
-   canonicalisation, infer from a high-confidence model prefix:
+2. **Family resolution (model inference > LLM family)** — for known
+   canonical models the inference list is the source of truth and
+   *overrides* whatever the LLM put in the family field:
    `^(P40|P100|V100|K80|M40|M60|T4)$` → `tesla`,
    `^A(10|30|40|100)$` → `a-series`,
    `^L(4|40|40S)$` → `l-series`,
    `^H(100|200)$` → `h-series`,
    `^MI(50|60|100|210|250|300)$` → `instinct`.
-   Ambiguous prefixes (P4000, RTX 4000) deliberately don't match —
-   better to leave family empty than mis-infer.
-4. **VRAM rounding** — snap `vram_gb` to the nearest known SKU
+   The LLM is non-deterministic on family — it picks "Tesla" (legacy
+   brand) or "Ampere"/"A-series" (architectural family) inconsistently
+   for the same A100 SKU depending on what's in the title — and that
+   fragments baselines across two product keys. The inference list is
+   curated to be unambiguous, so we trust it.
+   For ambiguous models (P4000, RTX 4000) inference returns empty and
+   the LLM-supplied family is canonicalised instead: common spellings
+   (`Tesla`/`tesla`/`TESLA`, `Ampere`, `Hopper`, `Radeon Pro`) collapse
+   to canonical lowercase tokens (`tesla`, `a-series`, `h-series`,
+   `radeon-pro`).
+3. **VRAM rounding** — snap `vram_gb` to the nearest known SKU
    (`[8, 12, 16, 24, 32, 40, 48, 80, 96, 128]`) when within ±1 GB.
    Out-of-list values (14, 20, 28) stay unchanged so legitimate
    odd-VRAM cards aren't corrupted.

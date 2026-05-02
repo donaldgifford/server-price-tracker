@@ -120,19 +120,28 @@ func normalizeGPUVRAMUnit(attrs map[string]any) {
 	}
 }
 
-// normalizeGPUFamily applies CanonicalizeGPUFamily, then falls back
-// to DetectGPUFamilyFromModel when the canonicalised family is
-// empty.
+// normalizeGPUFamily resolves a canonical family token, preferring
+// model-based inference over the LLM-supplied family.
+//
+// Why model wins: the LLM is non-deterministic on family — it may pick
+// the legacy brand ("Tesla") or the architectural family ("A-series",
+// "Ampere") depending on what appears in the title. For any model
+// matched by gpuFamilyInferenceRules, the family is unambiguous, so
+// the inference rule is the source of truth. Without this, the same
+// A100 SKU fragments across `gpu:nvidia:tesla:a100:80gb` and
+// `gpu:nvidia:a-series:a100:80gb` baselines.
+//
+// For ambiguous models (P4000, RTX 4000, …) inference returns "" and
+// we fall back to canonicalising the LLM-supplied family.
 func normalizeGPUFamily(attrs map[string]any) {
-	family, _ := attrString(attrs, "family")
-	canonical := CanonicalizeGPUFamily(family)
-
-	if canonical == "" {
-		model, _ := attrString(attrs, "model")
-		canonical = DetectGPUFamilyFromModel(model)
+	model, _ := attrString(attrs, "model")
+	if inferred := DetectGPUFamilyFromModel(model); inferred != "" {
+		attrs["family"] = inferred
+		return
 	}
 
-	if canonical != "" {
+	family, _ := attrString(attrs, "family")
+	if canonical := CanonicalizeGPUFamily(family); canonical != "" {
 		attrs["family"] = canonical
 	}
 }

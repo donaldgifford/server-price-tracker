@@ -129,9 +129,24 @@ func TestNormalizeGPUExtraction(t *testing.T) {
 			want: map[string]any{"vram_gb": 80, "model": "A100", "family": "a-series"},
 		},
 		{
-			name: "family canonicalisation wins over inference",
+			name: "model inference wins over llm family for known sku",
+			in:   map[string]any{"vram_gb": 80, "family": "Tesla", "model": "A100"},
+			want: map[string]any{"vram_gb": 80, "family": "a-series", "model": "A100"},
+		},
+		{
+			name: "model inference wins over conflicting llm family",
 			in:   map[string]any{"vram_gb": 80, "family": "Hopper", "model": "A100"},
-			want: map[string]any{"vram_gb": 80, "family": "h-series", "model": "A100"},
+			want: map[string]any{"vram_gb": 80, "family": "a-series", "model": "A100"},
+		},
+		{
+			name: "llm family used when model is ambiguous",
+			in:   map[string]any{"vram_gb": 16, "family": "Quadro", "model": "P4000"},
+			want: map[string]any{"vram_gb": 16, "family": "quadro", "model": "P4000"},
+		},
+		{
+			name: "llm family used when model is empty",
+			in:   map[string]any{"vram_gb": 24, "family": "Tesla"},
+			want: map[string]any{"vram_gb": 24, "family": "tesla"},
 		},
 		{
 			name: "vram rounding 23 -> 24",
