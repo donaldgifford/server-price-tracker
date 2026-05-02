@@ -325,38 +325,21 @@ not `other`) before approving prod.
 - [x] CI must be green (lint, test, build, security, docker-build,
   helm-lint, helm-unittest, helm-ct). All 11 checks pass on PR #47
   as of commit `c1ca108`.
-- [ ] Operator deploys dev image (`ghcr.io/donaldgifford/server-price-tracker:dev`).
-- [ ] Wait for one full ingestion cycle on the example GPU watch.
-- [ ] SQL smoke check (run via psql against dev):
-  ```sql
-  SELECT component_type, COUNT(*)
-  FROM listings
-  WHERE component_type = 'gpu'
-    AND created_at > NOW() - INTERVAL '1 hour'
-  GROUP BY component_type;
-  ```
-  Confirms at least one GPU listing was classified.
-- [ ] Spot-check 5 GPU listings:
-  ```sql
-  SELECT id, title, component_type, attributes, product_key
-  FROM listings
-  WHERE component_type = 'gpu'
-  ORDER BY created_at DESC
-  LIMIT 5;
-  ```
-  Verify product_keys look right (`gpu:nvidia:tesla:p40:24gb`),
-  attributes are populated, no "unknown:unknown:..." keys outside
-  cold-start expectations.
-- [ ] Spot-check the `other` bucket for _missed_ GPUs:
-  ```sql
-  SELECT id, title FROM listings
-  WHERE component_type = 'other'
-    AND title ILIKE ANY (ARRAY['%tesla%', '%quadro%', '%rtx %', '%a100%', '%h100%'])
-    AND created_at > NOW() - INTERVAL '24 hours'
-  LIMIT 10;
-  ```
-  If results > 0, classifier prompt may need tuning. If zero, ship.
-- [ ] Document smoke findings in PR comment.
+- [x] Operator deploys dev image (`ghcr.io/donaldgifford/server-price-tracker:dev`).
+- [x] Wait for one full ingestion cycle on the example GPU watch.
+  Validated 2026-05-02 — 953 GPU listings ingested in first cycle.
+- [x] SQL smoke check confirms at least one GPU listing was classified.
+  Result: 953 listings with `component_type = 'gpu'`.
+- [x] Spot-check 5 GPU listings: attributes populated, product_keys
+  correct shape (`gpu:nvidia:tesla:p40:24gb`,
+  `gpu:nvidia:a-series:a100:80gb`).
+- [x] Spot-check the `other` bucket for missed GPUs: query returned 0
+  rows. Classifier + pre-classifier holding the line. Workstation
+  pollution went to `server` correctly (separate concern, follow-up
+  DESIGN-0015).
+- [x] Document smoke findings — captured in PR description and
+  follow-up memory notes (`gpu_component_type.md`,
+  `workstation_component_type_followup.md`).
 
 #### Success Criteria
 
@@ -378,27 +361,19 @@ bucket. Bump the watch threshold from 65 → 80 once the baseline reaches
 
 - [ ] Merge PR #47 to main.
 - [ ] Confirm release workflow tags + builds + publishes prod image.
-- [ ] Operator deploys prod (Helm release tagged with new
-  `appVersion`).
-- [ ] Trigger initial baseline + rescore:
-  ```bash
-  curl -X POST https://spt.fartlab.dev/api/v1/baselines/refresh
-  curl -X POST https://spt.fartlab.dev/api/v1/rescore
-  ```
+- [x] Operator deploys (running unmerged dev image against prod).
+- [x] Trigger initial baseline + rescore — validated 2026-05-02.
 - [ ] Monitor `spt_alerts_created_total{component_type="gpu"}` over
   ~24h. Expect: low volume initially because the bucket is small and
   baselines neutral.
-- [ ] After ~7 days, check baseline maturity:
-  ```sql
-  SELECT product_key, sample_count
-  FROM price_baselines
-  WHERE product_key LIKE 'gpu:%'
-  ORDER BY sample_count DESC;
-  ```
-  When at least one key has sample_count ≥ 10, scoring becomes
-  non-neutral.
-- [ ] Bump the GPU watch threshold from 65 → 80 via
-  `spt watches update --id <id> --score-threshold 80`.
+- [x] Check baseline maturity — 6 GPU baselines past `sample_count >= 10`
+  in <1 day (much faster than 7-day estimate due to listing volume):
+  geforce-rtx:3090 (513), tesla:p40 (166), a-series:a100:40gb (74),
+  geforce-rtx:3090ti (72), a-series:a100:80gb (53),
+  quadro-rtx:a2000 (22), a-series:a100:64gb (15),
+  geforce-rtx:3080:10gb (10).
+- [x] Bumped all 5 GPU watch thresholds from 65 → 80 via
+  `spt watches update <id> --threshold 80` (2026-05-02).
 - [x] Document the production transition in
   `docs/SQL_HELPERS.md` ("GPU baseline maturity check") so the
   operator has a reusable query.
