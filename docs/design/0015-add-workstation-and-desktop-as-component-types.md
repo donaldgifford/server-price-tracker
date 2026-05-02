@@ -267,22 +267,32 @@ Mirrors IMPL-0017's testing structure:
    ingest, or just accept the noise. Recommend deferring until we
    see real `desktop` data.
 
-4. **Workstation watch examples.** Separate watches per chassis
-   line (Precision T-series, ThinkStation P-series, Z-series)
-   versus one broad workstation watch with title-pattern filters?
-   Suggested initial set:
-   - `Dell Precision T7820 / T7920`
-   - `Lenovo ThinkStation P620 / P920`
-   - `HP Z8 G4 / Z6 G4`
+4. **Workstation watch examples.** Resolved. Separate watches per
+   chassis line (matches the per-line-watches pattern that worked
+   for GPU rollout). Initial set captures both legacy and post-
+   rebrand Dell branding:
+   - `Dell Precision T-series` (T7820, T7920, T5820, T3640) —
+     legacy branding, still dominant on eBay's secondary market
+   - `Dell Pro Max` — current workstation branding (replaces
+     Precision at top tier in Dell's 2024-25 rebrand)
+   - `Lenovo ThinkStation P-series` (P620, P920)
+   - `HP Z-series` (Z8 G4, Z6 G4)
    Each at threshold 65 (cold-start), bumped to 80 once their
    `workstation:%` baselines mature. Same playbook as IMPL-0017
    Phase 6.
 
-5. **Desktop watch examples.** Open — operator hasn't defined a
-   shopping list. Likely candidates: refurb OptiPlex 7080 / 7090,
-   ThinkCentre M920q, EliteDesk 800 G4. Skip until operator surfaces
-   a need; the bucket exists for tracking, not necessarily auto-
-   alerting.
+5. **Desktop watch examples.** Resolved. Initial set covers
+   Dell's pre- and post-rebrand business desktop lines plus the
+   common Lenovo / HP equivalents:
+   - `Dell OptiPlex` (7080, 7090, 7095) — legacy business
+     desktop
+   - `Dell Pro` — current business desktop (post-rebrand)
+   - `Lenovo ThinkCentre` (M920q, M920s) — small-form-factor
+     business
+   - `HP EliteDesk` (800 G4 / G5) — business class
+   Threshold + maturity playbook same as workstation. Skip auto-
+   alerting initially if volume is low; bucket exists for tracking
+   first.
 
 6. **PR shape.** Combined design + implementation covering both
    types in one branch (recommended), or sequential (workstation
