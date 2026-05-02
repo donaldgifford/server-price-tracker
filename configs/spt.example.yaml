@@ -1,3 +1,4 @@
+---
 # spt CLI config — copy to ~/.spt.yaml or pass via `spt --config <path>`.
 #
 # Resolution order (highest → lowest):
