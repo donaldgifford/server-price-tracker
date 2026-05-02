@@ -42,6 +42,13 @@ func ProductKey(componentType string, attrs map[string]any) string {
 			pkInt(attrs, "port_count"),
 			normalizeStr(attrs["port_type"]),
 		)
+	case "gpu":
+		return fmt.Sprintf("gpu:%s:%s:%s:%dgb",
+			normalizeStr(attrs["manufacturer"]),
+			normalizeStr(attrs["family"]),
+			normalizeStr(attrs["model"]),
+			pkInt(attrs, "vram_gb"),
+		)
 	default:
 		return fmt.Sprintf("other:%s", componentType)
 	}

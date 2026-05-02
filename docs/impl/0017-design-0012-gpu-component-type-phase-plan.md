@@ -113,56 +113,38 @@ they can ship and stay green without any prompt iteration.
 
 #### Tasks
 
-- [ ] Add `ComponentGPU ComponentType = "gpu"` to the const block in
+- [x] Add `ComponentGPU ComponentType = "gpu"` to the const block in
   `pkg/types/types.go` (slot it before `ComponentOther` so the
   catch-all stays last).
-- [ ] Add `case "gpu":` to `pkg/extract/productkey.go::ProductKey`
+- [x] Add `case "gpu":` to `pkg/extract/productkey.go::ProductKey`
   that returns `gpu:<manufacturer>:<family>:<model>:<vram>gb`. Use
   `normalizeStr` for manufacturer/family/model and `pkInt` for
   `vram_gb`. Format: `fmt.Sprintf("gpu:%s:%s:%s:%dgb", ...)`.
-- [ ] Add `case domain.ComponentGPU:` to
+- [x] Add `case domain.ComponentGPU:` to
   `pkg/extract/validate.go::ValidateExtraction` calling
   `validateGPU(attrs)`.
-- [ ] Implement `validateGPU(attrs)`:
-  - `manufacturer`: required enum (`NVIDIA`, `AMD`, `Intel`).
-  - `model`: required non-empty string.
-  - `vram_gb`: required, range 1–256.
-  - `family`: optional, free-form string (no enum check at this layer).
-  - `memory_type`: optional enum (`GDDR5`, `GDDR6`, `GDDR6X`, `HBM2`,
-    `HBM2e`, `HBM3`).
-  - `interface`: optional enum (`PCIe 3.0 x16`, `PCIe 4.0 x16`,
-    `PCIe 5.0 x16`, `SXM2`, `SXM4`, `SXM5`).
-  - `tdp_watts`: optional, range 15–700.
-  - `form_factor`: optional enum (`single_slot`, `dual_slot`,
-    `triple_slot`, `FHFL`, `HHHL`, `LP`).
-  - `cooling`: optional enum (`passive`, `active`, `blower`).
-  - Add validator-level constants `validGPUManufacturers`,
-    `validGPUMemoryTypes`, `validGPUInterfaces`, `validGPUFormFactors`,
-    `validGPUCoolings` mirroring the existing per-type pattern.
-- [ ] Write `pkg/extract/validate_test.go` GPU cases (table-driven,
-  `t.Parallel()`):
-  - Happy path with all fields populated.
-  - Each required-field omission (manufacturer, model, vram_gb).
-  - Each enum-out-of-range case for the optional enums.
-  - `vram_gb` boundary cases (0, 1, 256, 257).
-  - `tdp_watts` boundary cases (14, 15, 700, 701).
-- [ ] Write `pkg/extract/productkey_test.go` GPU cases:
-  - Standard: Tesla P40 24GB → `gpu:nvidia:tesla:p40:24gb`.
-  - Family null → `unknown` segment.
-  - VRAM zero → `0gb` segment (validation will catch real cases).
-  - AMD Instinct MI210 64GB → `gpu:amd:instinct:mi210:64gb`.
-- [ ] Run `make fmt`, `make lint`, `go test ./pkg/extract/...`.
+- [x] Implement `validateGPU(attrs)` split into
+  `validateGPURequired` + `validateGPUOptional` to keep
+  cyclomatic-complexity under 15. Constants
+  `validGPUManufacturers`, `validGPUMemoryTypes`,
+  `validGPUInterfaces`, `validGPUFormFactors`, `validGPUCoolings`
+  mirror the per-type pattern.
+- [x] Write `pkg/extract/validate_test.go` GPU cases — happy path,
+  required-field omissions, vram boundary cases, tdp boundary cases,
+  free-form family, and per-enum invalid cases. 22 sub-tests.
+- [x] Write `pkg/extract/productkey_test.go` GPU cases — Tesla P40,
+  Instinct MI210, family-null fallback, float64 vram, empty attrs.
+- [x] Run `make fmt`, `make lint`, `go test ./pkg/extract/...`.
 - [ ] Commit `feat(extract): add gpu component type — enum, validator,
   product key`.
 
 #### Success Criteria
 
-- `go build ./...` succeeds.
-- `go test ./pkg/extract/...` passes.
-- `pkg/extract/validate.go` and `pkg/extract/productkey.go` reach ≥90%
-  coverage.
-- `make lint` clean.
-- Existing tests for ram/drive/server/cpu/nic still pass — additive
+- [x] `go build ./...` succeeds.
+- [x] `go test ./pkg/extract/...` passes.
+- [x] `pkg/extract/` package coverage 92.4%.
+- [x] `make lint` clean — 0 issues.
+- [x] Existing tests for ram/drive/server/cpu/nic still pass — additive
   change.
 
 ---

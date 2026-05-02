@@ -17,6 +17,7 @@ const (
 	ComponentServer ComponentType = "server"
 	ComponentCPU    ComponentType = "cpu"
 	ComponentNIC    ComponentType = "nic"
+	ComponentGPU    ComponentType = "gpu"
 	ComponentOther  ComponentType = "other"
 )
 

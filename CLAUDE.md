@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Server Price Tracker is an API-first Go service that monitors eBay listings for server hardware deals (RAM, drives, servers, CPUs, NICs). It extracts structured attributes via LLM (Ollama default, Anthropic Claude API optional), scores listings against historical price baselines, and sends deal alerts via Discord webhooks. Two binaries: `server-price-tracker` (API server) and `spt` (CLI client).
+Server Price Tracker is an API-first Go service that monitors eBay listings for server hardware deals (RAM, drives, servers, CPUs, NICs, GPUs). It extracts structured attributes via LLM (Ollama default, Anthropic Claude API optional), scores listings against historical price baselines, and sends deal alerts via Discord webhooks. Two binaries: `server-price-tracker` (API server) and `spt` (CLI client).
 
 **Current state:** MVP implementation is complete. All handlers use Huma v2 typed input/output structs with runtime OpenAPI spec generation. The `spt` CLI client consumes the HTTP API via Cobra + Viper. Scheduler state, extraction queue, and rate limiter state are DB-backed (migrations 002-006). Baselines use active listing prices as a proxy since the eBay Browse API only returns active listings (migration 007). Stale unextracted listings are soft-deactivated via an `active` flag (migration 008). Alerts gained a `dismissed_at` column for the alert review UI (migration 009). Documentation is managed via `docz` CLI — see `docs/design/`, `docs/impl/`, `docs/rfc/`.
 

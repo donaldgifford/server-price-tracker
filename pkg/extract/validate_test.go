@@ -493,6 +493,148 @@ func TestValidateExtraction_NIC(t *testing.T) {
 	}
 }
 
+func TestValidateExtraction_GPU(t *testing.T) {
+	t.Parallel()
+
+	validGPU := map[string]any{
+		"condition":    "used_working",
+		"confidence":   0.92,
+		"quantity":     1,
+		"manufacturer": "NVIDIA",
+		"model":        "P40",
+		"vram_gb":      24,
+	}
+
+	tests := []struct {
+		name    string
+		modify  func(map[string]any)
+		wantErr string
+	}{
+		{
+			name:   "valid GPU passes",
+			modify: func(_ map[string]any) {},
+		},
+		{
+			name:    "missing manufacturer",
+			modify:  func(a map[string]any) { delete(a, "manufacturer") },
+			wantErr: "manufacturer",
+		},
+		{
+			name:    "invalid manufacturer",
+			modify:  func(a map[string]any) { a["manufacturer"] = "Apple" },
+			wantErr: "manufacturer",
+		},
+		{
+			name:    "missing model",
+			modify:  func(a map[string]any) { delete(a, "model") },
+			wantErr: "model",
+		},
+		{
+			name:    "empty model",
+			modify:  func(a map[string]any) { a["model"] = "" },
+			wantErr: "model",
+		},
+		{
+			name:    "missing vram_gb",
+			modify:  func(a map[string]any) { delete(a, "vram_gb") },
+			wantErr: "vram_gb",
+		},
+		{
+			name:    "vram_gb zero (out of range)",
+			modify:  func(a map[string]any) { a["vram_gb"] = 0 },
+			wantErr: "vram_gb",
+		},
+		{
+			name:    "vram_gb too high",
+			modify:  func(a map[string]any) { a["vram_gb"] = 257 },
+			wantErr: "vram_gb",
+		},
+		{
+			name:   "vram_gb at lower boundary",
+			modify: func(a map[string]any) { a["vram_gb"] = 1 },
+		},
+		{
+			name:   "vram_gb at upper boundary",
+			modify: func(a map[string]any) { a["vram_gb"] = 256 },
+		},
+		{
+			name:   "family is free-form (any string allowed)",
+			modify: func(a map[string]any) { a["family"] = "some-future-family" },
+		},
+		{
+			name:    "invalid memory_type",
+			modify:  func(a map[string]any) { a["memory_type"] = "DDR4" },
+			wantErr: "memory_type",
+		},
+		{
+			name:   "valid memory_type HBM3",
+			modify: func(a map[string]any) { a["memory_type"] = "HBM3" },
+		},
+		{
+			name:    "invalid interface",
+			modify:  func(a map[string]any) { a["interface"] = "AGP" },
+			wantErr: "interface",
+		},
+		{
+			name:   "valid interface SXM4",
+			modify: func(a map[string]any) { a["interface"] = "SXM4" },
+		},
+		{
+			name:    "tdp_watts too low",
+			modify:  func(a map[string]any) { a["tdp_watts"] = 14 },
+			wantErr: "tdp_watts",
+		},
+		{
+			name:    "tdp_watts too high",
+			modify:  func(a map[string]any) { a["tdp_watts"] = 701 },
+			wantErr: "tdp_watts",
+		},
+		{
+			name:   "tdp_watts at lower boundary",
+			modify: func(a map[string]any) { a["tdp_watts"] = 15 },
+		},
+		{
+			name:   "tdp_watts at upper boundary",
+			modify: func(a map[string]any) { a["tdp_watts"] = 700 },
+		},
+		{
+			name:    "invalid form_factor",
+			modify:  func(a map[string]any) { a["form_factor"] = "ATX" },
+			wantErr: "form_factor",
+		},
+		{
+			name:   "valid form_factor FHFL",
+			modify: func(a map[string]any) { a["form_factor"] = "FHFL" },
+		},
+		{
+			name:    "invalid cooling",
+			modify:  func(a map[string]any) { a["cooling"] = "watercooled" },
+			wantErr: "cooling",
+		},
+		{
+			name:   "valid cooling passive",
+			modify: func(a map[string]any) { a["cooling"] = "passive" },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			attrs := copyAttrs(validGPU)
+			tt.modify(attrs)
+
+			err := extract.ValidateExtraction(domain.ComponentGPU, attrs)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateExtraction_ConditionNormalization(t *testing.T) {
 	t.Parallel()
 
