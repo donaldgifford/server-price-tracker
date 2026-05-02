@@ -34,6 +34,10 @@ func NormalizeExtraction(componentType domain.ComponentType, title string, attrs
 		// See IMPL-0016 Phase 6.
 		attrs["tier"] = DetectServerTier(title)
 	}
+
+	if componentType == domain.ComponentGPU {
+		NormalizeGPUExtraction(attrs)
+	}
 }
 
 // stripPlaceholderEnums removes optional enum fields whose value is a

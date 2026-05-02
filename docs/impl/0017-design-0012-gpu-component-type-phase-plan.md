@@ -174,7 +174,8 @@ accessories.
 - [x] Write `pkg/extract/prompts_test.go` GPU cases — classifier
   guidance check + GPU extract template render assertions.
 - [x] Run `make fmt`, `make lint`, `go test ./pkg/extract/...`.
-- [ ] Commit `feat(extract): wire gpu into prompts and pre-classifier`.
+- [x] Commit `feat(extract): wire gpu into prompts and pre-classifier`
+  (commit `efcb001`).
 
 #### Success Criteria
 
@@ -195,7 +196,7 @@ defend the validator from common LLM mistakes.
 
 #### Tasks
 
-- [ ] Create `pkg/extract/gpu_normalize.go` with:
+- [x] Create `pkg/extract/gpu_normalize.go` with:
   - `CanonicalizeGPUFamily(s string) string` — lowercase, whitespace
     trim/collapse, mapped to canonical token per DESIGN-0012 §7
     (`tesla`, `quadro`, `geforce`, `rtx`, `a-series`, `l-series`,
@@ -224,12 +225,12 @@ defend the validator from common LLM mistakes.
        (`[8, 12, 16, 24, 32, 40, 48, 80, 96, 128]`) **only when
        within ±1 GB of one**. Out-of-list values (14, 20, 28, etc.)
        stay unchanged — defends legitimate oddball-VRAM cards.
-- [ ] Hook `NormalizeGPUExtraction` into
+- [x] Hook `NormalizeGPUExtraction` into
   `pkg/extract/normalize.go::NormalizeExtraction` under
   `case domain.ComponentGPU:`. Run before the existing common
   normalisation (capacity unit confusion is RAM-specific; GPU has its
   own).
-- [ ] Write `pkg/extract/gpu_normalize_test.go` (table-driven):
+- [x] Write `pkg/extract/gpu_normalize_test.go` (table-driven):
   - VRAM unit cases: `24576` (MB) → `24`; `24000000` (KB-ish, out
     of range) → unchanged; `24` (already GB) → `24`.
   - Canonicalisation: `"Tesla"` → `"tesla"`, `"  TESLA  "` → `"tesla"`,
@@ -242,9 +243,9 @@ defend the validator from common LLM mistakes.
   - VRAM rounding: 23 → 24, 25 → 24, 39 → 40, 81 → 80, 13 → 12,
     7 → 8, 15 → 16, exact (24, 80, etc.) → unchanged. Out-of-list
     cases stay unchanged: 14 → 14, 20 → 20, 28 → 28.
-- [ ] Update `pkg/extract/normalize_test.go` to confirm GPU
+- [x] Update `pkg/extract/normalize_test.go` to confirm GPU
   normalisation runs in the right order (before validation).
-- [ ] Run `make fmt`, `make lint`, `go test ./pkg/extract/...`.
+- [x] Run `make fmt`, `make lint`, `go test ./pkg/extract/...`.
 - [ ] Commit `feat(extract): add gpu normalisation — vram, family
   canonicalisation, model inference`.
 
@@ -270,12 +271,10 @@ static lookup. Defer until there's evidence the table would help.
 
 #### Success Criteria
 
-- `go test ./pkg/extract/...` passes.
-- `gpu_normalize.go` coverage ≥95% (deterministic logic, fully
-  exercisable).
-- A round-trip test confirms a representative "messy" extraction
-  (VRAM=24576, family=" Tesla ", model="P40") normalises cleanly to
-  validate-passing input.
+- [x] `go test ./pkg/extract/...` passes.
+- [x] `gpu_normalize.go` coverage 100%.
+- [x] Round-trip test confirms `{vram_gb=24576, family=" Tesla ",
+  model="P40"}` → `{vram_gb=24, family="tesla", model="P40"}`.
 
 ---
 
