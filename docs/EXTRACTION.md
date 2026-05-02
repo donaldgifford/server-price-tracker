@@ -581,30 +581,41 @@ runs before normalization since the JSON has to parse first.
 ### GPU normalisation (DESIGN-0012 / IMPL-0017)
 
 `NormalizeGPUExtraction` in `pkg/extract/gpu_normalize.go` runs before
-validation when `componentType == ComponentGPU`. Three steps:
+validation when `componentType == ComponentGPU`. Four steps:
 
 1. **VRAM unit confusion** — `vram_gb` returned as MB or KB. If the
    value lands in 1024–262144, divide by 1024. If 1000–256000,
    divide by 1000. Same pattern as RAM `capacity_gb` repair.
-2. **Family resolution (model inference > LLM family)** — for known
-   canonical models the inference list is the source of truth and
-   *overrides* whatever the LLM put in the family field:
-   `^(P40|P100|V100|K80|M40|M60|T4)$` → `tesla`,
-   `^A(10|30|40|100)$` → `a-series`,
-   `^L(4|40|40S)$` → `l-series`,
-   `^H(100|200)$` → `h-series`,
-   `^MI(50|60|100|210|250|300)$` → `instinct`.
-   The LLM is non-deterministic on family — it picks "Tesla" (legacy
-   brand) or "Ampere"/"A-series" (architectural family) inconsistently
-   for the same A100 SKU depending on what's in the title — and that
-   fragments baselines across two product keys. The inference list is
-   curated to be unambiguous, so we trust it.
+2. **Model canonicalisation** — `CanonicalizeGPUModel` strips brand
+   prefix and normalises spelling, so the LLM's "RTX 3090", "rtx_3090",
+   "rtx3090", and "3090" all collapse to `3090`. Ti and Super
+   separators normalise too: `3090_ti` / `3090-ti` / `"3090 ti"` →
+   `3090ti`. Without this, RTX 3090 listings fragment across 7+
+   product keys (observed 510 listings split across 7 keys in dev).
+   Note: `3090` and `3090ti` stay distinct because they're different
+   SKUs (different chip cores, different MSRP).
+3. **Family resolution (model inference > LLM family)** — patterns
+   operate on the canonical model from step 2:
+   `^(p40|p100|v100|k80|m40|m60|t4)$` → `tesla`,
+   `^a(10|30|40|100)$` → `a-series`,
+   `^l(4|40|40s)$` → `l-series`,
+   `^h(100|200)$` → `h-series`,
+   `^mi(50|60|100|210|250|300)$` → `instinct`,
+   `^[2-5]0\d{2}(ti|super)?$` → `geforce-rtx` (consumer 20/30/40/50
+   series),
+   `^a[2-6]000$` → `quadro-rtx` (workstation RTX A-series, formerly
+   Quadro RTX).
+   For known canonical models the inference list is the source of
+   truth and *overrides* whatever the LLM put in the family field —
+   the LLM is non-deterministic between legacy brand ("Tesla") and
+   architectural family ("Ampere"/"A-series") for the same SKU and
+   that fragments baselines.
    For ambiguous models (P4000, RTX 4000) inference returns empty and
    the LLM-supplied family is canonicalised instead: common spellings
    (`Tesla`/`tesla`/`TESLA`, `Ampere`, `Hopper`, `Radeon Pro`) collapse
    to canonical lowercase tokens (`tesla`, `a-series`, `h-series`,
    `radeon-pro`).
-3. **VRAM rounding** — snap `vram_gb` to the nearest known SKU
+4. **VRAM rounding** — snap `vram_gb` to the nearest known SKU
    (`[8, 12, 16, 24, 32, 40, 48, 80, 96, 128]`) when within ±1 GB.
    Out-of-list values (14, 20, 28) stay unchanged so legitimate
    odd-VRAM cards aren't corrupted.
