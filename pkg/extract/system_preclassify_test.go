@@ -9,6 +9,119 @@ import (
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
+func TestDetectSystemTypeFromTitle(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		title string
+		want  domain.ComponentType
+	}{
+		// Workstation positives — chassis + system signal
+		{
+			name:  "HP Z8 G4 with Gold 6148 and 256GB",
+			title: "HP Z8 G4 Workstation 40 Cores 2x Gold 6148 256GB P2000 512GB SSD + 1TB SSD Win11",
+			want:  domain.ComponentWorkstation,
+		},
+		{
+			name:  "HP Z6 G4 with Gold 6148",
+			title: "HP Z6 G4 Workstation 20-Core Gold 6148 2.4GHz 64GB RAM P4000 512GB SSD Win11",
+			want:  domain.ComponentWorkstation,
+		},
+		{
+			name:  "ThinkStation P920 with Gold 6148",
+			title: "Lenovo ThinkStation P920 40 Core Workstation 2X Gold 6148 192GB 1125W No GPU HDD",
+			want:  domain.ComponentWorkstation,
+		},
+		{
+			name:  "Dell Precision T7920 with Xeon",
+			title: "Dell Precision T7920 Xeon Gold 6248R 256GB RAM 1TB NVMe Win11",
+			want:  domain.ComponentWorkstation,
+		},
+		{
+			name:  "Dell Pro Max with Threadripper",
+			title: "Dell Pro Max workstation Threadripper Pro 5995WX 256GB RAM",
+			want:  domain.ComponentWorkstation,
+		},
+
+		// Desktop positives — chassis + system signal
+		{
+			name:  "EliteDesk 800 G2 SFF with i5-6500 and SSD (the bundled-cable failure mode)",
+			title: "HP EliteDesk 800 G2 SFF i5-6500 CPU, DDR4 8GB, 256GB SSD Win11 Pro + Power Cable",
+			want:  domain.ComponentDesktop,
+		},
+		{
+			name:  "OptiPlex 7080 with i7",
+			title: "Dell OptiPlex 7080 Micro i7-10700T 16GB 512GB SSD",
+			want:  domain.ComponentDesktop,
+		},
+		{
+			name:  "ThinkCentre M920 with Win11",
+			title: "Lenovo ThinkCentre M920 SFF i5-8500 16GB DDR4 512GB SSD Win11 Pro",
+			want:  domain.ComponentDesktop,
+		},
+		{
+			name:  "ProDesk 600 with Win10",
+			title: "HP ProDesk 600 G3 SFF i5-7500 8GB 256GB SSD Win10 Pro",
+			want:  domain.ComponentDesktop,
+		},
+
+		// Negatives — chassis only, no system signal → defer
+		{
+			name:  "ThinkStation P920 power cable defers to LLM",
+			title: "Lenovo ThinkStation P920 power cable replacement",
+			want:  "",
+		},
+		{
+			name:  "HP Z8 motherboard alone defers",
+			title: "HP Z8 G4 motherboard for repair",
+			want:  "",
+		},
+		{
+			name:  "EliteDesk bezel alone defers",
+			title: "HP EliteDesk 800 front bezel replacement",
+			want:  "",
+		},
+
+		// Negatives — no chassis token at all
+		{
+			name:  "PowerEdge server with Gold (real server)",
+			title: "Dell PowerEdge R740xd 2U Server 2x Gold 6248 256GB RAM",
+			want:  "",
+		},
+		{
+			name:  "RAM-only listing",
+			title: "Samsung 32GB DDR4 ECC RDIMM 2666MHz",
+			want:  "",
+		},
+		{
+			name:  "GPU-only listing",
+			title: "NVIDIA Tesla P40 24GB GDDR5 GPU Accelerator",
+			want:  "",
+		},
+
+		// Edge cases
+		{
+			name:  "empty title",
+			title: "",
+			want:  "",
+		},
+		{
+			name:  "chassis-only Precision number defers",
+			title: "Dell Precision T7920 chassis only",
+			want:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := extract.DetectSystemTypeFromTitle(tt.title)
+			assert.Equal(t, tt.want, got, "title=%q", tt.title)
+		})
+	}
+}
+
 func TestDetectSystemTypeFromSpecifics(t *testing.T) {
 	t.Parallel()
 

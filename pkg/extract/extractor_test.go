@@ -590,15 +590,13 @@ func TestLLMExtractor_ClassifyAndExtract(t *testing.T) {
 			wantType: domain.ComponentGPU,
 		},
 		{
-			name:  "workstation dell precision t7920 full pipeline",
+			// Title pre-class short-circuits — chassis token (Precision T7920)
+			// + system signal (Xeon Gold 6248R) skips Classify entirely.
+			name:  "workstation dell precision t7920 short-circuits via title pre-class",
 			title: "Dell Precision T7920 Workstation Xeon Gold 6248R 256GB",
 			setupMock: func(m *extractMocks.MockLLMBackend) {
-				m.EXPECT().
-					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
-						return r.Format == ""
-					})).
-					Return(extract.GenerateResponse{Content: "workstation"}, nil).
-					Once()
+				// Only Extract is called. Mockery fails the test if Classify
+				// (Format == "") is invoked.
 				m.EXPECT().
 					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
 						return r.Format == "json"
@@ -621,15 +619,10 @@ func TestLLMExtractor_ClassifyAndExtract(t *testing.T) {
 			wantType: domain.ComponentWorkstation,
 		},
 		{
-			name:  "desktop dell optiplex 7080 full pipeline",
+			// Title pre-class short-circuits — OptiPlex 7080 + i7-10700T.
+			name:  "desktop dell optiplex 7080 short-circuits via title pre-class",
 			title: "Dell OptiPlex 7080 Micro i7-10700T 16GB 512GB SSD",
 			setupMock: func(m *extractMocks.MockLLMBackend) {
-				m.EXPECT().
-					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
-						return r.Format == ""
-					})).
-					Return(extract.GenerateResponse{Content: "desktop"}, nil).
-					Once()
 				m.EXPECT().
 					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
 						return r.Format == "json"

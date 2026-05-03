@@ -192,17 +192,36 @@ func (e *LLMExtractor) Extract(
 const accessoryShortCircuitConfidence = 0.95
 
 // ClassifyAndExtract classifies the title and then extracts attributes.
-// Bare server-part accessories (backplanes, caddies, rails, etc.) are
-// short-circuited to ComponentOther without calling the LLM — see
-// IsAccessoryOnly and DESIGN-0011. Workstation/desktop listings whose
-// item specifics carry a known Series/Product Line token (ThinkStation,
-// OptiPlex, …) skip Classify and go straight to Extract — see
-// DetectSystemTypeFromSpecifics and DESIGN-0015 Open Question 1.
+//
+// Pre-class short-circuits run before the LLM, in priority order:
+//  1. DetectSystemTypeFromTitle — chassis token (ThinkStation, EliteDesk,
+//     HP Z\d, Precision T-pattern, Pro Max) plus a system-completeness
+//     signal (RAM/storage/CPU model/cores) routes to workstation/desktop.
+//     Runs first so it overrides both the accessory short-circuit and
+//     the LLM. Catches the "EliteDesk + Power Cable" + "ThinkStation
+//     P920 ... Gold 6148" failure modes from dev validation.
+//  2. IsAccessoryOnly — bare server-part accessories (backplanes,
+//     caddies, rails, etc.) route to ComponentOther without the LLM.
+//     See DESIGN-0011.
+//  3. DetectSystemTypeFromSpecifics — item specifics (`Most Suitable For`,
+//     `Series`, `Product Line`) route to workstation/desktop without
+//     the LLM classifier. See DESIGN-0015 Open Question 1.
+//  4. LLM Classify → Extract.
 func (e *LLMExtractor) ClassifyAndExtract(
 	ctx context.Context,
 	title string,
 	itemSpecifics map[string]string,
 ) (domain.ComponentType, map[string]any, error) {
+	if ct := DetectSystemTypeFromTitle(title); ct != "" {
+		e.log.Info("system pre-class short-circuit (title)",
+			"title", title, "component_type", ct, "system_title_short_circuit", true)
+		attrs, err := e.Extract(ctx, ct, title, itemSpecifics)
+		if err != nil {
+			return ct, nil, fmt.Errorf("extracting after title pre-class: %w", err)
+		}
+		return ct, attrs, nil
+	}
+
 	if IsAccessoryOnly(title) {
 		e.log.Info("accessory short-circuit",
 			"title", title, "accessory_short_circuit", true)
@@ -212,8 +231,8 @@ func (e *LLMExtractor) ClassifyAndExtract(
 	}
 
 	if ct := DetectSystemTypeFromSpecifics(itemSpecifics); ct != "" {
-		e.log.Info("system pre-class short-circuit",
-			"title", title, "component_type", ct, "system_preclass_short_circuit", true)
+		e.log.Info("system pre-class short-circuit (specifics)",
+			"title", title, "component_type", ct, "system_specs_short_circuit", true)
 		attrs, err := e.Extract(ctx, ct, title, itemSpecifics)
 		if err != nil {
 			return ct, nil, fmt.Errorf("extracting after system pre-class: %w", err)
