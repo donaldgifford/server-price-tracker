@@ -351,9 +351,11 @@ per type, observe ingestion, spot-check, ensure no leakage into
 
 #### Tasks
 
-- [ ] Push the branch, open PR with `feature` label.
-- [ ] CI must be green (lint, test, build, security, docker-build,
-  helm-lint, helm-unittest, helm-ct).
+- [x] Push the branch, open PR with `feature` label. PR #49 open
+  with labels `feature`, `minor`, `documentation`.
+- [x] CI must be green (lint, test, build, security, docker-build,
+  helm-lint, helm-unittest, helm-ct). All 11 checks passed on
+  PR #49.
 - [ ] Operator deploys dev image
   (`ghcr.io/donaldgifford/server-price-tracker:dev`).
 - [ ] Create one workstation watch per chassis line from
