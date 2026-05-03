@@ -117,17 +117,17 @@ Mirrors IMPL-0017 Phase 1.
 
 #### Tasks
 
-- [ ] Add `ComponentWorkstation = "workstation"` and
+- [x] Add `ComponentWorkstation = "workstation"` and
   `ComponentDesktop = "desktop"` to `pkg/types/types.go`.
-- [ ] Add both entries to the `validComponentTypes` map in
+- [x] Add both entries to the `validComponentTypes` map in
   `pkg/extract/extractor.go`. (This is the easy-to-miss allowlist
   — see `gpu_component_type.md` memory.)
-- [ ] Add `case "workstation"` and `case "desktop"` switch arms in
+- [x] Add `case "workstation"` and `case "desktop"` switch arms in
   `pkg/extract/productkey.go`. Initial shape:
   `<type>:<vendor>:<line>:<model>` using `normalizeStr` on each
   attribute (mirrors the pre-tier server shape, no integer
   segment).
-- [ ] Add validators in `pkg/extract/validate.go`:
+- [x] Add validators in `pkg/extract/validate.go`:
   - `validateWorkstation` and `validateDesktop`. Required:
     `vendor`, `model`. Optional: `line`, `cpu`, `gpu`, `ram_gb`,
     `storage_gb`, `form_factor`. (See Open Question 3 for required-
@@ -135,17 +135,18 @@ Mirrors IMPL-0017 Phase 1.
   - Shared helpers if validation logic overlaps significantly
     (vendor must be non-empty string, model must be non-empty
     string).
-- [ ] Add `case domain.ComponentWorkstation` and
+- [x] Add `case domain.ComponentWorkstation` and
   `case domain.ComponentDesktop` arms to the `Validate` switch.
-- [ ] Add product-key tests for both new types in
+- [x] Add product-key tests for both new types in
   `pkg/extract/productkey_test.go`.
-- [ ] Add validator tests in `pkg/extract/validate_test.go`.
-- [ ] Add type-string tests in `pkg/types/types_test.go` if such
-  tests exist.
-- [ ] Refresh `cmd/spt/cmd/watches.go` `--type` flag help text to
+- [x] Add validator tests in `pkg/extract/validate_test.go`.
+- [x] Add type-string tests in `pkg/types/types_test.go` if such
+  tests exist. (No `pkg/types/types_test.go` exists — N/A.)
+- [x] Refresh `cmd/spt/cmd/watches.go` `--type` flag help text to
   list `ram, drive, server, cpu, nic, gpu, workstation, desktop,
   other` (Open Question 8). Same edit picks up the missing `gpu`
-  / `other` entries as a side benefit.
+  / `other` entries as a side benefit. Also updated
+  `watches_update.go`.
 
 #### Success Criteria
 

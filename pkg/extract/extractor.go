@@ -96,13 +96,15 @@ func (e *LLMExtractor) recordTokens(resp GenerateResponse) {
 }
 
 var validComponentTypes = map[string]domain.ComponentType{
-	"ram":    domain.ComponentRAM,
-	"drive":  domain.ComponentDrive,
-	"server": domain.ComponentServer,
-	"cpu":    domain.ComponentCPU,
-	"nic":    domain.ComponentNIC,
-	"gpu":    domain.ComponentGPU,
-	"other":  domain.ComponentOther,
+	"ram":         domain.ComponentRAM,
+	"drive":       domain.ComponentDrive,
+	"server":      domain.ComponentServer,
+	"cpu":         domain.ComponentCPU,
+	"nic":         domain.ComponentNIC,
+	"gpu":         domain.ComponentGPU,
+	"workstation": domain.ComponentWorkstation,
+	"desktop":     domain.ComponentDesktop,
+	"other":       domain.ComponentOther,
 }
 
 // Classify determines the component type from a listing title.

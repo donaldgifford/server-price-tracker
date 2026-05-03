@@ -226,6 +226,61 @@ func TestProductKey(t *testing.T) {
 			want:          "gpu:unknown:unknown:unknown:0gb",
 		},
 		{
+			name:          "Workstation Dell Precision T7920",
+			componentType: "workstation",
+			attrs: map[string]any{
+				"vendor": "dell",
+				"line":   "precision",
+				"model":  "t7920",
+			},
+			want: "workstation:dell:precision:t7920",
+		},
+		{
+			name:          "Workstation Lenovo ThinkStation P620",
+			componentType: "workstation",
+			attrs: map[string]any{
+				"vendor": "Lenovo",
+				"line":   "ThinkStation",
+				"model":  "P620",
+			},
+			want: "workstation:lenovo:thinkstation:p620",
+		},
+		{
+			name:          "Workstation missing line falls back to unknown",
+			componentType: "workstation",
+			attrs: map[string]any{
+				"vendor": "HP",
+				"model":  "Z8 G4",
+			},
+			want: "workstation:hp:unknown:z8_g4",
+		},
+		{
+			name:          "Desktop Dell OptiPlex 7080",
+			componentType: "desktop",
+			attrs: map[string]any{
+				"vendor": "dell",
+				"line":   "optiplex",
+				"model":  "7080",
+			},
+			want: "desktop:dell:optiplex:7080",
+		},
+		{
+			name:          "Desktop Lenovo ThinkCentre M920",
+			componentType: "desktop",
+			attrs: map[string]any{
+				"vendor": "Lenovo",
+				"line":   "ThinkCentre",
+				"model":  "M920",
+			},
+			want: "desktop:lenovo:thinkcentre:m920",
+		},
+		{
+			name:          "Desktop empty attrs defaults to unknown",
+			componentType: "desktop",
+			attrs:         map[string]any{},
+			want:          "desktop:unknown:unknown:unknown",
+		},
+		{
 			name:          "nil attrs defaults to unknown/zero",
 			componentType: "ram",
 			attrs:         nil,

@@ -37,6 +37,10 @@ func ValidateExtraction(
 		return validateNIC(attrs)
 	case domain.ComponentGPU:
 		return validateGPU(attrs)
+	case domain.ComponentWorkstation:
+		return validateWorkstation(attrs)
+	case domain.ComponentDesktop:
+		return validateDesktop(attrs)
 	default:
 		return nil
 	}
@@ -348,6 +352,63 @@ func validateGPUOptional(attrs map[string]any) error {
 	if c, ok := attrString(attrs, "cooling"); ok {
 		if !slices.Contains(validGPUCoolings, c) {
 			return fmt.Errorf("cooling %q: %w", c, ErrInvalidEnum)
+		}
+	}
+
+	return nil
+}
+
+// validSystemFormFactors covers tower / small-form-factor / micro / mini
+// chassis used for both workstations and desktops. Form factor is optional
+// — left empty when the LLM is unsure or the listing is a barebone with
+// no chassis info.
+var validSystemFormFactors = []string{"tower", "sff", "micro", "mini"}
+
+// validateWorkstation validates a workstation extraction. Required:
+// vendor, model. Line is optional — the normaliser fills it from known
+// model SKU patterns (T-series → precision, etc).
+func validateWorkstation(attrs map[string]any) error {
+	return validateSystemAttrs(attrs)
+}
+
+// validateDesktop validates a desktop extraction. Same required set as
+// workstations — the two share an attribute schema and only diverge on
+// classification semantics.
+func validateDesktop(attrs map[string]any) error {
+	return validateSystemAttrs(attrs)
+}
+
+// validateSystemAttrs implements the shared validator for workstation +
+// desktop. vendor + model required; line + cpu + gpu + ram_gb + storage_gb
+// + form_factor optional. Range checks mirror the per-component validators
+// (capacity 1-8192 GB, vram_gb 1-256 implicit since gpu field is free-form
+// string here, not an extracted GPU sub-record).
+func validateSystemAttrs(attrs map[string]any) error {
+	vendor, ok := attrString(attrs, "vendor")
+	if !ok || vendor == "" {
+		return fmt.Errorf("vendor: %w", ErrMissingField)
+	}
+
+	model, ok := attrString(attrs, "model")
+	if !ok || model == "" {
+		return fmt.Errorf("model: %w", ErrMissingField)
+	}
+
+	if ff, ok := attrString(attrs, "form_factor"); ok {
+		if !slices.Contains(validSystemFormFactors, ff) {
+			return fmt.Errorf("form_factor %q: %w", ff, ErrInvalidEnum)
+		}
+	}
+
+	if ram, ok := attrInt(attrs, "ram_gb"); ok {
+		if ram < 1 || ram > 8192 {
+			return fmt.Errorf("ram_gb %d: %w (must be 1-8192)", ram, ErrOutOfRange)
+		}
+	}
+
+	if storage, ok := attrInt(attrs, "storage_gb"); ok {
+		if storage < 1 || storage > 1048576 {
+			return fmt.Errorf("storage_gb %d: %w (must be 1-1048576)", storage, ErrOutOfRange)
 		}
 	}
 
