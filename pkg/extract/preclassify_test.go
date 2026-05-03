@@ -184,6 +184,68 @@ func TestIsAccessoryOnly(t *testing.T) {
 			title: "PCIe x16 GPU riser cable for mining",
 			want:  true,
 		},
+
+		// Workstation primaries (DESIGN-0015 / IMPL-0018 Phase 2). A real
+		// workstation paired with an accessory keyword (heatsink, fan,
+		// bezel, …) should defer to the LLM, not short-circuit to "other".
+		{
+			name:  "precision T-series with fan defers",
+			title: "Dell Precision T7920 Workstation with 80mm cooling fan",
+			want:  false,
+		},
+		{
+			name:  "precision 4-digit with bezel defers",
+			title: "Dell Precision 7820 Tower workstation bezel front",
+			want:  false,
+		},
+		{
+			name:  "thinkstation with rails defers",
+			title: "Lenovo ThinkStation P620 chassis with rack rails kit",
+			want:  false,
+		},
+		{
+			name:  "hp z-series with bracket defers",
+			title: "HP Z8 G4 workstation mounting bracket included",
+			want:  false,
+		},
+		{
+			name:  "pro max with heatsink defers",
+			title: "Dell Pro Max workstation Threadripper heatsink",
+			want:  false,
+		},
+		// Desktop primaries
+		{
+			name:  "optiplex with caddy defers",
+			title: "Dell OptiPlex 7080 SFF with drive caddy",
+			want:  false,
+		},
+		{
+			name:  "elitedesk with rails defers",
+			title: "HP EliteDesk 800 G6 mini desktop with mounting rails",
+			want:  false,
+		},
+		{
+			name:  "thinkcentre with bezel defers",
+			title: "Lenovo ThinkCentre M920 SFF with front bezel",
+			want:  false,
+		},
+		// Dell Pro requires co-token (Open Question 6)
+		{
+			name:  "dell pro tower with bezel defers",
+			title: "Dell Pro Tower with replacement bezel",
+			want:  false,
+		},
+		{
+			name:  "tower then dell pro defers",
+			title: "Tower computer Dell Pro micro form factor with caddy",
+			want:  false,
+		},
+		// Bare 'Dell Pro' without co-token — accessory wins (false positive guard)
+		{
+			name:  "dell prosupport bezel stays accessory",
+			title: "Dell ProSupport replacement bezel for server",
+			want:  true,
+		},
 	}
 
 	for _, tt := range tests {

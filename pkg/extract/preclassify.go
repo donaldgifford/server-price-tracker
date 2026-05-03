@@ -65,6 +65,17 @@ var primaryComponentPatterns = []*regexp.Regexp{
 	// accessory keyword ("Tesla P40 + heatsink") should defer to the LLM
 	// rather than short-circuit to "other".
 	regexp.MustCompile(`\b(tesla|quadro|rtx\s+a\d+|a100|h100|l40|mi\d{3}|radeon\s+pro)\b`),
+	// Workstation chassis tokens (DESIGN-0015) — a real workstation paired
+	// with an accessory keyword ("Precision T7920 + 80mm fan") defers to the
+	// LLM rather than short-circuiting to "other".
+	regexp.MustCompile(`\b(precision\s+t?\d{4}|precision\s+\d{4}|pro\s+max|thinkstation|workstation|hp\s+z\d)\b`),
+	// Desktop chassis tokens (DESIGN-0015) — specific lines that stand alone.
+	regexp.MustCompile(`\b(optiplex|elitedesk|thinkcentre)\b`),
+	// Dell Pro desktop — requires a co-occurring desktop form-factor token to
+	// avoid matching "Dell ProSupport" / "Dell Pro Stand" false positives
+	// (Open Question 6). The .* between the two tokens lets either order match.
+	regexp.MustCompile(`\bdell\s+pro\b.*\b(tower|desktop|sff|micro|mini\s+tower)\b`),
+	regexp.MustCompile(`\b(tower|desktop|sff|micro|mini\s+tower)\b.*\bdell\s+pro\b`),
 }
 
 // IsAccessoryOnly reports whether the title describes a bare server-part

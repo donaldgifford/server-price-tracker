@@ -14,15 +14,18 @@ const classifyTmpl = `Classify this eBay listing into exactly one component type
 
 Title: {{.Title}}
 
-Types: ram, drive, server, cpu, nic, gpu, other
+Types: ram, drive, server, cpu, nic, gpu, workstation, desktop, other
 
 Rules:
 - Pick the type of the actual item being sold, not what it is for or compatible with.
 - Accessories and parts that are not themselves the component go to "other". Examples: drive caddies/trays, rack rails, bezels, brackets, mounting kits, cables, fans, heatsinks, risers, backplanes (when sold alone), power supplies (when sold alone).
 - Only pick "drive" for actual storage drives (HDD/SSD/NVMe), not drive accessories.
-- Only pick "server" for complete or barebones server chassis, not individual server parts.
-- Pick "gpu" for actual graphics cards / accelerators (Tesla, Quadro, RTX, A/L/H-series, Radeon Pro, Instinct, Arc).
+- Only pick "server" for complete or barebones rack-mountable server chassis (Dell PowerEdge, HP ProLiant, Cisco UCS, Supermicro). A tower with workstation lineage is NOT a server, regardless of CPU class.
+- Pick "gpu" for standalone graphics cards / accelerators (Tesla, Quadro, RTX, A/L/H-series, Radeon Pro, Instinct, Arc).
 - "gpu riser", "GPU bracket", and "GPU power cable" stay in "other" (they are accessories, not the GPU itself).
+- Pick "workstation" for vendor-defined workstation product lines: Dell Precision (T-series), Dell Pro Max, Lenovo ThinkStation (P-series), HP Z-series.
+- Pick "desktop" for tower-form general-purpose computers without a workstation product line: Dell OptiPlex / Dell Pro, Lenovo ThinkCentre, HP EliteDesk, custom builds.
+- Workstations and desktops that contain a GPU still classify as "workstation" or "desktop" — not "gpu". The GPU is part of the bundled system.
 
 Respond with ONLY a single word from the list above. No explanation, no parentheses, no extra text.`
 
@@ -252,6 +255,82 @@ Schema:
   "confidence": float (0.0-1.0)
 }`
 
+// workstationTmpl is the workstation extraction prompt template.
+const workstationTmpl = `Extract structured attributes from this eBay workstation listing.
+Respond ONLY with a valid JSON object. No markdown, no explanation.
+
+Rules:
+- For enum fields, you MUST use one of the listed values exactly. Never return null for enum fields.
+- "vendor" and "model" are required. Never null.
+- "vendor": derive from the brand token (Dell, HP, Lenovo). Lowercase preferred.
+- "line": product line name as a free-form string (e.g. "Precision", "ThinkStation",
+  "Z by HP", "Pro Max"). May be null — the normaliser fills it from known model patterns.
+- "model": the chassis/SKU token (e.g. "T7920", "P620", "Z8 G4"). Strip vendor prefix.
+- "form_factor": chassis class. May be null when ambiguous.
+- "ram_gb": total installed RAM in GB. Convert any "256GB" / "256 GB" / "256-GB" to 256.
+- "storage_gb": total installed storage in GB. Convert TB to GB (1 TB = 1024).
+- "condition": if the listing does not specify, use "unknown".
+- "confidence": always return a float between 0.0 and 1.0. Never null.
+- "quantity": default to 1 unless the title explicitly indicates a lot or bundle.
+- Only use null for optional string/integer/boolean fields that truly cannot be determined.
+
+Title: {{.Title}}
+Item Specifics: {{.ItemSpecifics}}
+
+Schema:
+{
+  "vendor": string,
+  "line": string | null,
+  "model": string,
+  "cpu": string | null,
+  "gpu": string | null,
+  "ram_gb": integer | null,
+  "storage_gb": integer | null,
+  "form_factor": "tower" | "sff" | "micro" | "mini" | null,
+  "part_number": string | null,
+  "quantity": integer,
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
+  "confidence": float (0.0-1.0)
+}`
+
+// desktopTmpl is the desktop extraction prompt template.
+const desktopTmpl = `Extract structured attributes from this eBay desktop computer listing.
+Respond ONLY with a valid JSON object. No markdown, no explanation.
+
+Rules:
+- For enum fields, you MUST use one of the listed values exactly. Never return null for enum fields.
+- "vendor" and "model" are required. Never null.
+- "vendor": derive from the brand token (Dell, HP, Lenovo). Lowercase preferred.
+- "line": product line name as a free-form string (e.g. "OptiPlex", "ThinkCentre",
+  "EliteDesk", "Pro"). May be null — the normaliser fills it from known model patterns.
+- "model": the chassis/SKU token (e.g. "7080", "M920", "800 G6"). Strip vendor prefix.
+- "form_factor": chassis class. May be null when ambiguous.
+- "ram_gb": total installed RAM in GB. Convert any "32GB" / "32 GB" / "32-GB" to 32.
+- "storage_gb": total installed storage in GB. Convert TB to GB (1 TB = 1024).
+- "condition": if the listing does not specify, use "unknown".
+- "confidence": always return a float between 0.0 and 1.0. Never null.
+- "quantity": default to 1 unless the title explicitly indicates a lot or bundle.
+- Only use null for optional string/integer/boolean fields that truly cannot be determined.
+
+Title: {{.Title}}
+Item Specifics: {{.ItemSpecifics}}
+
+Schema:
+{
+  "vendor": string,
+  "line": string | null,
+  "model": string,
+  "cpu": string | null,
+  "gpu": string | null,
+  "ram_gb": integer | null,
+  "storage_gb": integer | null,
+  "form_factor": "tower" | "sff" | "micro" | "mini" | null,
+  "part_number": string | null,
+  "quantity": integer,
+  "condition": "new" | "like_new" | "used_working" | "for_parts" | "unknown",
+  "confidence": float (0.0-1.0)
+}`
+
 // PromptData holds the template variables for extraction prompts.
 type PromptData struct {
 	Title         string
@@ -263,12 +342,14 @@ var templates map[domain.ComponentType]*template.Template
 
 func init() {
 	templates = map[domain.ComponentType]*template.Template{
-		domain.ComponentRAM:    template.Must(template.New("ram").Parse(ramTmpl)),
-		domain.ComponentDrive:  template.Must(template.New("drive").Parse(driveTmpl)),
-		domain.ComponentServer: template.Must(template.New("server").Parse(serverTmpl)),
-		domain.ComponentCPU:    template.Must(template.New("cpu").Parse(cpuTmpl)),
-		domain.ComponentNIC:    template.Must(template.New("nic").Parse(nicTmpl)),
-		domain.ComponentGPU:    template.Must(template.New("gpu").Parse(gpuTmpl)),
+		domain.ComponentRAM:         template.Must(template.New("ram").Parse(ramTmpl)),
+		domain.ComponentDrive:       template.Must(template.New("drive").Parse(driveTmpl)),
+		domain.ComponentServer:      template.Must(template.New("server").Parse(serverTmpl)),
+		domain.ComponentCPU:         template.Must(template.New("cpu").Parse(cpuTmpl)),
+		domain.ComponentNIC:         template.Must(template.New("nic").Parse(nicTmpl)),
+		domain.ComponentGPU:         template.Must(template.New("gpu").Parse(gpuTmpl)),
+		domain.ComponentWorkstation: template.Must(template.New("workstation").Parse(workstationTmpl)),
+		domain.ComponentDesktop:     template.Must(template.New("desktop").Parse(desktopTmpl)),
 	}
 }
 

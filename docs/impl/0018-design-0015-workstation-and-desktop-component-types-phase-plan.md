@@ -166,15 +166,15 @@ about workstation/desktop title patterns. Mirrors IMPL-0017 Phase 2.
 
 #### Tasks
 
-- [ ] Add `workstationTmpl` and `desktopTmpl` extraction prompt
+- [x] Add `workstationTmpl` and `desktopTmpl` extraction prompt
   templates to `pkg/extract/prompts.go`. Schema fields:
   `vendor`, `line`, `model`, `cpu` (optional, free-form string),
   `gpu` (optional), `ram_gb` (optional, integer), `storage_gb`
   (optional, integer), `form_factor` (optional, enum:
   `tower|sff|micro|mini`), `condition`, `quantity`, `confidence`.
   (See Open Question 2 for shared-vs-separate template debate.)
-- [ ] Wire both templates into the `extractTemplates` map.
-- [ ] Update `classifyTmpl` rules:
+- [x] Wire both templates into the `extractTemplates` map.
+- [x] Update `classifyTmpl` rules:
   - Add `workstation, desktop` to the `Types:` line.
   - Add classification rules:
     - "Pick `workstation` for vendor-defined workstation product
@@ -189,7 +189,7 @@ about workstation/desktop title patterns. Mirrors IMPL-0017 Phase 2.
     - "Servers stay rack-mountable: Dell PowerEdge / HP ProLiant /
       Cisco UCS / etc. A tower with workstation lineage is NOT a
       server, regardless of CPU class."
-- [ ] Extend `primaryComponentPatterns` in
+- [x] Extend `primaryComponentPatterns` in
   `pkg/extract/preclassify.go` with workstation+desktop chassis
   patterns (so a `Precision T7920 + 80mm fan` listing defers to
   the LLM rather than short-circuiting to `other`):
@@ -202,10 +202,10 @@ about workstation/desktop title patterns. Mirrors IMPL-0017 Phase 2.
     false positives):
     `\bdell\s+pro\b.*\b(tower|desktop|sff|micro|mini\s+tower)\b`
     (or its commutative form)
-- [ ] Update `prompts_test.go` to assert the new templates render.
-- [ ] Update `preclassify_test.go` with workstation+desktop
+- [x] Update `prompts_test.go` to assert the new templates render.
+- [x] Update `preclassify_test.go` with workstation+desktop
   primary-pattern test cases.
-- [ ] Create `pkg/extract/system_preclassify.go` with a
+- [x] Create `pkg/extract/system_preclassify.go` with a
   `DetectSystemTypeFromSpecifics(specs map[string]string) domain.ComponentType`
   function that returns `ComponentWorkstation`,
   `ComponentDesktop`, or empty string. Match logic (Open Question
@@ -220,11 +220,11 @@ about workstation/desktop title patterns. Mirrors IMPL-0017 Phase 2.
   - `Product Line` contains `OptiPlex` / `Pro` (with
     `Form Factor: Tower`) → `desktop`
   - Otherwise empty (defer to LLM classifier).
-- [ ] Wire the pre-class hook into
+- [x] Wire the pre-class hook into
   `(*LLMExtractor).ClassifyAndExtract` BEFORE `Classify` is
   called. Mirror the `IsAccessoryOnly` short-circuit shape with
   appropriate logging.
-- [ ] Add `pkg/extract/system_preclassify_test.go` table tests
+- [x] Add `pkg/extract/system_preclassify_test.go` table tests
   covering: each Series/Product Line/Most Suitable For value,
   ambiguous specs return empty, missing keys return empty.
 
