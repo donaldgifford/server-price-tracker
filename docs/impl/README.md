@@ -49,4 +49,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0015 | Watches update CLI plus Discord notifier and alert review UI | Completed | 2026-04-26 | Donald Gifford | [0015-watches-update-cli-plus-discord-notifier-and-alert-review-ui.md](0015-watches-update-cli-plus-discord-notifier-and-alert-review-ui.md) |
 | IMPL-0016 | DESIGN-0011 alert noise reduction phase plan | Draft | 2026-04-30 | Donald Gifford | [0016-design-0011-alert-noise-reduction-phase-plan.md](0016-design-0011-alert-noise-reduction-phase-plan.md) |
 | IMPL-0017 | DESIGN-0012 GPU component type phase plan | In Progress | 2026-05-01 | Donald Gifford | [0017-design-0012-gpu-component-type-phase-plan.md](0017-design-0012-gpu-component-type-phase-plan.md) |
+| IMPL-0018 | DESIGN-0015 workstation and desktop component types phase plan | Draft | 2026-05-02 | Donald Gifford | [0018-design-0015-workstation-and-desktop-component-types-phase-plan.md](0018-design-0015-workstation-and-desktop-component-types-phase-plan.md) |
 <!-- END DOCZ AUTO-GENERATED -->

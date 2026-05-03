@@ -96,13 +96,15 @@ func (e *LLMExtractor) recordTokens(resp GenerateResponse) {
 }
 
 var validComponentTypes = map[string]domain.ComponentType{
-	"ram":    domain.ComponentRAM,
-	"drive":  domain.ComponentDrive,
-	"server": domain.ComponentServer,
-	"cpu":    domain.ComponentCPU,
-	"nic":    domain.ComponentNIC,
-	"gpu":    domain.ComponentGPU,
-	"other":  domain.ComponentOther,
+	"ram":         domain.ComponentRAM,
+	"drive":       domain.ComponentDrive,
+	"server":      domain.ComponentServer,
+	"cpu":         domain.ComponentCPU,
+	"nic":         domain.ComponentNIC,
+	"gpu":         domain.ComponentGPU,
+	"workstation": domain.ComponentWorkstation,
+	"desktop":     domain.ComponentDesktop,
+	"other":       domain.ComponentOther,
 }
 
 // Classify determines the component type from a listing title.
@@ -192,7 +194,10 @@ const accessoryShortCircuitConfidence = 0.95
 // ClassifyAndExtract classifies the title and then extracts attributes.
 // Bare server-part accessories (backplanes, caddies, rails, etc.) are
 // short-circuited to ComponentOther without calling the LLM — see
-// IsAccessoryOnly and DESIGN-0011.
+// IsAccessoryOnly and DESIGN-0011. Workstation/desktop listings whose
+// item specifics carry a known Series/Product Line token (ThinkStation,
+// OptiPlex, …) skip Classify and go straight to Extract — see
+// DetectSystemTypeFromSpecifics and DESIGN-0015 Open Question 1.
 func (e *LLMExtractor) ClassifyAndExtract(
 	ctx context.Context,
 	title string,
@@ -204,6 +209,16 @@ func (e *LLMExtractor) ClassifyAndExtract(
 		return domain.ComponentOther, map[string]any{
 			"confidence": accessoryShortCircuitConfidence,
 		}, nil
+	}
+
+	if ct := DetectSystemTypeFromSpecifics(itemSpecifics); ct != "" {
+		e.log.Info("system pre-class short-circuit",
+			"title", title, "component_type", ct, "system_preclass_short_circuit", true)
+		attrs, err := e.Extract(ctx, ct, title, itemSpecifics)
+		if err != nil {
+			return ct, nil, fmt.Errorf("extracting after system pre-class: %w", err)
+		}
+		return ct, attrs, nil
 	}
 
 	ct, err := e.Classify(ctx, title)

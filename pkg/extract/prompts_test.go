@@ -23,15 +23,41 @@ func TestRenderClassifyPrompt(t *testing.T) {
 			title: "Samsung 32GB DDR4 ECC",
 			wantSubs: []string{
 				"Title: Samsung 32GB DDR4 ECC",
-				"ram, drive, server, cpu, nic, gpu, other",
+				"ram, drive, server, cpu, nic, gpu, workstation, desktop, other",
 				"Respond with ONLY a single word from the list above",
+			},
+		},
+		{
+			name:  "workstation routing guidance present",
+			title: "Dell Precision T7920 Workstation",
+			wantSubs: []string{
+				`Pick "workstation" for vendor-defined workstation product lines`,
+				"Dell Precision (T-series)",
+				"ThinkStation (P-series)",
+			},
+		},
+		{
+			name:  "desktop routing guidance present",
+			title: "Dell OptiPlex 7080 Tower",
+			wantSubs: []string{
+				`Pick "desktop" for tower-form general-purpose computers`,
+				"OptiPlex",
+				"ThinkCentre",
+				"EliteDesk",
+			},
+		},
+		{
+			name:  "bundled GPU goes with system not gpu",
+			title: "Lenovo ThinkStation P620 Threadripper Pro RTX 3090",
+			wantSubs: []string{
+				`still classify as "workstation" or "desktop" — not "gpu"`,
 			},
 		},
 		{
 			name:  "gpu routing guidance present",
 			title: "NVIDIA Tesla P40 24GB",
 			wantSubs: []string{
-				`Pick "gpu" for actual graphics cards`,
+				`Pick "gpu" for standalone graphics cards`,
 				"Tesla, Quadro, RTX",
 				`"gpu riser", "GPU bracket"`,
 			},
@@ -168,6 +194,36 @@ func TestRenderExtractPrompt(t *testing.T) {
 				"raid_controller",
 				// Description will be empty since we use RenderExtractPrompt
 				"Description (first 500 chars): ",
+			},
+		},
+		{
+			name:          "workstation prompt",
+			componentType: domain.ComponentWorkstation,
+			title:         "Dell Precision T7920 Workstation Xeon Gold 6248R 256GB RAM",
+			specs:         map[string]string{"Brand": "Dell", "Series": "Precision"},
+			wantSubs: []string{
+				"Title: Dell Precision T7920 Workstation Xeon Gold 6248R 256GB RAM",
+				"Brand: Dell",
+				`"vendor"`,
+				`"line"`,
+				`"model"`,
+				`"ram_gb"`,
+				`"form_factor"`,
+				"tower",
+			},
+		},
+		{
+			name:          "desktop prompt",
+			componentType: domain.ComponentDesktop,
+			title:         "Dell OptiPlex 7080 Micro i7-10700T 16GB 512GB SSD",
+			specs:         map[string]string{"Brand": "Dell", "Series": "OptiPlex"},
+			wantSubs: []string{
+				"Title: Dell OptiPlex 7080 Micro i7-10700T 16GB 512GB SSD",
+				`"vendor"`,
+				`"line"`,
+				`"model"`,
+				`"storage_gb"`,
+				"micro",
 			},
 		},
 		{

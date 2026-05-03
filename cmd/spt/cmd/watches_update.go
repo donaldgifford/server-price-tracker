@@ -73,7 +73,7 @@ func watchUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&f.query, "query", "", "eBay search query")
 	cmd.Flags().StringVar(&f.category, "category", "", "category id")
 	cmd.Flags().
-		StringVar(&f.compType, "type", "", "component type (ram, drive, server, cpu, nic, other)")
+		StringVar(&f.compType, "type", "", "component type (ram, drive, server, cpu, nic, gpu, workstation, desktop, other)")
 	cmd.Flags().IntVar(&f.threshold, "threshold", 0, "score threshold for alerts")
 	cmd.Flags().BoolVar(&f.enabled, "enabled", false, "enable or disable the watch")
 	cmd.Flags().

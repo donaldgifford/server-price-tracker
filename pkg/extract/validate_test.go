@@ -635,6 +635,166 @@ func TestValidateExtraction_GPU(t *testing.T) {
 	}
 }
 
+func TestValidateExtraction_Workstation(t *testing.T) {
+	t.Parallel()
+
+	validWorkstation := map[string]any{
+		"condition":  "used_working",
+		"confidence": 0.9,
+		"quantity":   1,
+		"vendor":     "dell",
+		"line":       "precision",
+		"model":      "t7920",
+	}
+
+	tests := []struct {
+		name    string
+		modify  func(map[string]any)
+		wantErr string
+	}{
+		{
+			name:   "valid workstation passes",
+			modify: func(_ map[string]any) {},
+		},
+		{
+			name:   "line optional — missing line still valid",
+			modify: func(a map[string]any) { delete(a, "line") },
+		},
+		{
+			name:    "missing vendor",
+			modify:  func(a map[string]any) { delete(a, "vendor") },
+			wantErr: "vendor",
+		},
+		{
+			name:    "empty vendor",
+			modify:  func(a map[string]any) { a["vendor"] = "" },
+			wantErr: "vendor",
+		},
+		{
+			name:    "missing model",
+			modify:  func(a map[string]any) { delete(a, "model") },
+			wantErr: "model",
+		},
+		{
+			name:    "empty model",
+			modify:  func(a map[string]any) { a["model"] = "" },
+			wantErr: "model",
+		},
+		{
+			name:   "valid form_factor tower",
+			modify: func(a map[string]any) { a["form_factor"] = "tower" },
+		},
+		{
+			name:    "invalid form_factor rack",
+			modify:  func(a map[string]any) { a["form_factor"] = "rack" },
+			wantErr: "form_factor",
+		},
+		{
+			name:   "valid optional ram_gb",
+			modify: func(a map[string]any) { a["ram_gb"] = 256 },
+		},
+		{
+			name:    "ram_gb out of range",
+			modify:  func(a map[string]any) { a["ram_gb"] = 99999 },
+			wantErr: "ram_gb",
+		},
+		{
+			name:   "valid optional storage_gb",
+			modify: func(a map[string]any) { a["storage_gb"] = 4096 },
+		},
+		{
+			name:    "storage_gb out of range",
+			modify:  func(a map[string]any) { a["storage_gb"] = 0 },
+			wantErr: "storage_gb",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			attrs := copyAttrs(validWorkstation)
+			tt.modify(attrs)
+
+			err := extract.ValidateExtraction(domain.ComponentWorkstation, attrs)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateExtraction_Desktop(t *testing.T) {
+	t.Parallel()
+
+	validDesktop := map[string]any{
+		"condition":  "used_working",
+		"confidence": 0.85,
+		"quantity":   1,
+		"vendor":     "dell",
+		"line":       "optiplex",
+		"model":      "7080",
+	}
+
+	tests := []struct {
+		name    string
+		modify  func(map[string]any)
+		wantErr string
+	}{
+		{
+			name:   "valid desktop passes",
+			modify: func(_ map[string]any) {},
+		},
+		{
+			name:   "line optional — missing line still valid",
+			modify: func(a map[string]any) { delete(a, "line") },
+		},
+		{
+			name:    "missing vendor",
+			modify:  func(a map[string]any) { delete(a, "vendor") },
+			wantErr: "vendor",
+		},
+		{
+			name:    "missing model",
+			modify:  func(a map[string]any) { delete(a, "model") },
+			wantErr: "model",
+		},
+		{
+			name:   "valid form_factor sff",
+			modify: func(a map[string]any) { a["form_factor"] = "sff" },
+		},
+		{
+			name:   "valid form_factor micro",
+			modify: func(a map[string]any) { a["form_factor"] = "micro" },
+		},
+		{
+			name:    "invalid form_factor desktop",
+			modify:  func(a map[string]any) { a["form_factor"] = "desktop" },
+			wantErr: "form_factor",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			attrs := copyAttrs(validDesktop)
+			tt.modify(attrs)
+
+			err := extract.ValidateExtraction(domain.ComponentDesktop, attrs)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateExtraction_ConditionNormalization(t *testing.T) {
 	t.Parallel()
 

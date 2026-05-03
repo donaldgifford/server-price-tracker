@@ -284,7 +284,8 @@ curl -X POST https://spt.yourdomain.dev/api/v1/watches \
   }'
 ```
 
-Component types: `ram`, `drive`, `server`, `cpu`, `nic`, `gpu`, `other`.
+Component types: `ram`, `drive`, `server`, `cpu`, `nic`, `gpu`,
+`workstation`, `desktop`, `other`.
 
 #### Example: GPU watch with cold-start threshold
 
@@ -307,6 +308,43 @@ psql -c "SELECT product_key, sample_count FROM price_baselines \
 
 # Once a key has sample_count ≥ 10:
 spt watches update --id <id> --score-threshold 80
+```
+
+#### Example: Workstation + desktop watches with cold-start threshold
+
+Workstations and desktops follow the same cold-start dynamics as GPUs
+(DESIGN-0015 / IMPL-0018). Seed each chassis line with a low threshold,
+bump per-watch as its product key matures.
+
+```bash
+# Workstation watches — Dell Precision T-series, Pro Max, Lenovo
+# ThinkStation P-series, HP Z-series.
+spt watches create --type workstation --threshold 65 \
+  --name "Dell Precision T-series" --query "Dell Precision T7920 OR T7820 OR T5820"
+
+spt watches create --type workstation --threshold 65 \
+  --name "Lenovo ThinkStation P-series" --query "Lenovo ThinkStation P620 OR P520 OR P340"
+
+spt watches create --type workstation --threshold 65 \
+  --name "HP Z-series" --query "HP Z8 G4 OR Z6 G4 OR Z4 G4"
+
+# Desktop watches — Dell OptiPlex / Pro, Lenovo ThinkCentre, HP EliteDesk.
+spt watches create --type desktop --threshold 65 \
+  --name "Dell OptiPlex" --query "Dell OptiPlex 7080 OR 7090 OR 7000"
+
+spt watches create --type desktop --threshold 65 \
+  --name "Lenovo ThinkCentre M-series" --query "Lenovo ThinkCentre M920 OR M720"
+
+spt watches create --type desktop --threshold 65 \
+  --name "HP EliteDesk" --query "HP EliteDesk 800 G6 OR 800 G7"
+
+# Check baseline maturity:
+psql -c "SELECT product_key, sample_count FROM price_baselines \
+         WHERE product_key LIKE 'workstation:%' OR product_key LIKE 'desktop:%' \
+         ORDER BY sample_count DESC;"
+
+# Once a watch's matched product_key has sample_count ≥ 10:
+spt watches update <id> --threshold 80
 ```
 
 ### Step 2: Trigger Initial Ingestion
