@@ -340,6 +340,96 @@ bump the watch threshold via
 The same shape works for any future component type by swapping the
 `'gpu:%'` prefix.
 
+### Workstation/desktop baseline maturity check (IMPL-0018 Phase 6)
+
+After deploying workstation+desktop support, the
+`workstation:<vendor>:<line>:<model>` and `desktop:<vendor>:<line>:<model>`
+buckets start empty. Same cold-start dynamics as GPU — the price factor
+stays neutral (50) until at least one product key per chassis reaches
+`sample_count >= 10`. Use this query to decide when to tighten the watch
+threshold from the cold-start default (65) to the production setting (80).
+
+```sql
+SELECT product_key, sample_count, p50 AS p50_usd, updated_at
+FROM price_baselines
+WHERE product_key LIKE 'workstation:%'
+   OR product_key LIKE 'desktop:%'
+ORDER BY sample_count DESC;
+```
+
+Bump each watch's threshold individually as its product_key matures —
+they're per-SKU baselines, not per-vendor.
+
+### Backfill misclassified workstations and desktops (IMPL-0018 Phase 7)
+
+Operator-gated. Run only if Phase 6 baselines are slow to mature on
+their own. Re-classifies historical listings whose titles match the
+new workstation/desktop primaries but currently sit in `server` or
+`other`. Postgres regex uses `\y` for word boundaries (not `\b`).
+
+Always dry-run via `BEGIN; ... RETURNING; ... COMMIT;`. Eyeball the
+RETURNING set before committing — see `feedback_dry_run_bulk_sql.md`.
+
+Workstation backfill:
+
+```sql
+-- DRY-RUN FIRST
+BEGIN;
+UPDATE listings
+SET component_type = 'workstation',
+    updated_at = now()
+WHERE component_type IN ('server', 'other')
+  AND active = true
+  AND title ~* '\y(precision\s+t?\d|thinkstation|workstation|hp\s+z[0-9]|pro\s+max)\y'
+RETURNING id, title, component_type;
+-- COMMIT or ROLLBACK after eyeballing
+```
+
+Desktop backfill:
+
+```sql
+-- DRY-RUN FIRST
+BEGIN;
+UPDATE listings
+SET component_type = 'desktop',
+    updated_at = now()
+WHERE component_type IN ('server', 'other')
+  AND active = true
+  AND title ~* '\y(optiplex|elitedesk|thinkcentre|prodesk)\y'
+RETURNING id, title, component_type;
+```
+
+After commit, re-queue the affected listings so the new attribute
+schema is populated:
+
+```sql
+INSERT INTO extraction_queue (listing_id, priority)
+SELECT id, 1
+FROM listings
+WHERE component_type IN ('workstation', 'desktop')
+  AND attributes = '{}'::jsonb
+ON CONFLICT DO NOTHING;
+```
+
+After the queue drains, refresh baselines + rescore:
+
+```bash
+curl -X POST https://spt.fartlab.dev/api/v1/baselines/refresh
+curl -X POST https://spt.fartlab.dev/api/v1/rescore
+```
+
+Finally, drop orphan baselines for the listings that moved buckets
+(see `baseline_refresh_orphans_followup.md`):
+
+```sql
+DELETE FROM price_baselines
+WHERE product_key NOT IN (
+    SELECT DISTINCT product_key
+    FROM listings
+    WHERE active = true
+);
+```
+
 ---
 
 ## Alerts

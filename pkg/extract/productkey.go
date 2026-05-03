@@ -49,6 +49,18 @@ func ProductKey(componentType string, attrs map[string]any) string {
 			normalizeStr(attrs["model"]),
 			pkInt(attrs, "vram_gb"),
 		)
+	case "workstation":
+		return fmt.Sprintf("workstation:%s:%s:%s",
+			normalizeStr(attrs["vendor"]),
+			normalizeStr(attrs["line"]),
+			normalizeStr(attrs["model"]),
+		)
+	case "desktop":
+		return fmt.Sprintf("desktop:%s:%s:%s",
+			normalizeStr(attrs["vendor"]),
+			normalizeStr(attrs["line"]),
+			normalizeStr(attrs["model"]),
+		)
 	default:
 		return fmt.Sprintf("other:%s", componentType)
 	}

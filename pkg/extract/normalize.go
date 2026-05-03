@@ -38,6 +38,10 @@ func NormalizeExtraction(componentType domain.ComponentType, title string, attrs
 	if componentType == domain.ComponentGPU {
 		NormalizeGPUExtraction(attrs)
 	}
+
+	if componentType == domain.ComponentWorkstation || componentType == domain.ComponentDesktop {
+		NormalizeSystemExtraction(componentType, attrs)
+	}
 }
 
 // stripPlaceholderEnums removes optional enum fields whose value is a

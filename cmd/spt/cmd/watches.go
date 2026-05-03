@@ -129,7 +129,7 @@ func watchCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&watchName, "name", "", "watch name")
 	cmd.Flags().StringVar(&watchQuery, "query", "", "eBay search query")
 	cmd.Flags().
-		StringVar(&watchType, "type", "", "component type (ram, drive, server, cpu, nic)")
+		StringVar(&watchType, "type", "", "component type (ram, drive, server, cpu, nic, gpu, workstation, desktop, other)")
 	cmd.Flags().IntVar(&watchThreshold, "threshold", 75, "score threshold for alerts")
 	cmd.Flags().StringArrayVar(&watchFilterArgs, "filter", nil, "filters (key=value)")
 

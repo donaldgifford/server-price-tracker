@@ -449,6 +449,18 @@ func ProductKey(componentType string, attrs map[string]any) string {
             normalizeStr(attrs["model"]),
             pkInt(attrs, "vram_gb"),
         ) // DESIGN-0012 / IMPL-0017
+    case "workstation":
+        return fmt.Sprintf("workstation:%s:%s:%s",
+            normalizeStr(attrs["vendor"]), // canonicalised by NormalizeSystemExtraction
+            normalizeStr(attrs["line"]),   // canonicalised; inferred from model when LLM omits
+            normalizeStr(attrs["model"]),
+        ) // DESIGN-0015 / IMPL-0018
+    case "desktop":
+        return fmt.Sprintf("desktop:%s:%s:%s",
+            normalizeStr(attrs["vendor"]),
+            normalizeStr(attrs["line"]),
+            normalizeStr(attrs["model"]),
+        ) // DESIGN-0015 / IMPL-0018
     default:
         return fmt.Sprintf("other:%s", componentType)
     }
@@ -510,6 +522,41 @@ After parsing the JSON response from any backend, validate per component type:
 - `tdp_watts`: 15–700 (optional)
 - `form_factor`: one of single_slot, dual_slot, triple_slot, FHFL, HHHL, LP (optional)
 - `cooling`: one of passive, active, blower (optional)
+
+### Workstation / Desktop
+
+Workstation and desktop share an attribute schema (DESIGN-0015 / IMPL-0018).
+
+- `vendor`: non-empty (required). Canonicalised by
+  `CanonicalizeSystemVendor` — Dell Inc. / Hewlett-Packard / IBM-Lenovo
+  collapse to `dell` / `hp` / `lenovo` lowercase tokens.
+- `model`: non-empty (required). Canonicalised by
+  `CanonicalizeSystemModel` — strips a leading `dell|hp|hpe|lenovo|ibm`
+  brand prefix from the model field so `Lenovo P620` and `P620` share
+  a baseline.
+- `line`: free-form string (optional). Canonicalised by
+  `CanonicalizeSystemLine` to one of `precision`, `thinkstation`,
+  `z-by-hp`, `pro-max`, `optiplex`, `thinkcentre`, `elitedesk`,
+  `prodesk`, `pro`. When the LLM omits line entirely, the normaliser
+  infers it from the canonical model SKU: `T\d{4}` → `precision`,
+  `P\d{3}` → `thinkstation`, `Z\d+ G\d+` → `z-by-hp`, `M\d{3}` →
+  `thinkcentre`, OptiPlex/EliteDesk/ProDesk prefix matches.
+- `form_factor`: one of `tower`, `sff`, `micro`, `mini` (optional)
+- `cpu`, `gpu`: free-form string (optional)
+- `ram_gb`: 1–8192 (optional)
+- `storage_gb`: 1–1048576 (optional)
+
+Pre-class hook: `DetectSystemTypeFromSpecifics` inspects eBay item
+specifics (`Most Suitable For`, `Series`, `Product Line`, `Form Factor`)
+and short-circuits to workstation/desktop before the LLM classifier
+runs. ThinkStation / Z by HP / Dell Precision in `Series` → workstation.
+OptiPlex / ThinkCentre / EliteDesk in `Series` → desktop. Pro Max in
+`Product Line` → workstation. Generic `Pro` line requires a desktop
+form-factor co-token (Open Question 6).
+
+Per Open Question 5, Dell Pro Max is intentionally kept distinct from
+Precision in the line aliases so the post-rebrand pricing curve stays
+separable.
 
 ### All Types
 

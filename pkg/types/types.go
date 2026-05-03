@@ -12,13 +12,15 @@ type ComponentType string
 
 // Component type constants.
 const (
-	ComponentRAM    ComponentType = "ram"
-	ComponentDrive  ComponentType = "drive"
-	ComponentServer ComponentType = "server"
-	ComponentCPU    ComponentType = "cpu"
-	ComponentNIC    ComponentType = "nic"
-	ComponentGPU    ComponentType = "gpu"
-	ComponentOther  ComponentType = "other"
+	ComponentRAM         ComponentType = "ram"
+	ComponentDrive       ComponentType = "drive"
+	ComponentServer      ComponentType = "server"
+	ComponentCPU         ComponentType = "cpu"
+	ComponentNIC         ComponentType = "nic"
+	ComponentGPU         ComponentType = "gpu"
+	ComponentWorkstation ComponentType = "workstation"
+	ComponentDesktop     ComponentType = "desktop"
+	ComponentOther       ComponentType = "other"
 )
 
 // Condition represents normalized listing condition.

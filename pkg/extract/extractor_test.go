@@ -590,6 +590,62 @@ func TestLLMExtractor_ClassifyAndExtract(t *testing.T) {
 			wantType: domain.ComponentGPU,
 		},
 		{
+			// Title pre-class short-circuits — chassis token (Precision T7920)
+			// + system signal (Xeon Gold 6248R) skips Classify entirely.
+			name:  "workstation dell precision t7920 short-circuits via title pre-class",
+			title: "Dell Precision T7920 Workstation Xeon Gold 6248R 256GB",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				// Only Extract is called. Mockery fails the test if Classify
+				// (Format == "") is invoked.
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: `{
+								"vendor": "Dell",
+								"line": "Precision",
+								"model": "T7920",
+								"cpu": "Xeon Gold 6248R",
+								"ram_gb": 256,
+								"form_factor": "tower",
+								"condition": "used_working",
+								"quantity": 1,
+								"confidence": 0.92
+							}`,
+					}, nil).
+					Once()
+			},
+			wantType: domain.ComponentWorkstation,
+		},
+		{
+			// Title pre-class short-circuits — OptiPlex 7080 + i7-10700T.
+			name:  "desktop dell optiplex 7080 short-circuits via title pre-class",
+			title: "Dell OptiPlex 7080 Micro i7-10700T 16GB 512GB SSD",
+			setupMock: func(m *extractMocks.MockLLMBackend) {
+				m.EXPECT().
+					Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+						return r.Format == "json"
+					})).
+					Return(extract.GenerateResponse{
+						Content: `{
+								"vendor": "Dell",
+								"line": "OptiPlex",
+								"model": "7080",
+								"cpu": "i7-10700T",
+								"ram_gb": 16,
+								"storage_gb": 512,
+								"form_factor": "micro",
+								"condition": "used_working",
+								"quantity": 1,
+								"confidence": 0.9
+							}`,
+					}, nil).
+					Once()
+			},
+			wantType: domain.ComponentDesktop,
+		},
+		{
 			name:  "gpu amd instinct mi210 family canonicalised",
 			title: "AMD Instinct MI210 64GB HBM2e GPU",
 			setupMock: func(m *extractMocks.MockLLMBackend) {
@@ -662,6 +718,72 @@ func TestLLMExtractor_ClassifyAndExtract(t *testing.T) {
 						"family must be canonicalised to lowercase")
 				}
 			}
+		})
+	}
+}
+
+func TestLLMExtractor_ClassifyAndExtract_SystemPreClassHook(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		title    string
+		specs    map[string]string
+		wantType domain.ComponentType
+	}{
+		{
+			name:  "ThinkStation series short-circuits to workstation",
+			title: "Lenovo P620 Threadripper 3995WX 256GB RTX 3090",
+			specs: map[string]string{
+				"Brand":  "Lenovo",
+				"Series": "ThinkStation",
+			},
+			wantType: domain.ComponentWorkstation,
+		},
+		{
+			name:  "OptiPlex series short-circuits to desktop",
+			title: "Dell 7080 Tower i7-10700 16GB 512GB",
+			specs: map[string]string{
+				"Brand":  "Dell",
+				"Series": "OptiPlex",
+			},
+			wantType: domain.ComponentDesktop,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockBackend := extractMocks.NewMockLLMBackend(t)
+			expectName(mockBackend, "test-backend")
+			// Only Extract is called — no Classify because pre-class hook
+			// short-circuits. Mockery fails the test if Generate is called
+			// with Format == "" (the classify call).
+			mockBackend.EXPECT().
+				Generate(mock.Anything, mock.MatchedBy(func(r extract.GenerateRequest) bool {
+					return r.Format == "json"
+				})).
+				Return(extract.GenerateResponse{
+					Content: `{
+						"vendor": "Dell",
+						"model": "T1234",
+						"condition": "used_working",
+						"quantity": 1,
+						"confidence": 0.9
+					}`,
+				}, nil).
+				Once()
+
+			extractor := extract.NewLLMExtractor(mockBackend)
+			ct, attrs, err := extractor.ClassifyAndExtract(
+				context.Background(),
+				tt.title,
+				tt.specs,
+			)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantType, ct)
+			require.NotNil(t, attrs)
 		})
 	}
 }
