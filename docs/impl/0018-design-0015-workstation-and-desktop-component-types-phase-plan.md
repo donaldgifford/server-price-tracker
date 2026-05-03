@@ -311,16 +311,16 @@ one desktop title.
 
 #### Tasks
 
-- [ ] Create `migrations/011_add_workstation_and_desktop_component_types.sql`
+- [x] Create `migrations/011_add_workstation_and_desktop_component_types.sql`
   and the embedded copy in
   `internal/store/migrations/011_add_workstation_and_desktop_component_types.sql`.
   Both files identical, mirrors migration 010 shape:
   `ALTER TABLE watches DROP CONSTRAINT watches_component_type_check;`
   followed by re-add with `'workstation', 'desktop'` added to
   the IN list. Same for `listings_component_type_check`.
-- [ ] Verify `internal/store/migrations/` is included in
+- [x] Verify `internal/store/migrations/` is included in
   `embed.FS` (it is — same path as migration 010).
-- [ ] Add `pkg/extract/extractor_test.go` integration smoke cases
+- [x] Add `pkg/extract/extractor_test.go` integration smoke cases
   for `TestLLMExtractor_ClassifyAndExtract`:
   - Workstation case (Dell Precision T7920 listing) — expect
     `ComponentWorkstation` + populated attributes + canonical
@@ -329,7 +329,9 @@ one desktop title.
     `ComponentDesktop` + populated attributes + canonical
     product key.
   Use `MockLLMBackend` returning canned JSON responses (same shape
-  as the existing GPU case).
+  as the existing GPU case). Plus a separate
+  `TestLLMExtractor_ClassifyAndExtract_SystemPreClassHook` that
+  verifies the item-specifics short-circuit skips Classify entirely.
 
 #### Success Criteria
 
