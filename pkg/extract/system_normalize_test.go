@@ -283,6 +283,48 @@ func TestNormalizeSystemExtraction_RoundTrip(t *testing.T) {
 			},
 		},
 		{
+			name: "LLM hallucinates PowerEdge — dropped, inference fills with precision",
+			ct:   domain.ComponentWorkstation,
+			in: map[string]any{
+				"vendor": "Dell",
+				"line":   "PowerEdge",
+				"model":  "T3620",
+			},
+			want: map[string]any{
+				"vendor": "dell",
+				"line":   "precision",
+				"model":  "t3620",
+			},
+		},
+		{
+			name: "LLM hallucinates ProLiant — dropped, ambiguous model leaves line empty",
+			ct:   domain.ComponentDesktop,
+			in: map[string]any{
+				"vendor": "HP",
+				"line":   "ProLiant",
+				"model":  "5060",
+			},
+			want: map[string]any{
+				"vendor": "hp",
+				"model":  "5060",
+				// no line — denylist drop, inference returns empty for "5060"
+			},
+		},
+		{
+			name: "LLM hallucinates UCS — dropped, M-series infers ThinkCentre",
+			ct:   domain.ComponentDesktop,
+			in: map[string]any{
+				"vendor": "Lenovo",
+				"line":   "UCS",
+				"model":  "M920",
+			},
+			want: map[string]any{
+				"vendor": "lenovo",
+				"line":   "thinkcentre",
+				"model":  "m920",
+			},
+		},
+		{
 			name: "Dell Inc. → dell",
 			ct:   domain.ComponentDesktop,
 			in: map[string]any{

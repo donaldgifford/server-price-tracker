@@ -86,6 +86,29 @@ var systemLineInferenceRules = []struct {
 // ("Dell T7920", "HP Z8 G4") despite vendor being its own column.
 var systemBrandPrefixRe = regexp.MustCompile(`^(dell|hp|hpe|lenovo|ibm)[_\s-]+`)
 
+// systemServerLineDenylist is the set of vendor *server* product lines
+// that the LLM sometimes hallucinates as the `line` field for a
+// workstation or desktop extraction (e.g., "Dell PowerEdge T3620" for
+// a real Dell Precision T3620). When the LLM-supplied line matches any
+// of these, drop it and let line-from-model inference run instead —
+// the model SKU is unambiguous for known patterns (T-series → precision).
+//
+// Strings are compared after `CanonicalizeSystemLine` lowercases +
+// trims, so "PowerEdge" / "poweredge" / "Power Edge" all match.
+var systemServerLineDenylist = map[string]struct{}{
+	"poweredge":   {},
+	"power-edge":  {},
+	"proliant":    {},
+	"pro-liant":   {},
+	"ucs":         {},
+	"supermicro":  {},
+	"super-micro": {},
+	"dell-emc":    {},
+	"emc":         {},
+	"system-x":    {},
+	"systemx":     {},
+}
+
 // CanonicalizeSystemVendor collapses common spellings of a workstation
 // or desktop vendor to a canonical lowercase token.
 func CanonicalizeSystemVendor(s string) string {
@@ -186,11 +209,20 @@ func canonicalizeSystemModelInPlace(attrs map[string]any) {
 // or infers it from the canonical model SKU when the LLM left it empty.
 // Inference is conservative — unknown SKUs leave the field blank so the
 // product key gets an honest "unknown" segment.
+//
+// Server-line hallucinations (LLM picks "PowerEdge" / "ProLiant" / etc.
+// for a workstation extraction) are dropped via systemServerLineDenylist
+// so model-based inference can run instead. Surfaced in dev validation
+// when 31 Dell Precision T3620 listings landed at
+// `workstation:dell:poweredge:t3620` instead of joining the 103-sample
+// `workstation:dell:precision:t3620` baseline.
 func resolveSystemLine(attrs map[string]any) {
 	if line, ok := attrString(attrs, "line"); ok && line != "" {
 		if canonical := CanonicalizeSystemLine(line); canonical != "" {
-			attrs["line"] = canonical
-			return
+			if _, denied := systemServerLineDenylist[canonical]; !denied {
+				attrs["line"] = canonical
+				return
+			}
 		}
 	}
 
