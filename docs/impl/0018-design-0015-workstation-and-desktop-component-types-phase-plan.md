@@ -435,8 +435,9 @@ baselines mature.
   ```
 - [ ] Bump each watch's threshold from 65 → 80 once its
   product_key reaches `sample_count >= 10`.
-- [ ] Document the production transition in `docs/SQL_HELPERS.md`
-  ("Workstation/desktop baseline maturity check").
+- [x] Document the production transition in `docs/SQL_HELPERS.md`
+  ("Workstation/desktop baseline maturity check"). Done ahead of
+  rollout so the runbook is in tree before the operator deploys.
 
 #### Success Criteria
 
@@ -461,7 +462,7 @@ Phase 6 baselines mature on their own without backfill.
 
 #### Tasks
 
-- [ ] Add a "Backfill misclassified workstations and desktops
+- [x] Add a "Backfill misclassified workstations and desktops
   (IMPL-0018 Phase 7)" section to `docs/SQL_HELPERS.md` with the
   SQL pattern that mirrors the new `primaryComponentPatterns`
   workstation+desktop regex (Postgres regex uses `\y` for word
@@ -478,14 +479,14 @@ Phase 6 baselines mature on their own without backfill.
   RETURNING id, title, component_type;
   ```
   And the desktop equivalent.
-- [ ] Reference `feedback_dry_run_bulk_sql.md` discipline — always
+- [x] Reference `feedback_dry_run_bulk_sql.md` discipline — always
   `BEGIN;` first, eyeball `RETURNING`, then commit.
-- [ ] After commit, re-queue the affected listings for extraction
+- [x] After commit, re-queue the affected listings for extraction
   so attributes are populated under the new type:
   `INSERT INTO extraction_queue (listing_id, priority) SELECT id, 1 FROM listings WHERE component_type IN ('workstation', 'desktop') AND attributes = '{}'::jsonb ON CONFLICT DO NOTHING;`
-- [ ] After queue drain, run `POST /api/v1/baselines/refresh` and
+- [x] After queue drain, run `POST /api/v1/baselines/refresh` and
   `POST /api/v1/rescore`.
-- [ ] Run the orphan-baseline cleanup from `baseline_refresh_orphans_followup.md`
+- [x] Run the orphan-baseline cleanup from `baseline_refresh_orphans_followup.md`
   to drop stale `server:%` baselines whose listings moved to
   `workstation:%`.
 
