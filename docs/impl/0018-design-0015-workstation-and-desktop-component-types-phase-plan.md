@@ -65,14 +65,24 @@ per DESIGN-0015 Q6.
   checklist captured in `gpu_component_type.md` memory).
 - Product keys `workstation:<vendor>:<line>:<model>` and
   `desktop:<vendor>:<line>:<model>`.
+- New `pkg/extract/system_preclassify.go` — item-specifics-aware
+  pre-class hook that short-circuits to `workstation`/`desktop`
+  when `Most Suitable For` / `Series` / `Product Line` matches a
+  known value (Open Question 1, option c).
 - Classifier prompt rules + pre-classifier primary regex coverage
   for the watch shopping list from DESIGN-0015 Q4 / Q5 (Dell
   Precision T-series, Dell Pro Max, Lenovo ThinkStation P-series,
   HP Z-series, Dell OptiPlex, Dell Pro, Lenovo ThinkCentre, HP
   EliteDesk).
-- Per-type extraction prompt + validator + normaliser.
+- Per-type extraction prompt + validator.
+- Shared `pkg/extract/system_normalize.go` exposing
+  `NormalizeSystemExtraction(componentType, attrs)` (Open Question
+  4) — vendor / line / model canonicalisation; line inferred from
+  model SKU patterns when LLM omits it (Open Question 3).
 - DB migration adding both values to `watches_component_type_check`
   and `listings_component_type_check`.
+- `cmd/spt/cmd/watches.go` `--type` help-text refresh covering all
+  current `validComponentTypes` (Open Question 8).
 - Dev + prod rollout playbook mirroring IMPL-0017 Phase 5/6.
 - Optional backfill SQL helper (Phase 7) for re-classifying
   historical workstation/desktop listings currently bucketed as
@@ -88,8 +98,10 @@ per DESIGN-0015 Q6.
   Q3 — defer until real desktop data accumulates).
 - Mobile workstations (laptops). Different category, different
   watches, different baselines.
-- Item-specifics-aware classifier (Open Question 1 below — design
-  decision required before implementation starts).
+- Dell Pro Max → Precision line aliasing (Open Question 5 — kept
+  separate for v1).
+- Mandatory backfill of historical listings on rollout (Open
+  Question 7 — Phase 7 is operator-gated).
 
 ## Implementation Phases
 
@@ -130,6 +142,10 @@ Mirrors IMPL-0017 Phase 1.
 - [ ] Add validator tests in `pkg/extract/validate_test.go`.
 - [ ] Add type-string tests in `pkg/types/types_test.go` if such
   tests exist.
+- [ ] Refresh `cmd/spt/cmd/watches.go` `--type` flag help text to
+  list `ram, drive, server, cpu, nic, gpu, workstation, desktop,
+  other` (Open Question 8). Same edit picks up the missing `gpu`
+  / `other` entries as a side benefit.
 
 #### Success Criteria
 
@@ -138,6 +154,7 @@ Mirrors IMPL-0017 Phase 1.
 - `make lint` clean.
 - Validator tests cover required + optional + missing-required
   failure modes.
+- `spt watches create --help` shows the full ComponentType list.
 
 ---
 
@@ -175,14 +192,40 @@ about workstation/desktop title patterns. Mirrors IMPL-0017 Phase 2.
   `pkg/extract/preclassify.go` with workstation+desktop chassis
   patterns (so a `Precision T7920 + 80mm fan` listing defers to
   the LLM rather than short-circuiting to `other`):
-  - `\b(precision\s+t?\d{4}|precision\s+\d{4}|pro\s+max|thinkstation|workstation|hp\s+z[0-9])\b`
-    for workstation
-  - `\b(optiplex|elitedesk|thinkcentre|dell\s+pro\b)\b` for
-    desktop. Be careful with `dell pro` — too generic; require
-    word boundary and possibly tighten.
+  - Workstation:
+    `\b(precision\s+t?\d{4}|precision\s+\d{4}|pro\s+max|thinkstation|workstation|hp\s+z\d)\b`
+  - Desktop (specific lines, stand-alone):
+    `\b(optiplex|elitedesk|thinkcentre)\b`
+  - Desktop "Dell Pro" (per Open Question 6 — require co-occurring
+    desktop token to avoid "Dell ProSupport"/"Dell Pro Stand"
+    false positives):
+    `\bdell\s+pro\b.*\b(tower|desktop|sff|micro|mini\s+tower)\b`
+    (or its commutative form)
 - [ ] Update `prompts_test.go` to assert the new templates render.
 - [ ] Update `preclassify_test.go` with workstation+desktop
   primary-pattern test cases.
+- [ ] Create `pkg/extract/system_preclassify.go` with a
+  `DetectSystemTypeFromSpecifics(specs map[string]string) domain.ComponentType`
+  function that returns `ComponentWorkstation`,
+  `ComponentDesktop`, or empty string. Match logic (Open Question
+  1, option c):
+  - `Most Suitable For: Workstation` → `workstation`
+  - `Series` contains `ThinkStation` / `Z by HP` /
+    `Dell Precision` → `workstation`
+  - `Series` contains `OptiPlex` / `ThinkCentre` / `EliteDesk` →
+    `desktop`
+  - `Product Line` contains `Precision Tower` / `Pro Max` →
+    `workstation`
+  - `Product Line` contains `OptiPlex` / `Pro` (with
+    `Form Factor: Tower`) → `desktop`
+  - Otherwise empty (defer to LLM classifier).
+- [ ] Wire the pre-class hook into
+  `(*LLMExtractor).ClassifyAndExtract` BEFORE `Classify` is
+  called. Mirror the `IsAccessoryOnly` short-circuit shape with
+  appropriate logging.
+- [ ] Add `pkg/extract/system_preclassify_test.go` table tests
+  covering: each Series/Product Line/Most Suitable For value,
+  ambiguous specs return empty, missing keys return empty.
 
 #### Success Criteria
 
@@ -190,6 +233,12 @@ about workstation/desktop title patterns. Mirrors IMPL-0017 Phase 2.
   ambiguous overlap with `server`/`gpu`.
 - Pre-classifier primary regex catches all DESIGN-0015 Q4/Q5
   shopping-list chassis names.
+- `DetectSystemTypeFromSpecifics` returns the correct type for at
+  least 8 representative item-specifics fixtures (one per Q4/Q5
+  shopping-list line).
+- LLM call count drops measurably for listings with workstation/
+  desktop item specifics — verified by spot-checking a few
+  ingestions in dev (Phase 5).
 - All prompt and pre-classify tests pass.
 
 ---
@@ -202,32 +251,51 @@ flaky on these fields than on GPU family.
 
 #### Tasks
 
-- [ ] Create `pkg/extract/system_normalize.go` with shared
-  `NormalizeWorkstationExtraction` and `NormalizeDesktopExtraction`
-  entry points (or a single `NormalizeSystemExtraction` taking the
-  ComponentType — see Open Question 4).
+- [ ] Create `pkg/extract/system_normalize.go` exposing
+  `NormalizeSystemExtraction(componentType domain.ComponentType, attrs map[string]any)`
+  (Open Question 4 resolved as single entry point). Internal
+  helpers per concern: `canonicalizeSystemVendor`,
+  `canonicalizeSystemLine`, `canonicalizeSystemModel`,
+  `inferSystemLineFromModel`.
 - [ ] Implement `vendorAliases` map: `Dell`/`dell`/`DELL`/`Dell
   Inc.` → `dell`; `HP`/`Hewlett-Packard`/`hp`/`Hewlett Packard
   Enterprise` → `hp`; `Lenovo`/`lenovo`/`IBM`-prefixed-Lenovo →
-  `lenovo`. Apply at validate-time-canonicalisation, not as a hard
-  enum.
-- [ ] Implement `lineAliases` map for legacy ↔ post-rebrand Dell
-  branding: `Precision Tower`/`Dell Precision`/`Dell Pro Max` ...
-  decide whether to collapse `Pro Max` → `precision` or keep
-  separate. (See Open Question 5.)
+  `lenovo`. Apply as canonicalisation, not as a hard enum.
+- [ ] Implement `lineAliases` map. Per Open Question 5, Dell Pro
+  Max stays as a separate line (not aliased to `precision`).
+  Collapse spelling variants only:
+  `Precision Tower`/`Dell Precision`/`precision-tower` →
+  `precision`; `Z by HP`/`Z-by-HP`/`hp z-series` → `z-by-hp`;
+  `Pro Max`/`pro-max` → `pro-max`.
+- [ ] Implement `lineInferenceRules` per Open Question 3 — fill
+  empty `line` from canonical `model`:
+  - `^t\d{4}$` → `precision`
+  - `^p\d{3}$` → `thinkstation`
+  - `^z\d+\s+g\d+$` → `z-by-hp`
+  - `^m\d{3}[a-z]?$` → `thinkcentre`
+  - `^optiplex` prefix → `optiplex`
+  - `^elitedesk` prefix → `elitedesk`
 - [ ] Implement model canonicalisation similar to
   `CanonicalizeGPUModel` — strip `dell\s+`/`hp\s+`/`lenovo\s+`
   brand prefixes from model, lowercase, collapse separator
   variants. e.g., `T7920` / `t7920` / `T-7920` → `t7920`.
-- [ ] Wire into `pkg/extract/normalize.go` switch.
+- [ ] Wire into `pkg/extract/normalize.go` switch — both
+  `case ComponentWorkstation` and `case ComponentDesktop` arms
+  call `NormalizeSystemExtraction(ct, attrs)`.
 - [ ] Table-driven tests for each helper, plus a round-trip
   `NormalizeSystemExtraction` table in
-  `pkg/extract/system_normalize_test.go`.
+  `pkg/extract/system_normalize_test.go`. Cover line-from-model
+  inference for every shopping-list SKU pattern.
 
 #### Success Criteria
 
 - 5 spelling variants of "Dell Precision T7920" produce the same
   canonical form `dell:precision:t7920`.
+- LLM-omitted `line` is filled by inference for every Q4/Q5
+  shopping-list SKU pattern (T-series, P-series, Z-series,
+  M-series, OptiPlex, EliteDesk).
+- Dell Pro Max model SKUs produce `dell:pro-max:<model>` —
+  stay separate from `precision` (Open Question 5).
 - `make test` includes >=20 normaliser test cases per the
   DESIGN-0015 watch shopping list.
 - 100% line coverage on `system_normalize.go`.
@@ -443,10 +511,14 @@ Phase 6 baselines mature on their own without backfill.
 | `pkg/extract/prompts_test.go` | Modify | Add prompt-render tests |
 | `pkg/extract/preclassify.go` | Modify | Extend `primaryComponentPatterns` |
 | `pkg/extract/preclassify_test.go` | Modify | Add primary-pattern test cases |
+| `pkg/extract/system_preclassify.go` | Create | Item-specifics short-circuit (`Most Suitable For`, `Series`) → workstation/desktop |
+| `pkg/extract/system_preclassify_test.go` | Create | Pre-class hook table tests |
+| `pkg/extract/extractor.go` | Modify | Wire `system_preclassify` into `ClassifyAndExtract` before `Classify` |
 | `pkg/extract/normalize.go` | Modify | Add switch arms calling system normaliser |
-| `pkg/extract/system_normalize.go` | Create | Vendor + line + model canonicalisation |
+| `pkg/extract/system_normalize.go` | Create | Vendor + line + model canonicalisation, line-from-model inference |
 | `pkg/extract/system_normalize_test.go` | Create | Table-driven tests |
 | `pkg/extract/extractor_test.go` | Modify | Add `ClassifyAndExtract` smoke tests for both types |
+| `cmd/spt/cmd/watches.go` | Modify | Refresh `--type` flag help text to include `gpu, workstation, desktop, other` |
 | `migrations/011_add_workstation_and_desktop_component_types.sql` | Create | DB CHECK constraint update |
 | `internal/store/migrations/011_add_workstation_and_desktop_component_types.sql` | Create | Embedded copy |
 | `docs/EXTRACTION.md` | Modify | Document workstation/desktop schema + normalisation |
@@ -485,140 +557,70 @@ Phase 6 baselines mature on their own without backfill.
 
 ## Open Questions
 
-These are implementation-level questions that benefit from
-operator review before Phase 1 starts.
+All implementation-level questions resolved before Phase 1.
 
-1. **Item-specifics-aware classifier.** Today
-   `LLMExtractor.Classify(ctx, title)` only takes the title.
-   `Most Suitable For: Workstation` is the highest-reliability
-   workstation signal per DESIGN-0015 §Classification signals,
-   and it lives in eBay item specifics — invisible to the
-   classifier today. Three options:
+1. **Item-specifics-aware classifier** — _resolved: pre-class hook
+   (option c)._ A new step before `Classify` inspects item specifics
+   (`Most Suitable For`, `Series`, `Product Line`, `Type`) and short-
+   circuits to `workstation` / `desktop` when a known workstation /
+   desktop value matches; otherwise falls through to the LLM
+   classifier. Mirrors the `IsAccessoryOnly` pre-classifier shape.
+   Cheaper than always-on LLM and avoids the `Classify` signature
+   change. New file: `pkg/extract/system_preclassify.go` (suggested).
 
-   a. **Plumb item specifics into Classify**, adding a new method
-      argument. Highest fidelity; small refactor (Classify
-      signature change → all callers update). Item-specific text
-      is already in scope at the orchestrator (`ClassifyAndExtract`
-      already passes `itemSpecifics` to Extract).
-   b. **Title-only classifier** with strengthened title regex
-      coverage. No code change to the classifier path; relies on
-      every workstation listing having a recognisable chassis
-      token in the title. Riskier — some sellers omit the chassis
-      name and rely on item specifics.
-   c. **Pre-class hook**: a new step before `Classify` that
-      inspects item specifics and short-circuits to
-      `workstation`/`desktop` if `Most Suitable For` or `Series`
-      matches a known workstation/desktop value, falling back to
-      LLM otherwise. Most flexible; mirrors the `IsAccessoryOnly`
-      pre-classifier shape.
+2. **Shared vs. separate extraction templates** — _resolved:
+   separate (option b)._ `workstationTmpl` and `desktopTmpl` as two
+   discrete `const` strings in `prompts.go`, matching the existing
+   per-type convention. Tiny duplication cost is preferable to a
+   shared template that gets harder to evolve when schemas diverge.
 
-   **Recommendation:** option (c). Mirrors existing pre-classifier
-   architecture and is cheaper than always-on LLM classification.
-   Implementation cost is small: one regex map per type, item-
-   specifics dict lookup, return early if matched.
+3. **Required attribute set per type** — _resolved: `vendor` +
+   `model` required, `line` optional with normaliser-fill._ The
+   normaliser infers `line` from known model patterns:
+   - `^t\d{4}$` → `precision` (Dell Precision T-series)
+   - `^p\d{3}$` → `thinkstation` (Lenovo ThinkStation P-series)
+   - `^z\d+\s+g\d+$` → `z-by-hp` (HP Z-series)
+   - `^m\d{3}[a-z]?$` → `thinkcentre` (Lenovo ThinkCentre M-series)
+   - `^optiplex` prefix → `optiplex`
+   - `^elitedesk` prefix → `elitedesk`
+   - Ambiguous → leave empty, product key gets `unknown` segment.
+   `cpu`, `gpu`, `ram_gb`, `storage_gb`, `form_factor` all optional.
 
-2. **Shared vs. separate extraction templates.** Workstation and
-   desktop have nearly-identical attribute shapes (vendor, line,
-   model, cpu, gpu, ram_gb, storage_gb, form_factor, condition,
-   confidence). Three options:
+4. **Single normalisation entry point or two** — _resolved: one
+   shared._ `pkg/extract/system_normalize.go` exposes
+   `NormalizeSystemExtraction(componentType, attrs)` called from
+   both `case ComponentWorkstation` and `case ComponentDesktop`
+   arms in `normalize.go`. Vendor + model + line canonicalisation
+   shared; per-type inference rules diverge slightly inside the
+   function.
 
-   a. **One shared template** with the ComponentType passed in as
-      a template parameter. Smallest LLM token surface; one place
-      to evolve the schema.
-   b. **Two separate templates** that are 95% identical text.
-      Matches the existing per-type template structure (one
-      `workstationTmpl`, one `desktopTmpl`).
-   c. **One shared template, two prompt-rendering wrappers.**
+5. **Dell Pro Max → Precision aliasing** — _resolved: separate
+   lines for v1._ `workstation:dell:precision:t7920` and
+   `workstation:dell:pro-max:<model>` stay distinct product keys
+   even though buyers cross-shop. Matches Dell's catalog and keeps
+   the post-rebrand pricing curve separable. Revisit if baselines
+   on either side stay thin >30 days.
 
-   **Recommendation:** option (b). Matches existing prompts.go
-   convention; tiny duplication cost; easier to evolve one
-   independently if their schemas diverge.
+6. **Pre-classifier `dell pro` ambiguity** — _resolved: require
+   co-occurring desktop token._ The desktop primary regex requires
+   `dell\s+pro\b` AND one of `tower|desktop|optiplex|sff|micro|
+   mini\s+tower`. Listings without a co-token defer to the LLM
+   classifier; don't grab false positives ("Dell ProSupport",
+   "Dell Pro Stand") at the regex layer. Other desktop primaries
+   (optiplex / elitedesk / thinkcentre) are specific enough to
+   stand alone.
 
-3. **Required attribute set per type.** What's `required` vs.
-   `optional` for workstation and desktop?
+7. **Re-extraction strategy on rollout** — _resolved: Phase 7
+   backfill (operator-gated)._ No mandatory backfill on rollout.
+   Operator decides after observing Phase 6 maturity rate; Phase 7
+   SQL helper documented for when needed.
 
-   - `vendor` + `model` clearly required (these drive product key
-     and have to be non-empty).
-   - `line` is the middle segment of the product key. Required or
-     optional?
-     - If required: a listing missing `line` fails extraction →
-       stays unextracted. Stricter, smaller bucket.
-     - If optional: missing `line` falls back to `unknown` in the
-       product key (`workstation:dell:unknown:t7920`). More
-       permissive but pollutes baselines.
-   - `cpu`, `gpu`, `ram_gb`, `storage_gb`, `form_factor` — all
-     useful for filters but none drive baselines. Optional.
-
-   **Recommendation:** `vendor` + `model` required, `line`
-   optional with normaliser-fill from known SKU patterns
-   (T-series → precision, P-series → thinkstation, Z-series →
-   z-by-hp, M-series → thinkcentre). Same shape as GPU's
-   `family` inference from `model`.
-
-4. **Single normalisation entry point or two?** GPU has one
-   exported `NormalizeGPUExtraction`. Workstation+desktop share
-   logic — should it be one `NormalizeSystemExtraction(componentType, attrs)`
-   or two `NormalizeWorkstationExtraction` /
-   `NormalizeDesktopExtraction`?
-
-   **Recommendation:** one shared entry point taking
-   `componentType`. They share vendor + line + model
-   normalisation; only the inference rules differ slightly.
-   Single function called from two switch arms is the cleanest.
-
-5. **Dell Pro Max → Precision aliasing.** Dell rebranded their
-   workstation lineup in 2024-25; Pro Max replaces Precision at
-   the top tier. Two options for product key consolidation:
-
-   a. **Treat as separate lines** —
-      `workstation:dell:precision:t7920` vs.
-      `workstation:dell:pro-max:<model>`. Matches eBay listing
-      vocabulary; legacy Precision listings stay separate from
-      post-rebrand Pro Max. Cleaner taxonomy.
-   b. **Alias Pro Max → precision** in `lineAliases` so all Dell
-      workstations share one line segment. Better baseline
-      consolidation; risk of conflating actually-different
-      product positioning.
-
-   **Recommendation:** option (a) for v1. They are different
-   product lines in Dell's catalog, even if buyers cross-shop.
-   Keep them separable; revisit if baselines on either side stay
-   thin for >30 days.
-
-6. **Pre-classifier `dell pro` ambiguity.** "Dell Pro" is
-   currently Dell's post-rebrand business desktop (Q5 watch
-   line). It's also a token that appears in title text for
-   unrelated Dell listings ("Dell ProSupport", "Dell Pro Stand",
-   etc.). The pre-classifier regex needs tightening to avoid
-   false-positive accessory short-circuit prevention.
-
-   **Recommendation:** require `dell\s+pro\b` AND a desktop-
-   specific co-occurring token (`tower|desktop|optiplex|sff|
-   micro`). If neither co-occurs, the listing isn't a desktop —
-   defer to the LLM and accept potential mis-classification, but
-   don't grab false positives at the regex layer.
-
-7. **Re-extraction strategy on rollout.** When this lands in
-   prod, do we re-queue all existing `server` and `other`
-   listings with workstation/desktop signals (so historical
-   baselines populate)? Or just let new ingestions fill it in?
-
-   **Recommendation:** Phase 7 backfill is the answer — it's
-   already gated as optional in IMPL-0018 and we can decide
-   based on Phase 6 maturity rate. No mandatory backfill on
-   rollout.
-
-8. **Watch CLI help-text staleness.** The existing
-   `spt watches create` help text lists "ram, drive, server,
-   cpu, nic" — already missed `gpu` and `other` (noted as
-   pre-existing during the GPU PR). Adding `workstation` and
-   `desktop` will widen the gap. Worth fixing in Phase 1 since
-   we're already touching adjacent code, or punt to a separate
-   chore PR?
-
-   **Recommendation:** fix in this PR's Phase 1. One-line edit
-   to `cmd/spt/cmd/watches.go` flag description string;
-   compounding the staleness is uglier than fixing it now.
+8. **Watch CLI help-text staleness** — _resolved: fix in Phase 1._
+   One-line edit to `cmd/spt/cmd/watches.go` flag description
+   string. Add `gpu, workstation, desktop, other` to the `--type`
+   help text so it accurately reflects the current
+   `validComponentTypes` set. Prevents the "wait, can I use type=X?"
+   confusion the GPU rollout surfaced.
 
 ## References
 
