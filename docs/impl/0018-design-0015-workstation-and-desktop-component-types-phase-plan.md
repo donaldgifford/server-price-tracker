@@ -252,23 +252,23 @@ flaky on these fields than on GPU family.
 
 #### Tasks
 
-- [ ] Create `pkg/extract/system_normalize.go` exposing
+- [x] Create `pkg/extract/system_normalize.go` exposing
   `NormalizeSystemExtraction(componentType domain.ComponentType, attrs map[string]any)`
   (Open Question 4 resolved as single entry point). Internal
   helpers per concern: `canonicalizeSystemVendor`,
   `canonicalizeSystemLine`, `canonicalizeSystemModel`,
   `inferSystemLineFromModel`.
-- [ ] Implement `vendorAliases` map: `Dell`/`dell`/`DELL`/`Dell
+- [x] Implement `vendorAliases` map: `Dell`/`dell`/`DELL`/`Dell
   Inc.` → `dell`; `HP`/`Hewlett-Packard`/`hp`/`Hewlett Packard
   Enterprise` → `hp`; `Lenovo`/`lenovo`/`IBM`-prefixed-Lenovo →
   `lenovo`. Apply as canonicalisation, not as a hard enum.
-- [ ] Implement `lineAliases` map. Per Open Question 5, Dell Pro
+- [x] Implement `lineAliases` map. Per Open Question 5, Dell Pro
   Max stays as a separate line (not aliased to `precision`).
   Collapse spelling variants only:
   `Precision Tower`/`Dell Precision`/`precision-tower` →
   `precision`; `Z by HP`/`Z-by-HP`/`hp z-series` → `z-by-hp`;
   `Pro Max`/`pro-max` → `pro-max`.
-- [ ] Implement `lineInferenceRules` per Open Question 3 — fill
+- [x] Implement `lineInferenceRules` per Open Question 3 — fill
   empty `line` from canonical `model`:
   - `^t\d{4}$` → `precision`
   - `^p\d{3}$` → `thinkstation`
@@ -276,14 +276,14 @@ flaky on these fields than on GPU family.
   - `^m\d{3}[a-z]?$` → `thinkcentre`
   - `^optiplex` prefix → `optiplex`
   - `^elitedesk` prefix → `elitedesk`
-- [ ] Implement model canonicalisation similar to
+- [x] Implement model canonicalisation similar to
   `CanonicalizeGPUModel` — strip `dell\s+`/`hp\s+`/`lenovo\s+`
   brand prefixes from model, lowercase, collapse separator
   variants. e.g., `T7920` / `t7920` / `T-7920` → `t7920`.
-- [ ] Wire into `pkg/extract/normalize.go` switch — both
+- [x] Wire into `pkg/extract/normalize.go` switch — both
   `case ComponentWorkstation` and `case ComponentDesktop` arms
   call `NormalizeSystemExtraction(ct, attrs)`.
-- [ ] Table-driven tests for each helper, plus a round-trip
+- [x] Table-driven tests for each helper, plus a round-trip
   `NormalizeSystemExtraction` table in
   `pkg/extract/system_normalize_test.go`. Cover line-from-model
   inference for every shopping-list SKU pattern.
