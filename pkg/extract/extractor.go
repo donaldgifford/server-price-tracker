@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -367,6 +368,11 @@ func (e *LLMExtractor) ClassifyAndExtract(
 ) (domain.ComponentType, map[string]any, error) {
 	ctx, span := e.tracer.Start(ctx, "extract.classify_and_extract")
 	defer span.End()
+
+	start := time.Now()
+	defer func() {
+		recordExtractionDuration(ctx, time.Since(start).Seconds())
+	}()
 
 	if ct := preclassifyTitle(ctx, e.tracer, title); ct != "" {
 		e.log.Info("system pre-class short-circuit (title)",

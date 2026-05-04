@@ -445,6 +445,11 @@ func (eng *Engine) evaluateAlert(
 	w *domain.Watch,
 	listing *domain.Listing,
 ) {
+	start := time.Now()
+	defer func() {
+		recordAlertEvalDuration(ctx, time.Since(start).Seconds())
+	}()
+
 	if listing.Score == nil || *listing.Score < w.ScoreThreshold {
 		return
 	}

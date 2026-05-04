@@ -350,11 +350,14 @@ can resolve to the right trace.
       `internal/engine/engine.go`. `*string` field stays nil when
       the worker ran without OTel enabled — Postgres column stays
       NULL.
-- [ ] OTel meter for `spt.extraction.duration` /
-      `spt.alert.eval.duration` deferred to a follow-up — the
-      current task scope was already large; histogram-meter wiring
-      can ship as its own commit alongside the Phase 3 buffer
-      metrics.
+- [x] OTel meter for `spt.extraction.duration` /
+      `spt.alert.eval.duration` — lazy-registered Float64 histograms
+      under `pkg/extract/meter.go` and `internal/engine/meter.go`
+      using `sync.OnceValue` so the global MeterProvider can be set
+      by `observability.Init` after package import. Recorded via
+      `defer recordExtractionDuration(...)` /
+      `defer recordAlertEvalDuration(...)` so the no-op meter
+      swallows the observation cleanly when OTel is disabled.
 - [x] Tests:
       - `pkg/extract/extractor_span_test.go` uses
         `tracetest.SpanRecorder` to assert (a) the full span tree
