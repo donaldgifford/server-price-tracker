@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
@@ -156,6 +157,70 @@ func TestComponentResultAccuracy(t *testing.T) {
 			assert.InDelta(t, tt.wantPC, tt.input.Accuracy(), 0.01)
 		})
 	}
+}
+
+func TestTitleHash(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{name: "deterministic for the same input", in: "Dell PowerEdge R740xd 2.5\" SFF"},
+		{name: "still works for empty string", in: ""},
+		{name: "stable for unicode", in: "Dell — PowerEdge — R740xd"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			a := titleHash(tt.in)
+			b := titleHash(tt.in)
+			assert.Equal(t, a, b, "titleHash must be deterministic")
+			assert.Len(t, a, 16, "titleHash returns 8-byte hex prefix (16 chars)")
+		})
+	}
+
+	// Different titles produce different hashes (collision is
+	// astronomically unlikely for sha256-trunc-8).
+	a := titleHash("foo")
+	b := titleHash("bar")
+	assert.NotEqual(t, a, b)
+}
+
+func TestBuildDatasetRunItems_PairsMismatchesByTitle(t *testing.T) {
+	t.Parallel()
+
+	dataset := []goldenItem{
+		{Title: "Dell R740xd", ExpectedComponent: domain.ComponentServer},
+		{Title: "32GB DDR4 ECC", ExpectedComponent: domain.ComponentRAM},
+		{Title: "RTX 3090 24GB", ExpectedComponent: domain.ComponentGPU},
+	}
+
+	r := &runResult{
+		Backend: "ollama",
+		Mismatches: []mismatch{
+			{Title: "Dell R740xd", Expected: domain.ComponentServer, Actual: domain.ComponentOther},
+		},
+	}
+
+	items := buildDatasetRunItems(dataset, r)
+	require.Len(t, items, 3)
+
+	// First row mismatched: actual differs from expected, error
+	// field is empty (no LLM error, just wrong label).
+	assert.Equal(t, "server", items[0].Output["expected"])
+	assert.Equal(t, "other", items[0].Output["actual"])
+	assert.Empty(t, items[0].Output["error"])
+
+	// Second & third rows correct: actual == expected.
+	assert.Equal(t, "ram", items[1].Output["expected"])
+	assert.Equal(t, "ram", items[1].Output["actual"])
+	assert.Equal(t, "gpu", items[2].Output["expected"])
+	assert.Equal(t, "gpu", items[2].Output["actual"])
+
+	// DatasetItemIDs are deterministic title hashes.
+	assert.Equal(t, titleHash("Dell R740xd"), items[0].DatasetItemID)
+	assert.Equal(t, titleHash("32GB DDR4 ECC"), items[1].DatasetItemID)
 }
 
 func TestTruncate(t *testing.T) {

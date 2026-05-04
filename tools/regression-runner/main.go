@@ -25,6 +25,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -32,6 +34,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -41,6 +44,7 @@ import (
 
 	"github.com/donaldgifford/server-price-tracker/internal/config"
 	"github.com/donaldgifford/server-price-tracker/pkg/extract"
+	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
@@ -111,6 +115,16 @@ func main() {
 		"backends", "",
 		"comma-separated list of backends to compare (e.g., ollama,anthropic); empty = single-backend mode using cfg.LLM.Backend",
 	)
+	langfuseDatasetID := flag.String(
+		"langfuse-dataset-id", "",
+		"Langfuse dataset ID for the uploaded golden_classifications "+
+			"dataset; when set with langfuse enabled, posts a "+
+			"CreateDatasetRun annotation tagged with the current commit SHA",
+	)
+	sha := flag.String(
+		"sha", "",
+		"override the run-name SHA (default: `git rev-parse HEAD` from the working tree)",
+	)
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
@@ -130,11 +144,57 @@ func main() {
 	}
 
 	backends := parseBackends(*backendsFlag, cfg.LLM.Backend)
-	if len(backends) == 1 {
-		runSingle(cfg, logger, dataset, backends[0], *jsonOut)
+	results := executeAll(cfg, logger, dataset, backends)
+	if len(results) == 0 {
+		fatal("no backends in --backends list could be constructed from config")
+	}
+
+	annotateLangfuse(cfg, logger, results, dataset, *langfuseDatasetID, *sha)
+
+	emit(results, *jsonOut)
+}
+
+// executeAll runs the dataset against each requested backend and
+// returns the non-nil results. The single-backend case is just the
+// degenerate len(backends)==1 path through this same loop.
+func executeAll(
+	cfg *config.Config,
+	logger *slog.Logger,
+	dataset []goldenItem,
+	backends []string,
+) []runResult {
+	out := make([]runResult, 0, len(backends))
+	for _, b := range backends {
+		r := executeBackend(cfg, logger, dataset, b)
+		if r == nil {
+			logger.Warn("skipping backend (not configured)", "backend", b)
+			continue
+		}
+		out = append(out, *r)
+	}
+	return out
+}
+
+func emit(results []runResult, jsonOut bool) {
+	if len(results) == 1 {
+		if jsonOut {
+			emitJSON(&results[0])
+			return
+		}
+		emitTable(&results[0])
 		return
 	}
-	runComparison(cfg, logger, dataset, backends, *jsonOut)
+
+	c := comparisonResult{Backends: results}
+	if jsonOut {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(c); err != nil {
+			fatal("encoding JSON: %v", err)
+		}
+		return
+	}
+	emitComparison(&c)
 }
 
 // parseBackends turns the --backends flag into a deduplicated slice,
@@ -157,56 +217,6 @@ func parseBackends(flagVal, fallback string) []string {
 	return out
 }
 
-func runSingle(
-	cfg *config.Config,
-	logger *slog.Logger,
-	dataset []goldenItem,
-	backendName string,
-	jsonOut bool,
-) {
-	result := executeBackend(cfg, logger, dataset, backendName)
-	if result == nil {
-		fatal("could not construct LLM backend %q from config", backendName)
-	}
-
-	if jsonOut {
-		emitJSON(result)
-		return
-	}
-	emitTable(result)
-}
-
-func runComparison(
-	cfg *config.Config,
-	logger *slog.Logger,
-	dataset []goldenItem,
-	backends []string,
-	jsonOut bool,
-) {
-	comparison := comparisonResult{Backends: make([]runResult, 0, len(backends))}
-	for _, b := range backends {
-		result := executeBackend(cfg, logger, dataset, b)
-		if result == nil {
-			logger.Warn("skipping backend (not configured)", "backend", b)
-			continue
-		}
-		comparison.Backends = append(comparison.Backends, *result)
-	}
-	if len(comparison.Backends) == 0 {
-		fatal("no backends in --backends list could be constructed from config")
-	}
-
-	if jsonOut {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(comparison); err != nil {
-			fatal("encoding JSON: %v", err)
-		}
-		return
-	}
-	emitComparison(&comparison)
-}
-
 // executeBackend builds the named backend from cfg, runs the dataset,
 // and returns the result. Returns nil when the backend cannot be
 // constructed (e.g., endpoint or API key missing).
@@ -223,6 +233,128 @@ func executeBackend(
 	extractor := extract.NewLLMExtractor(backend, extract.WithLogger(logger))
 	r := runDataset(context.Background(), extractor, dataset, backendName, modelOfBackend(cfg, backendName))
 	return &r
+}
+
+// annotateLangfuse posts a CreateDatasetRun annotation tagged with the
+// current commit SHA so operators can compare runs by SHA in the
+// Langfuse UI. Skipped silently when:
+//   - Langfuse is disabled in config
+//   - --langfuse-dataset-id is empty (operator hasn't uploaded the
+//     dataset yet, so DatasetItemIDs aren't known)
+//   - HTTP client construction fails (logged at debug)
+//
+// One DatasetRun per backend so a multi-backend comparison run shows
+// up as N rows in the Langfuse UI keyed by `<sha>:<backend>`.
+func annotateLangfuse(
+	cfg *config.Config,
+	logger *slog.Logger,
+	results []runResult,
+	dataset []goldenItem,
+	datasetID, shaOverride string,
+) {
+	if !cfg.Observability.Langfuse.Enabled {
+		return
+	}
+	if datasetID == "" {
+		logger.Debug("langfuse annotation skipped: --langfuse-dataset-id not set")
+		return
+	}
+
+	sha := shaOverride
+	if sha == "" {
+		sha = currentCommitSHA(logger)
+	}
+	if sha == "" {
+		logger.Warn("langfuse annotation skipped: could not determine commit SHA")
+		return
+	}
+
+	client, err := langfuse.NewHTTPClient(
+		cfg.Observability.Langfuse.Endpoint,
+		cfg.Observability.Langfuse.PublicKey,
+		cfg.Observability.Langfuse.SecretKey,
+	)
+	if err != nil {
+		logger.Warn("langfuse annotation skipped: client construction failed", "error", err)
+		return
+	}
+
+	ctx := context.Background()
+	for i := range results {
+		r := &results[i]
+		run := &langfuse.DatasetRun{
+			DatasetID:   datasetID,
+			RunName:     fmt.Sprintf("classify_prompt:%s:%s", sha, r.Backend),
+			Description: fmt.Sprintf("regression-runner accuracy=%.1f%% errors=%.1f%%", r.Accuracy, r.ErrorRate),
+			Metadata: map[string]string{
+				"backend":  r.Backend,
+				"model":    r.Model,
+				"sha":      sha,
+				"accuracy": fmt.Sprintf("%.4f", r.Accuracy),
+			},
+			ItemResults: buildDatasetRunItems(dataset, r),
+		}
+		if err := client.CreateDatasetRun(ctx, run); err != nil {
+			logger.Warn("langfuse CreateDatasetRun failed", "error", err, "backend", r.Backend)
+			continue
+		}
+		logger.Info("langfuse annotation posted",
+			"run_name", run.RunName, "items", len(run.ItemResults))
+	}
+}
+
+// buildDatasetRunItems pairs each dataset row with the corresponding
+// runResult mismatch (if any), using a deterministic hash of the title
+// as DatasetItemID so the operator's upload step can produce matching
+// IDs without coordinating with this binary.
+func buildDatasetRunItems(dataset []goldenItem, r *runResult) []langfuse.DatasetRunItem {
+	mismatchByTitle := make(map[string]mismatch, len(r.Mismatches))
+	for _, m := range r.Mismatches {
+		mismatchByTitle[m.Title] = m
+	}
+
+	items := make([]langfuse.DatasetRunItem, 0, len(dataset))
+	for i := range dataset {
+		item := &dataset[i]
+		entry := langfuse.DatasetRunItem{DatasetItemID: titleHash(item.Title)}
+		if m, ok := mismatchByTitle[item.Title]; ok {
+			entry.Output = map[string]any{
+				"expected": string(m.Expected),
+				"actual":   string(m.Actual),
+				"error":    m.Error,
+			}
+		} else {
+			entry.Output = map[string]any{
+				"expected": string(item.ExpectedComponent),
+				"actual":   string(item.ExpectedComponent),
+			}
+		}
+		items = append(items, entry)
+	}
+	return items
+}
+
+// titleHash returns a short, deterministic ID for a dataset title.
+// Operators upload dataset items with the same hash as DatasetItemID so
+// runs and items align without out-of-band coordination.
+func titleHash(title string) string {
+	sum := sha256.Sum256([]byte(title))
+	return hex.EncodeToString(sum[:8])
+}
+
+// currentCommitSHA shells out to `git rev-parse HEAD`. Returns "" when
+// git isn't available or the working tree isn't a repo — caller logs
+// and skips the annotation. Trims trailing whitespace.
+func currentCommitSHA(logger *slog.Logger) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		logger.Debug("git rev-parse HEAD failed", "error", err)
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func loadDataset(path string) ([]goldenItem, error) {

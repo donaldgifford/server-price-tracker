@@ -720,9 +720,18 @@ from CI.
 - [x] Added a CLAUDE.md note: when working in `pkg/extract/`,
       always run `make test-regression` before requesting review
       and paste the result.
-- [ ] Push a `classify_prompt:<sha>` annotation to Langfuse on each
+- [x] Push a `classify_prompt:<sha>` annotation to Langfuse on each
       regression run via `CreateDatasetRun`, so operators can
-      compare runs by commit SHA in the Langfuse UI.
+      compare runs by commit SHA in the Langfuse UI. The runner
+      now takes `--langfuse-dataset-id` and `--sha` flags; when
+      Langfuse is enabled in config and the dataset ID is supplied,
+      it posts one DatasetRun per backend named
+      `classify_prompt:<sha>:<backend>`. DatasetRunItems use a
+      deterministic sha256-trunc-8 hash of the listing title as
+      `DatasetItemID`, so the operator's upload step can produce
+      matching IDs without coordinating with this binary. SHA
+      defaults to `git rev-parse HEAD`. Skipped silently when
+      Langfuse is disabled or `--langfuse-dataset-id` is empty.
 - [x] Run `make lint` + `make test`.
 
 #### Success Criteria
