@@ -156,7 +156,14 @@ const (
 // DatasetItem is one labelled example uploaded to a Langfuse dataset.
 // Used by Phase 6 to ship the ~100-listing golden classification set
 // that the operator-run regression script measures against.
+//
+// ID is optional: when supplied, Langfuse uses it as the canonical
+// item ID (idempotent upsert), so the regression-runner's
+// `classify_prompt:<sha>` annotation can target stable IDs derived
+// from a deterministic hash of each row's title without out-of-band
+// coordination. Empty ID lets Langfuse generate one server-side.
 type DatasetItem struct {
+	ID             string
 	Input          map[string]any
 	ExpectedOutput map[string]any
 	Metadata       map[string]string

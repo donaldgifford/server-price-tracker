@@ -682,9 +682,21 @@ from CI.
       it as the dataset; the LLM has already done the heavy
       lifting on every active listing so the workflow is *audit*,
       not label-from-scratch.
-- [ ] Upload dataset to Langfuse as `golden_classifications:v1` via
-      the in-house client's `CreateDatasetItem` (Phase 3 endpoint).
-      Document the upload step in OPERATIONS.md.
+- [x] Upload dataset to Langfuse as `golden_classifications:v1`
+      (CLI shipped; operator runs once per dataset version):
+      `tools/dataset-upload/main.go` reads the labelled
+      `testdata/golden_classifications.json` and POSTs one
+      `DatasetItem` per row via the in-house client's
+      `CreateDatasetItem` (Phase 3 endpoint), threading a
+      deterministic sha256-trunc-8 hash of each row's title as the
+      explicit item ID. The runner's `classify_prompt:<sha>`
+      annotation uses the same algorithm, so runs and items align
+      without out-of-band coordination. Idempotent (Langfuse
+      treats explicit IDs as upserts) so re-running after a
+      dataset edit refreshes existing rows in place. Operator
+      step is one command:
+      `go run ./tools/dataset-upload --config <path> --langfuse-dataset-id <id>`.
+      Documented in OPERATIONS.md regression test workflow.
 - [x] Add `tools/regression-runner/main.go`: standalone Go CLI that
       reads `testdata/golden_classifications.json`, runs each title
       through the configured backend (`--config` flag picks the

@@ -132,9 +132,12 @@ func (c *HTTPClient) CreateTrace(
 	return TraceHandle{TraceID: resp.ID}, nil
 }
 
-// CreateDatasetItem posts to /api/public/dataset-items.
+// CreateDatasetItem posts to /api/public/dataset-items. When item.ID
+// is non-empty it's threaded through as the canonical item ID for
+// idempotent upserts.
 func (c *HTTPClient) CreateDatasetItem(ctx context.Context, datasetID string, item *DatasetItem) error {
 	body := datasetItemAPIBody{
+		ID:             item.ID,
 		DatasetID:      datasetID,
 		Input:          item.Input,
 		ExpectedOutput: item.ExpectedOutput,
@@ -306,6 +309,7 @@ type traceAPIResponse struct {
 }
 
 type datasetItemAPIBody struct {
+	ID             string            `json:"id,omitempty"`
 	DatasetID      string            `json:"datasetId"`
 	Input          map[string]any    `json:"input,omitempty"`
 	ExpectedOutput map[string]any    `json:"expectedOutput,omitempty"`

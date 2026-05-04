@@ -1035,7 +1035,37 @@ Operator-curated truth drifts. Once a quarter:
    `pkg/extract/prompts.go` rather than papering over it with new
    examples.
 
-The dataset bootstrap and regression-runner CLIs
-(`tools/dataset-bootstrap`, `tools/regression-runner`) are the
-intended tooling for steps 1–3 — both are parked as follow-ups;
-the manual workflow above unblocks the operator until they ship.
+The full Phase 6 toolchain is now shipped:
+
+- `tools/dataset-bootstrap` pulls a stratified sample from the
+  live DB and pre-fills `expected_component` /
+  `expected_product_key` from current LLM labels — operator
+  audits in place.
+- `tools/dataset-upload` POSTs one `DatasetItem` per row to
+  Langfuse with deterministic title-hash IDs, idempotent under
+  re-runs.
+- `tools/regression-runner` runs the dataset against the
+  configured backend (or `--backends` for side-by-side
+  comparison) and, with `--langfuse-dataset-id <id>`, posts one
+  `CreateDatasetRun` per backend tagged
+  `classify_prompt:<sha>:<backend>`. Same title-hash algorithm
+  as the upload tool, so runs and items align in the Langfuse
+  UI without out-of-band coordination.
+
+The first-time setup is a three-step operator pipeline:
+
+```bash
+# 1. Bootstrap candidates from the live DB.
+go run ./tools/dataset-bootstrap --config configs/config.dev.yaml \
+    --per-component 12 > testdata/golden_classifications.json
+# 2. Audit + correct the JSON, then upload.
+$EDITOR testdata/golden_classifications.json
+go run ./tools/dataset-upload --config configs/config.dev.yaml \
+    --langfuse-dataset-id <id-from-langfuse-ui>
+# 3. Regression-test prompt-affecting PRs, with annotation.
+go run ./tools/regression-runner --config configs/config.dev.yaml \
+    --langfuse-dataset-id <id-from-langfuse-ui>
+```
+
+Quarterly relabelling is the same workflow with the
+already-uploaded dataset ID.
