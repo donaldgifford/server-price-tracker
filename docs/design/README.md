@@ -43,5 +43,6 @@ docz create design "Your Design Title"
 | DESIGN-0010 | Alert review UI with pagination and search | Implemented | 2026-04-26 | Donald Gifford | [0010-alert-review-ui-with-pagination-and-search.md](0010-alert-review-ui-with-pagination-and-search.md) |
 | DESIGN-0011 | Reduce alert noise via scoring recalibration and accessory pre-classifier | Draft | 2026-04-30 | Donald Gifford | [0011-reduce-alert-noise-via-scoring-recalibration-and-accessory-pre.md](0011-reduce-alert-noise-via-scoring-recalibration-and-accessory-pre.md) |
 | DESIGN-0012 | Add GPU as a new component type | Accepted | 2026-05-01 | Donald Gifford | [0012-add-gpu-as-a-new-component-type.md](0012-add-gpu-as-a-new-component-type.md) |
-| DESIGN-0015 | Add workstation and desktop as component types | Draft | 2026-05-02 | Donald Gifford | [0015-add-workstation-and-desktop-as-component-types.md](0015-add-workstation-and-desktop-as-component-types.md) |
+| DESIGN-0015 | Add workstation and desktop as component types | Accepted | 2026-05-02 | Donald Gifford | [0015-add-workstation-and-desktop-as-component-types.md](0015-add-workstation-and-desktop-as-component-types.md) |
+| DESIGN-0016 | OpenTelemetry, Clickhouse, and Langfuse instrumentation for alert quality | Accepted | 2026-05-03 | Donald Gifford | [0016-opentelemetry-clickhouse-and-langfuse-instrumentation-for-alert.md](0016-opentelemetry-clickhouse-and-langfuse-instrumentation-for-alert.md) |
 <!-- END DOCZ AUTO-GENERATED -->
