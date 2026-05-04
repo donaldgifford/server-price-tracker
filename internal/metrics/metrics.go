@@ -374,3 +374,37 @@ var (
 		Help:      "Total chunks (one HTTP POST each) sent to Discord webhooks.",
 	})
 )
+
+// Langfuse buffered-client metrics (DESIGN-0016 / IMPL-0019 Phase 3).
+//
+// The buffered Langfuse client wraps an HTTP client with a bounded
+// async channel + drain goroutine so transient Langfuse outages don't
+// block the extract path. These four series let operators alert on
+// buffer pressure (depth approaching capacity) and write loss
+// (drops > 0 means we lost telemetry).
+var (
+	LangfuseBufferDepth = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "langfuse_buffer_depth",
+		Help:      "Current depth of the Langfuse async write buffer.",
+	})
+
+	LangfuseBufferDropsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "langfuse_buffer_drops_total",
+		Help:      "Records dropped because the Langfuse async buffer was full at enqueue time.",
+	})
+
+	LangfuseWritesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "langfuse_writes_total",
+		Help:      "Langfuse drain-goroutine write outcomes by result (success or error).",
+	}, []string{"result"})
+
+	LangfuseWriteDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Name:      "langfuse_write_duration_seconds",
+		Help:      "End-to-end latency of a single Langfuse write from drain queue to HTTP response.",
+		Buckets:   prometheus.DefBuckets,
+	})
+)
