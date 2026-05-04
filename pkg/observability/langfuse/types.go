@@ -104,6 +104,26 @@ type TokenUsage struct {
 	TotalTokens  int
 }
 
+// ModelCost is a per-model rate table entry in USD per million tokens.
+//
+// Pulled from `observability.langfuse.model_costs` in YAML. Empty map →
+// CostUSD on the GenerationRecord stays at 0 and Langfuse falls back to
+// its own server-side rate table. Operators only need entries for
+// in-house / private models that Langfuse can't price (e.g., Ollama).
+type ModelCost struct {
+	InputUSDPerMillion  float64 `yaml:"input_usd_per_million"`
+	OutputUSDPerMillion float64 `yaml:"output_usd_per_million"`
+}
+
+// ComputeCost converts a TokenUsage observation into USD using this
+// model's rate. Tiny helper, but it isolates the per-million conversion
+// so callers can't accidentally divide by 1_000 instead of 1_000_000.
+func (m ModelCost) ComputeCost(usage TokenUsage) float64 {
+	const tokensPerMillion = 1_000_000.0
+	return float64(usage.InputTokens)/tokensPerMillion*m.InputUSDPerMillion +
+		float64(usage.OutputTokens)/tokensPerMillion*m.OutputUSDPerMillion
+}
+
 // Level is the Langfuse "level" enum for generation severity.
 type Level string
 

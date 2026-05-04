@@ -148,6 +148,17 @@ observability:
     secret_key: "${LANGFUSE_SECRET_KEY}"
     buffer_size: 1000
     timeout: 10s
+    # Optional per-model rate table. Empty → CostUSD=0 on each
+    # generation and Langfuse falls back to its own server-side rate
+    # lookup (which already knows public Anthropic / OpenAI models).
+    # Add entries here only for in-house / private models that
+    # Langfuse can't price (e.g., Ollama). Rates are USD per million
+    # tokens. Example:
+    # model_costs:
+    #   "claude-haiku-4-5-20251001":
+    #     input_usd_per_million: 1.0
+    #     output_usd_per_million: 5.0
+    model_costs: {}
   # LLM-as-judge worker: scores fired alerts retrospectively for
   # alert-quality grading. Runs as a cron entry every 15m, looks
   # back 6h, hard-cuts spending at $10/day to bound runaway cost.

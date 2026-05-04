@@ -122,6 +122,7 @@ observability:
     secret_key: "${LANGFUSE_SECRET_KEY}"
     buffer_size: 1000
     timeout: 10s
+    model_costs: {}  # see config.example.yaml for shape
   judge:
     enabled: false
     backend: ""

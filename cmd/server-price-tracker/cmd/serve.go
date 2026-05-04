@@ -49,7 +49,7 @@ func startServer(opts *Options) error {
 	defer otelShutdown()
 
 	// --- Langfuse (no-op when observability.langfuse.enabled=false) ---
-	lfClient, lfShutdown, err := initLangfuse(cfg.Observability.Langfuse, slogger)
+	lfClient, lfShutdown, err := initLangfuse(&cfg.Observability.Langfuse, slogger)
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func shutdownServer(
 // HTTP client in a BufferedClient so transient outages don't block
 // the extract path; the deferred shutdown drains pending writes
 // within a 5-second deadline.
-func initLangfuse(cfg config.LangfuseConfig, logger *slog.Logger) (langfuse.Client, func(), error) {
+func initLangfuse(cfg *config.LangfuseConfig, logger *slog.Logger) (langfuse.Client, func(), error) {
 	if !cfg.Enabled {
 		return langfuse.NoopClient{}, func() {}, nil
 	}
@@ -405,11 +405,21 @@ func buildExtractor(cfg *config.Config, logger *slog.Logger, lf langfuse.Client)
 	// no-decorator span tree for tests/operators that disabled
 	// observability.langfuse explicitly.
 	if _, isNoop := lf.(langfuse.NoopClient); !isNoop && lf != nil {
-		backend = extract.NewLangfuseBackend(backend, lf)
+		opts := []extract.LangfuseBackendOption{}
+		if len(cfg.Observability.Langfuse.ModelCosts) > 0 {
+			opts = append(opts, extract.WithModelCosts(cfg.Observability.Langfuse.ModelCosts))
+			logger.Info("langfuse decorator using configured model costs",
+				"model_count", len(cfg.Observability.Langfuse.ModelCosts))
+		}
+		backend = extract.NewLangfuseBackend(backend, lf, opts...)
 		logger.Info("llm extractor wrapped with langfuse decorator")
 	}
 	logger.Info("llm extractor configured", "backend", cfg.LLM.Backend)
-	return extract.NewLLMExtractor(backend, extract.WithLogger(logger))
+	return extract.NewLLMExtractor(
+		backend,
+		extract.WithLogger(logger),
+		extract.WithLangfuseClient(lf),
+	)
 }
 
 func buildNotifier(cfg *config.Config, logger *slog.Logger) notify.Notifier {

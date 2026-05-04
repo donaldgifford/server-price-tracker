@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 )
 
 // Config is the top-level application configuration.
@@ -210,6 +212,12 @@ type LangfuseConfig struct {
 	SecretKey  string        `yaml:"secret_key"`  // pulled from env via os.ExpandEnv
 	BufferSize int           `yaml:"buffer_size"` // capacity of async write channel
 	Timeout    time.Duration `yaml:"timeout"`     // per-write HTTP timeout
+
+	// ModelCosts is an optional per-model rate table. Empty map → CostUSD
+	// on each GenerationRecord stays 0 and Langfuse falls back to its own
+	// server-side rate table. Operators only need entries for in-house
+	// or private models that Langfuse can't price (e.g., Ollama).
+	ModelCosts map[string]langfuse.ModelCost `yaml:"model_costs"`
 }
 
 // JudgeConfig controls the async LLM-as-judge worker (IMPL-0019 Phase 5).

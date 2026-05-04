@@ -168,6 +168,91 @@ func TestLangfuseBackend_NilClientFallsThroughToNoop(t *testing.T) {
 	require.NoError(t, err, "nil Langfuse client must not panic")
 }
 
+// TestLangfuseBackend_ModelCostsAreApplied verifies that when the
+// model returned by the inner backend is keyed in the cost table, the
+// decorator computes CostUSD locally and stamps it on the generation.
+//
+// Anchors against the Anthropic Haiku 4.5 rate at the time of writing
+// ($1/M input, $5/M output) — the test is structural; the numbers
+// don't have to stay current to assert the multiplication.
+func TestLangfuseBackend_ModelCostsAreApplied(t *testing.T) {
+	t.Parallel()
+
+	const (
+		model        = "claude-haiku-4-5"
+		inputTokens  = 250_000
+		outputTokens = 50_000
+		// $0.25 + $0.25 = $0.50, rounded against InDelta below.
+		expectedCost = 0.5
+	)
+
+	mockBackend := extractMocks.NewMockLLMBackend(t)
+	mockBackend.EXPECT().Name().Return("anthropic")
+	mockBackend.EXPECT().Generate(mock.Anything, mock.Anything).
+		Return(extract.GenerateResponse{
+			Content: "ram",
+			Model:   model,
+			Usage: extract.TokenUsage{
+				PromptTokens:     inputTokens,
+				CompletionTokens: outputTokens,
+				TotalTokens:      inputTokens + outputTokens,
+			},
+		}, nil).Once()
+
+	lf := &fakeLangfuseClient{}
+	costs := map[string]langfuse.ModelCost{
+		model: {InputUSDPerMillion: 1.0, OutputUSDPerMillion: 5.0},
+	}
+	dec := extract.NewLangfuseBackend(mockBackend, lf, extract.WithModelCosts(costs))
+
+	tp := sdktrace.NewTracerProvider()
+	t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
+	ctx, span := tp.Tracer("test").Start(context.Background(), "test-span")
+	defer span.End()
+
+	_, err := dec.Generate(ctx, extract.GenerateRequest{Prompt: "x"})
+	require.NoError(t, err)
+
+	require.Len(t, lf.generations, 1)
+	assert.InDelta(t, expectedCost, lf.generations[0].CostUSD, 0.0001,
+		"CostUSD should equal input_rate*input_tokens + output_rate*output_tokens, both per million")
+}
+
+// TestLangfuseBackend_UnknownModelLeavesCostZero covers the fallback
+// path: the model isn't in the cost table, so CostUSD stays 0 and
+// Langfuse falls back to its server-side rate lookup.
+func TestLangfuseBackend_UnknownModelLeavesCostZero(t *testing.T) {
+	t.Parallel()
+
+	mockBackend := extractMocks.NewMockLLMBackend(t)
+	mockBackend.EXPECT().Name().Return("ollama")
+	mockBackend.EXPECT().Generate(mock.Anything, mock.Anything).
+		Return(extract.GenerateResponse{
+			Content: "ram",
+			Model:   "qwen2.5:3b",
+			Usage:   extract.TokenUsage{PromptTokens: 100, CompletionTokens: 10},
+		}, nil).Once()
+
+	lf := &fakeLangfuseClient{}
+	// Cost table only knows about "claude-haiku-4-5".
+	costs := map[string]langfuse.ModelCost{
+		"claude-haiku-4-5": {InputUSDPerMillion: 1.0, OutputUSDPerMillion: 5.0},
+	}
+	dec := extract.NewLangfuseBackend(mockBackend, lf, extract.WithModelCosts(costs))
+
+	tp := sdktrace.NewTracerProvider()
+	t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
+	ctx, span := tp.Tracer("test").Start(context.Background(), "test-span")
+	defer span.End()
+
+	_, err := dec.Generate(ctx, extract.GenerateRequest{Prompt: "x"})
+	require.NoError(t, err)
+
+	require.Len(t, lf.generations, 1)
+	assert.Zero(t, lf.generations[0].CostUSD,
+		"unknown model must leave CostUSD=0 so Langfuse handles its own pricing")
+}
+
 // TestLangfuseBackend_NameOverride covers WithLangfuseGenerationName.
 func TestLangfuseBackend_NameOverride(t *testing.T) {
 	t.Parallel()

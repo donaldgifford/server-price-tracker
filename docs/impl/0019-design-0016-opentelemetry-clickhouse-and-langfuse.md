@@ -436,7 +436,7 @@ loop yet.
 - [x] Auto-score: after a successful extract, push a Langfuse score
       `extraction_self_confidence = attrs["confidence"]` on the
       extract trace.
-- [ ] Token cost calculation: pull per-model rates from config
+- [x] Token cost calculation: pull per-model rates from config
       (`observability.langfuse.model_costs`) so we don't hardcode
       Anthropic/Ollama pricing. Default empty → Langfuse handles its
       own cost lookup.

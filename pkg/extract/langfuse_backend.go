@@ -29,7 +29,8 @@ import (
 type LangfuseBackend struct {
 	inner LLMBackend
 	lf    langfuse.Client
-	name  string // span/generation name; e.g., "classify-llm" / "extract-llm"
+	name  string                        // span/generation name; e.g., "classify-llm" / "extract-llm"
+	costs map[string]langfuse.ModelCost // optional per-model rate table; nil → leave CostUSD=0
 }
 
 // LangfuseBackendOption configures the decorator.
@@ -42,6 +43,21 @@ type LangfuseBackendOption func(*LangfuseBackend)
 func WithLangfuseGenerationName(name string) LangfuseBackendOption {
 	return func(b *LangfuseBackend) {
 		b.name = name
+	}
+}
+
+// WithModelCosts supplies a per-model USD-per-million-token rate table.
+// When the inner backend reports a model that's keyed in this map, the
+// decorator computes CostUSD locally and Langfuse renders that value
+// instead of looking up its own rate. Models not in the map fall back
+// to Langfuse's server-side cost lookup (CostUSD stays at 0).
+//
+// Operators only need entries for private/local models (e.g., Ollama)
+// that Langfuse can't price. Anthropic / OpenAI public models are
+// already in Langfuse's rate table.
+func WithModelCosts(costs map[string]langfuse.ModelCost) LangfuseBackendOption {
+	return func(b *LangfuseBackend) {
+		b.costs = costs
 	}
 }
 
@@ -87,6 +103,9 @@ func (b *LangfuseBackend) Generate(ctx context.Context, req GenerateRequest) (Ge
 	}
 
 	gen := buildGenerationRecord(traceID, b.name, req, resp, start, end, err)
+	if cost, ok := b.costs[resp.Model]; ok {
+		gen.CostUSD = cost.ComputeCost(gen.Usage)
+	}
 	// Buffered client returns nil for non-blocking enqueue; HTTP
 	// client errors are not fatal — the inner Generate already
 	// succeeded or failed and we never want to mask its outcome.
