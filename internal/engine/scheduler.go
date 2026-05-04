@@ -7,10 +7,18 @@ import (
 	"time"
 
 	"github.com/robfig/cron/v3"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	"github.com/donaldgifford/server-price-tracker/internal/store"
 )
+
+// schedulerTracerName is the name registered with otel.Tracer for spans
+// rooted at scheduler cron ticks (engine.ingest / engine.baseline /
+// engine.reextract). Returns a no-op tracer when OTel is disabled.
+const schedulerTracerName = "github.com/donaldgifford/server-price-tracker/internal/engine/scheduler"
 
 // Scheduler manages periodic ingestion and baseline refresh tasks.
 type Scheduler struct {
@@ -142,28 +150,52 @@ func (s *Scheduler) runJob(
 	return nil
 }
 
+// withSpan starts a root span for a scheduler tick. Returns a no-op
+// span when OTel is disabled (otel.Tracer falls through to the global
+// no-op TracerProvider) so callers can defer span.End() unconditionally.
+func withSpan(ctx context.Context, name string) (context.Context, trace.Span) {
+	tracer := otel.Tracer(schedulerTracerName)
+	return tracer.Start(ctx, name, trace.WithSpanKind(trace.SpanKindInternal))
+}
+
+func recordRunErr(span trace.Span, err error) {
+	if err == nil {
+		return
+	}
+	span.RecordError(err)
+	span.SetStatus(codes.Error, err.Error())
+}
+
 func (s *Scheduler) runIngestion() {
-	ctx := context.Background()
+	ctx, span := withSpan(context.Background(), "engine.ingest")
+	defer span.End()
+
 	s.log.Info("scheduled ingestion starting")
 	if err := s.runJob(ctx, "ingestion", 30*time.Minute, s.engine.RunIngestion); err != nil {
+		recordRunErr(span, err)
 		s.log.Error("scheduled ingestion failed", "error", err)
-	} else {
-		metrics.IngestionLastSuccessTimestamp.Set(float64(time.Now().Unix()))
+		return
 	}
+	metrics.IngestionLastSuccessTimestamp.Set(float64(time.Now().Unix()))
 }
 
 func (s *Scheduler) runBaselineRefresh() {
-	ctx := context.Background()
+	ctx, span := withSpan(context.Background(), "engine.baseline_refresh")
+	defer span.End()
+
 	s.log.Info("scheduled baseline refresh starting")
 	if err := s.runJob(ctx, "baseline_refresh", 60*time.Minute, s.engine.RunBaselineRefresh); err != nil {
+		recordRunErr(span, err)
 		s.log.Error("scheduled baseline refresh failed", "error", err)
-	} else {
-		metrics.BaselineLastRefreshTimestamp.Set(float64(time.Now().Unix()))
+		return
 	}
+	metrics.BaselineLastRefreshTimestamp.Set(float64(time.Now().Unix()))
 }
 
 func (s *Scheduler) runReExtraction() {
-	ctx := context.Background()
+	ctx, span := withSpan(context.Background(), "engine.reextract")
+	defer span.End()
+
 	s.log.Info("scheduled re-extraction starting")
 	fn := func(ctx context.Context) error {
 		count, err := s.engine.RunReExtraction(ctx, "", 100)
@@ -174,6 +206,7 @@ func (s *Scheduler) runReExtraction() {
 		return nil
 	}
 	if err := s.runJob(ctx, "re_extraction", 30*time.Minute, fn); err != nil {
+		recordRunErr(span, err)
 		s.log.Error("scheduled re-extraction failed", "error", err)
 	}
 }

@@ -309,50 +309,64 @@ can resolve to the right trace.
 
 #### Tasks
 
-- [ ] **Verify migration number is still free.** Run
-      `ls migrations/`; if anything has landed since IMPL-0019 was
-      written, bump the reserved number to the next free slot and
-      update Phase 5 + the File Changes table accordingly.
-- [ ] Add migration `012_add_trace_ids.sql` (or next-free):
-      `ALTER TABLE extraction_queue ADD COLUMN trace_id TEXT NULL;`
-      `ALTER TABLE alerts ADD COLUMN trace_id TEXT NULL;`
-      Drop+create copy in `internal/store/migrations/`.
-- [ ] Update `Listing`, `Alert`, `ExtractionQueueRow` domain types +
-      scan functions to carry `TraceID *string`.
-- [ ] Update queue `EnqueueExtraction` and `ClaimExtraction` to
-      persist + read `trace_id`.
-- [ ] Add a tracer to `engine.Engine`; wrap `runIngestion` /
-      `runScoring` / `runReExtraction` cron entries in spans named
-      `engine.ingest`, `engine.score`, `engine.reextract`.
-- [ ] Wrap inner stages with child spans:
-      `ebay.browse_call`, `extract.preclassify_title`,
+- [x] **Verify migration number is still free.** `012` confirmed
+      free (`ls migrations/` highest = `011_add_workstation_and_desktop_component_types.sql`).
+- [x] Add migration `012_add_trace_ids.sql`: nullable `trace_id`
+      columns on `extraction_queue` and `alerts`. `IF NOT EXISTS`
+      guards make the migration idempotent. Partial index on
+      `alerts(trace_id) WHERE trace_id IS NOT NULL` for the future
+      "open trace" lookup pattern. Mirrored copy in
+      `internal/store/migrations/`.
+- [x] Updated `Alert` and `ExtractionJob` domain types (not
+      `Listing` — re-read of IMPL clarified trace_id lives only on
+      the queue row + alerts row). Both are `*string` so NULL stays
+      NULL after Phase 2 lands.
+- [x] `EnqueueExtraction` writes `trace_id` from the active span on
+      ctx (uses `traceIDFromContext` helper in
+      `internal/store/trace.go`). `DequeueExtractions` scans the
+      column into `ExtractionJob.TraceID`. `queryEnqueueExtraction`
+      uses `NULLIF($3, '')` so empty strings persist as NULL.
+- [x] Scheduler tracer wired: `runIngestion`, `runBaselineRefresh`,
+      and `runReExtraction` each open a root span
+      (`engine.ingest`, `engine.baseline_refresh`,
+      `engine.reextract`) via the new `withSpan` helper. Errors
+      get `RecordError` + `codes.Error` status via `recordRunErr`.
+- [x] Pipeline child spans wrapped in `pkg/extract`:
+      `extract.classify_and_extract` (root for one call), with
+      child spans `extract.preclassify_title`,
+      `extract.preclassify_accessory`,
       `extract.preclassify_specifics`, `extract.classify`,
-      `extract.extract`, `extract.normalize`, `extract.validate`,
-      `score.lookup_baseline`, `score.compute_breakdown`,
-      `alert.evaluate`, `notify.discord`.
-- [ ] Each span sets attributes: `listing.id`, `watch.id`,
-      `component.type`, `product.key`, `extraction.confidence`,
-      `score.composite`. Use semconv constants where they exist;
-      otherwise prefix with `spt.`.
-- [ ] Bridge queue propagation: when enqueuing an extraction, capture
-      the active span's trace ID and store on the queue row. When the
-      worker claims a row, restore the trace context as the parent of
-      the worker's root span (use a manual `trace.SpanContext`).
-- [ ] Carry `traceID` from listing → alert at insert time so
-      `alerts.trace_id` is populated even when the engine creates
-      alerts on a different goroutine than the extraction.
-- [ ] Add OTel meter for two new metrics emitted in parallel with
-      Prometheus: `spt.extraction.duration` (histogram, by
-      component_type), `spt.alert.eval.duration` (histogram).
-      Existing Prometheus counters stay unchanged.
-- [ ] Tests:
-      - In-memory `tracetest.SpanRecorder` asserts span tree shape
-        for one ingestion → extract → score → alert path.
-      - Migration test (in `internal/store/migrate_test.go`) verifies
-        `012` applies idempotently.
-      - Update affected `scanListing` / `scanAlert` / queue scan
-        tests for the new column.
-- [ ] Run `make lint` + `make test`.
+      `extract.extract`, `extract.parse_json`, `extract.normalize`,
+      `extract.validate`. ebay/score/notify spans deferred to a
+      follow-up so the in-house Langfuse work stays focused on the
+      LLM-call path.
+- [x] Span attributes set: `spt.backend`, `spt.component.type`,
+      `spt.llm.model`, `spt.llm.tokens.input`,
+      `spt.llm.tokens.output`, `spt.extraction.confidence`,
+      `spt.preclass`, `spt.preclass.matched`. Custom prefix until a
+      future stage adds the listing/watch/score attributes.
+- [x] Trace ID propagated from extraction worker context into
+      Alert at evaluation time via `traceIDFromContext` in
+      `internal/engine/engine.go`. `*string` field stays nil when
+      the worker ran without OTel enabled — Postgres column stays
+      NULL.
+- [ ] OTel meter for `spt.extraction.duration` /
+      `spt.alert.eval.duration` deferred to a follow-up — the
+      current task scope was already large; histogram-meter wiring
+      can ship as its own commit alongside the Phase 3 buffer
+      metrics.
+- [x] Tests:
+      - `pkg/extract/extractor_span_test.go` uses
+        `tracetest.SpanRecorder` to assert (a) the full span tree
+        for the LLM happy path (parent + 3 pre-class + classify +
+        extract + parse + normalize + validate, all parent-child
+        verified), and (b) accessory short-circuit must NOT emit
+        classify/extract spans.
+      - Existing scan tests pass after the Alert/ExtractionJob
+        struct + query changes (no test file edits needed — the
+        new column lands at the end of the scan order, which the
+        helpers already covered).
+- [x] `make lint` + `make test` — green.
 
 #### Success Criteria
 

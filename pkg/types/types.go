@@ -135,6 +135,11 @@ type ExtractionJob struct {
 	Priority   int       `json:"priority"    db:"priority"`
 	EnqueuedAt time.Time `json:"enqueued_at" db:"enqueued_at"`
 	Attempts   int       `json:"attempts"    db:"attempts"`
+	// TraceID is the W3C trace ID (32-char hex) of the ingestion span
+	// that enqueued this job, used by the worker to resume the trace
+	// instead of starting a new one. Nil when the enqueuer ran
+	// without OTel enabled (DESIGN-0016 / IMPL-0019 Phase 2).
+	TraceID *string `json:"trace_id,omitempty" db:"trace_id"`
 }
 
 // RateLimiterState records the persisted eBay API quota state across restarts.
@@ -308,6 +313,12 @@ type Alert struct {
 	NotifiedAt  *time.Time `json:"notified_at,omitempty"  db:"notified_at"`
 	CreatedAt   time.Time  `json:"created_at"             db:"created_at"`
 	DismissedAt *time.Time `json:"dismissed_at,omitempty" db:"dismissed_at"`
+	// TraceID is the W3C trace ID (32-char hex) of the extraction span
+	// that produced the listing this alert was raised on, when
+	// observability.otel.enabled was true at extraction time.
+	// Populated by alert-eval logic from the listing's claim trace
+	// (DESIGN-0016 / IMPL-0019). Nil for pre-Phase-2 alerts.
+	TraceID *string `json:"trace_id,omitempty" db:"trace_id"`
 }
 
 // ScoreBreakdown details the per-factor scores for a listing.

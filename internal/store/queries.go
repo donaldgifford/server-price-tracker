@@ -275,8 +275,8 @@ const (
 // ExtractionQueue queries.
 const (
 	queryEnqueueExtraction = `
-		INSERT INTO extraction_queue (listing_id, priority)
-		VALUES ($1, $2)
+		INSERT INTO extraction_queue (listing_id, priority, trace_id)
+		VALUES ($1, $2, NULLIF($3, ''))
 		ON CONFLICT (listing_id) WHERE completed_at IS NULL DO NOTHING`
 
 	queryDequeueExtractions = `
@@ -293,7 +293,7 @@ const (
 		WHERE extraction_queue.id = claimed.id
 		RETURNING extraction_queue.id, extraction_queue.listing_id,
 		          extraction_queue.priority, extraction_queue.enqueued_at,
-		          extraction_queue.attempts`
+		          extraction_queue.attempts, extraction_queue.trace_id`
 
 	queryCompleteExtractionJob = `
 		UPDATE extraction_queue
@@ -334,19 +334,21 @@ const (
 // Alert queries.
 const (
 	queryCreateAlert = `
-		INSERT INTO alerts (watch_id, listing_id, score, created_at)
-		VALUES ($1, $2, $3, now())
+		INSERT INTO alerts (watch_id, listing_id, score, trace_id, created_at)
+		VALUES ($1, $2, $3, NULLIF($4, ''), now())
 		ON CONFLICT (watch_id, listing_id) WHERE notified = false DO NOTHING
 		RETURNING id, created_at`
 
 	queryListPendingAlerts = `
-		SELECT id, watch_id, listing_id, score, notified, notified_at, created_at, dismissed_at
+		SELECT id, watch_id, listing_id, score, notified, notified_at,
+		       created_at, dismissed_at, trace_id
 		FROM alerts
 		WHERE notified = false
 		ORDER BY created_at DESC`
 
 	queryListAlertsByWatch = `
-		SELECT id, watch_id, listing_id, score, notified, notified_at, created_at, dismissed_at
+		SELECT id, watch_id, listing_id, score, notified, notified_at,
+		       created_at, dismissed_at, trace_id
 		FROM alerts
 		WHERE watch_id = $1
 		ORDER BY created_at DESC
@@ -396,7 +398,7 @@ const (
 	// queryListPendingAlerts so the same scan helper handles both.
 	alertReviewSelectColumns = `
 		a.id, a.watch_id, a.listing_id, a.score, a.notified, a.notified_at,
-		a.created_at, a.dismissed_at,
+		a.created_at, a.dismissed_at, a.trace_id,
 		l.id, l.ebay_item_id, l.title, l.item_url, l.image_url, l.price,
 		l.currency, l.shipping_cost, l.listing_type, l.seller_name,
 		l.seller_feedback_score, l.seller_feedback_pct, l.seller_top_rated,

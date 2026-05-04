@@ -410,9 +410,19 @@ func (s *PostgresStore) RecomputeAllBaselines(ctx context.Context, windowDays in
 }
 
 // CreateAlert inserts a new alert, silently ignoring duplicates.
+//
+// The trace_id is derived from a.TraceID; nil or empty string both
+// persist as NULL via the NULLIF in queryCreateAlert. This way the
+// alert review UI can deep-link back to the trace that produced the
+// listing for alerts created post-IMPL-0019, while pre-existing
+// alerts remain queryable without any backfill.
 func (s *PostgresStore) CreateAlert(ctx context.Context, a *domain.Alert) error {
+	traceID := ""
+	if a.TraceID != nil {
+		traceID = *a.TraceID
+	}
 	err := s.pool.QueryRow(ctx, queryCreateAlert,
-		a.WatchID, a.ListingID, a.Score,
+		a.WatchID, a.ListingID, a.Score, traceID,
 	).Scan(&a.ID, &a.CreatedAt)
 
 	// ON CONFLICT DO NOTHING returns no rows — treat as success.
@@ -654,7 +664,7 @@ func scanAlertWithListing(rows pgx.Rows) (domain.AlertWithListing, error) {
 	)
 	err := rows.Scan(
 		&a.ID, &a.WatchID, &a.ListingID, &a.Score,
-		&a.Notified, &a.NotifiedAt, &a.CreatedAt, &a.DismissedAt,
+		&a.Notified, &a.NotifiedAt, &a.CreatedAt, &a.DismissedAt, &a.TraceID,
 		&l.ID, &l.EbayID, &l.Title, &l.ItemURL, &l.ImageURL,
 		&l.Price, &l.Currency, &l.ShippingCost, &l.ListingType,
 		&l.SellerName, &l.SellerFeedback, &l.SellerFeedbackPct, &l.SellerTopRated,
@@ -1061,6 +1071,7 @@ func (s *PostgresStore) queryAlerts(
 		if err := rows.Scan(
 			&a.ID, &a.WatchID, &a.ListingID, &a.Score,
 			&a.Notified, &a.NotifiedAt, &a.CreatedAt, &a.DismissedAt,
+			&a.TraceID,
 		); err != nil {
 			return nil, fmt.Errorf("scanning alert: %w", err)
 		}
@@ -1103,8 +1114,15 @@ func scanListingRow(rows pgx.Rows, l *domain.Listing) error {
 
 // EnqueueExtraction adds a listing to the extraction queue.
 // If a pending job already exists for the listing, the INSERT is silently ignored.
+//
+// When the calling context carries an active OTel span, its trace ID is
+// captured into extraction_queue.trace_id so the worker can resume the
+// trace at claim time instead of starting a disconnected one. Empty
+// when observability.otel.enabled was false at enqueue time —
+// queryEnqueueExtraction's NULLIF coerces "" to SQL NULL.
 func (s *PostgresStore) EnqueueExtraction(ctx context.Context, listingID string, priority int) error {
-	if _, err := s.pool.Exec(ctx, queryEnqueueExtraction, listingID, priority); err != nil {
+	traceID := traceIDFromContext(ctx)
+	if _, err := s.pool.Exec(ctx, queryEnqueueExtraction, listingID, priority, traceID); err != nil {
 		return fmt.Errorf("enqueuing extraction: %w", err)
 	}
 	return nil
@@ -1125,7 +1143,9 @@ func (s *PostgresStore) DequeueExtractions(
 	var jobs []domain.ExtractionJob
 	for rows.Next() {
 		var j domain.ExtractionJob
-		if err := rows.Scan(&j.ID, &j.ListingID, &j.Priority, &j.EnqueuedAt, &j.Attempts); err != nil {
+		if err := rows.Scan(
+			&j.ID, &j.ListingID, &j.Priority, &j.EnqueuedAt, &j.Attempts, &j.TraceID,
+		); err != nil {
 			return nil, fmt.Errorf("scanning extraction job: %w", err)
 		}
 		jobs = append(jobs, j)

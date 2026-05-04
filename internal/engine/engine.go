@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/donaldgifford/server-price-tracker/internal/config"
 	"github.com/donaldgifford/server-price-tracker/internal/ebay"
 	"github.com/donaldgifford/server-price-tracker/internal/metrics"
@@ -473,6 +475,7 @@ func (eng *Engine) evaluateAlert(
 		WatchID:   w.ID,
 		ListingID: listing.ID,
 		Score:     *listing.Score,
+		TraceID:   traceIDFromContext(ctx),
 	}
 
 	if err := eng.store.CreateAlert(ctx, alert); err != nil {
@@ -480,6 +483,20 @@ func (eng *Engine) evaluateAlert(
 		return
 	}
 	metrics.AlertsCreatedTotal.WithLabelValues(string(listing.ComponentType)).Inc()
+}
+
+// traceIDFromContext returns a *string trace ID extracted from the
+// active span on ctx, or nil when there's no valid span. The Alert
+// struct field is *string so a nil parent span produces a NULL trace_id
+// in Postgres rather than an empty string. Mirrors the helper in
+// internal/store but returns *string to match the domain field type.
+func traceIDFromContext(ctx context.Context) *string {
+	sc := trace.SpanFromContext(ctx).SpanContext()
+	if !sc.IsValid() {
+		return nil
+	}
+	id := sc.TraceID().String()
+	return &id
 }
 
 // SyncQuota calls the eBay Analytics API to update Prometheus gauge metrics
