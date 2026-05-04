@@ -797,7 +797,10 @@ new OTel-derived data. Document the operator workflow.
 - [x] Update CLAUDE.md with the observability config sketch + the
       "judge component is config-gated, fully optional" reminder so
       it survives compaction.
-- [ ] Run `make lint`, `make test`, `make ci`.
+- [x] Run `make lint`, `make test`, `make ci`. All three green
+      locally on this branch (lint = 0 issues; full test suite
+      including build-tagged unit tests passes; ci pipeline =
+      lint + test + build + license-check exits 0).
 
 #### Success Criteria
 
