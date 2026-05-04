@@ -140,6 +140,17 @@ today.**
 
 #### Tasks
 
+- [ ] **Pin OTel to latest stable.** Before adding direct
+      dependencies, run `go list -m -versions
+      go.opentelemetry.io/otel` and pin to the latest stable
+      `v1.x` (≥ `v1.43.0` as of 2026-05-03). Same check for
+      `go.opentelemetry.io/contrib/...` (latest ≥ `v0.68.0`) and
+      the `otlp/otlptrace/otlptracegrpc` +
+      `otlp/otlpmetric/otlpmetricgrpc` exporters. Avoid pulling
+      whatever older transitive version is already in `go.mod`
+      (currently `v1.42.0` / `v0.49.0`); explicitly upgrade.
+      Verify Go version in `go.mod` (`go 1.25.9` at time of
+      writing) is compatible with the chosen OTel release.
 - [ ] Add `observability` block to `internal/config/config.go`:
       `Otel`, `Langfuse`, `Judge` sub-structs each with an `Enabled
       bool` and backend-specific fields (endpoint, sampling,
@@ -691,8 +702,18 @@ new OTel-derived data. Document the operator workflow.
   cluster network; Langfuse instance with public+secret keys
   provisioned via Kubernetes Secret.
 - **Go modules (new):**
-  - `go.opentelemetry.io/otel` + exporter `otlptracegrpc`
+  - `go.opentelemetry.io/otel` (≥ `v1.43.0` — verify latest stable
+    at implementation time)
+  - `go.opentelemetry.io/otel/sdk` (matching version)
+  - `go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc`
+    (matching version)
+  - `go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc`
+    (matching version)
   - `go.opentelemetry.io/otel/sdk/trace/tracetest` (test-only)
+  - `go.opentelemetry.io/contrib/instrumentation/...` as needed
+    (≥ `v0.68.0`)
+  - Pin all OTel modules to the same minor version to avoid the
+    transitive-version-skew failure mode.
   - **No Langfuse SDK** — in-house HTTP client lives in
     `pkg/observability/langfuse/`.
 - **Existing dependencies to use:**
