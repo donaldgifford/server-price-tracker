@@ -50,4 +50,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0016 | DESIGN-0011 alert noise reduction phase plan | Draft | 2026-04-30 | Donald Gifford | [0016-design-0011-alert-noise-reduction-phase-plan.md](0016-design-0011-alert-noise-reduction-phase-plan.md) |
 | IMPL-0017 | DESIGN-0012 GPU component type phase plan | In Progress | 2026-05-01 | Donald Gifford | [0017-design-0012-gpu-component-type-phase-plan.md](0017-design-0012-gpu-component-type-phase-plan.md) |
 | IMPL-0018 | DESIGN-0015 workstation and desktop component types phase plan | Implemented | 2026-05-02 | Donald Gifford | [0018-design-0015-workstation-and-desktop-component-types-phase-plan.md](0018-design-0015-workstation-and-desktop-component-types-phase-plan.md) |
+| IMPL-0019 | DESIGN-0016 OpenTelemetry Clickhouse and Langfuse instrumentation phase plan | Draft | 2026-05-03 | Donald Gifford | [0019-design-0016-opentelemetry-clickhouse-and-langfuse.md](0019-design-0016-opentelemetry-clickhouse-and-langfuse.md) |
 <!-- END DOCZ AUTO-GENERATED -->
