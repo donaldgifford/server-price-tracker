@@ -226,17 +226,14 @@ today.**
 
 #### Tasks
 
-- [ ] **Pin OTel to latest stable.** Before adding direct
-      dependencies, run `go list -m -versions
-      go.opentelemetry.io/otel` and pin to the latest stable
-      `v1.x` (≥ `v1.43.0` as of 2026-05-03). Same check for
-      `go.opentelemetry.io/contrib/...` (latest ≥ `v0.68.0`) and
-      the `otlp/otlptrace/otlptracegrpc` +
-      `otlp/otlpmetric/otlpmetricgrpc` exporters. Avoid pulling
-      whatever older transitive version is already in `go.mod`
-      (currently `v1.42.0` / `v0.49.0`); explicitly upgrade.
-      Verify Go version in `go.mod` (`go 1.25.9` at time of
-      writing) is compatible with the chosen OTel release.
+- [x] **Pin OTel to latest stable.** Upgraded transitive deps:
+      `go.opentelemetry.io/otel` v1.42.0 → **v1.43.0**;
+      `contrib/instrumentation/net/http/otelhttp`
+      v0.49.0 → **v0.68.0**. `go build ./...` + `make test` +
+      `make lint` all green on Go 1.25.9. SDK module
+      (`go.opentelemetry.io/otel/sdk`) was tidied out (nobody
+      imported it yet); will return as a direct dep with the
+      next task when `internal/observability/otel.go` lands.
 - [ ] Add `observability` block to `internal/config/config.go`:
       `Otel`, `Langfuse`, `Judge` sub-structs each with an `Enabled
       bool` and backend-specific fields (endpoint, sampling,
