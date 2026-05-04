@@ -61,7 +61,7 @@ test-regression: templ-generate ## Run extraction regression suite against the g
 	@ $(MAKE) --no-print-directory log-$@
 	@echo "Running extraction regression suite..."
 	@echo "(Requires the configured LLM backend to be reachable from this machine.)"
-	@go test -v -tags regression -count=1 ./pkg/extract/...
+	@go run ./tools/regression-runner --config $(CONFIG)
 	@echo "✓ Regression suite finished — paste the accuracy lines into your PR description"
 
 

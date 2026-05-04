@@ -666,14 +666,16 @@ from CI.
 - [ ] Upload dataset to Langfuse as `golden_classifications:v1` via
       the in-house client's `CreateDatasetItem` (Phase 3 endpoint).
       Document the upload step in OPERATIONS.md.
-- [ ] Add `tools/regression-runner/main.go`: standalone Go CLI that
+- [x] Add `tools/regression-runner/main.go`: standalone Go CLI that
       reads `testdata/golden_classifications.json`, runs each title
-      through the configured backend (`--backend` flag,
-      defaults to whatever `configs/config.dev.yaml` specifies),
-      computes accuracy (overall and per-component-type), prints a
-      per-listing diff for any mismatches. Output is structured
-      (table for humans, `--json` flag for Claude-Code-friendly
-      summarisation).
+      through the configured backend (`--config` flag picks the
+      YAML config that selects backend + model), computes accuracy
+      (overall and per-component-type), prints a per-listing diff
+      for any mismatches. Output is structured — tabwriter table
+      for humans, `--json` flag for Claude-Code-friendly
+      summarisation. `make test-regression` now invokes
+      `go run ./tools/regression-runner --config $(CONFIG)`
+      instead of the test stub.
 - [x] New Make target: `make test-regression` — convenience wrapper
       around the above. Requires whatever credentials the chosen
       backend needs; nothing in CI.
