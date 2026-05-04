@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/donaldgifford/server-price-tracker/internal/regression"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
@@ -159,38 +160,10 @@ func TestComponentResultAccuracy(t *testing.T) {
 	}
 }
 
-func TestTitleHash(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		in   string
-	}{
-		{name: "deterministic for the same input", in: "Dell PowerEdge R740xd 2.5\" SFF"},
-		{name: "still works for empty string", in: ""},
-		{name: "stable for unicode", in: "Dell — PowerEdge — R740xd"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			a := titleHash(tt.in)
-			b := titleHash(tt.in)
-			assert.Equal(t, a, b, "titleHash must be deterministic")
-			assert.Len(t, a, 16, "titleHash returns 8-byte hex prefix (16 chars)")
-		})
-	}
-
-	// Different titles produce different hashes (collision is
-	// astronomically unlikely for sha256-trunc-8).
-	a := titleHash("foo")
-	b := titleHash("bar")
-	assert.NotEqual(t, a, b)
-}
-
 func TestBuildDatasetRunItems_PairsMismatchesByTitle(t *testing.T) {
 	t.Parallel()
 
-	dataset := []goldenItem{
+	dataset := []regression.Item{
 		{Title: "Dell R740xd", ExpectedComponent: domain.ComponentServer},
 		{Title: "32GB DDR4 ECC", ExpectedComponent: domain.ComponentRAM},
 		{Title: "RTX 3090 24GB", ExpectedComponent: domain.ComponentGPU},
@@ -219,8 +192,8 @@ func TestBuildDatasetRunItems_PairsMismatchesByTitle(t *testing.T) {
 	assert.Equal(t, "gpu", items[2].Output["actual"])
 
 	// DatasetItemIDs are deterministic title hashes.
-	assert.Equal(t, titleHash("Dell R740xd"), items[0].DatasetItemID)
-	assert.Equal(t, titleHash("32GB DDR4 ECC"), items[1].DatasetItemID)
+	assert.Equal(t, regression.TitleHash("Dell R740xd"), items[0].DatasetItemID)
+	assert.Equal(t, regression.TitleHash("32GB DDR4 ECC"), items[1].DatasetItemID)
 }
 
 func TestTruncate(t *testing.T) {

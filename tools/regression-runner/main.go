@@ -25,17 +25,13 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -43,20 +39,11 @@ import (
 	"time"
 
 	"github.com/donaldgifford/server-price-tracker/internal/config"
+	"github.com/donaldgifford/server-price-tracker/internal/regression"
 	"github.com/donaldgifford/server-price-tracker/pkg/extract"
 	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
-
-// goldenItem mirrors the JSON shape pkg/extract/regression_test.go
-// expects in testdata/golden_classifications.json. Kept in sync by
-// hand; if the test file's struct changes, this one must follow.
-type goldenItem struct {
-	Title              string               `json:"title"`
-	ItemSpecifics      map[string]string    `json:"item_specifics"`
-	ExpectedComponent  domain.ComponentType `json:"expected_component"`
-	ExpectedProductKey string               `json:"expected_product_key,omitempty"`
-}
 
 // componentResult tallies accuracy for a single ComponentType.
 type componentResult struct {
@@ -134,7 +121,7 @@ func main() {
 		fatal("loading config %s: %v", *configPath, err)
 	}
 
-	dataset, err := loadDataset(*datasetPath)
+	dataset, err := regression.LoadDataset(*datasetPath)
 	if err != nil {
 		fatal("loading dataset %s: %v", *datasetPath, err)
 	}
@@ -160,7 +147,7 @@ func main() {
 func executeAll(
 	cfg *config.Config,
 	logger *slog.Logger,
-	dataset []goldenItem,
+	dataset []regression.Item,
 	backends []string,
 ) []runResult {
 	out := make([]runResult, 0, len(backends))
@@ -223,7 +210,7 @@ func parseBackends(flagVal, fallback string) []string {
 func executeBackend(
 	cfg *config.Config,
 	logger *slog.Logger,
-	dataset []goldenItem,
+	dataset []regression.Item,
 	backendName string,
 ) *runResult {
 	backend := buildBackendByName(cfg, logger, backendName)
@@ -249,7 +236,7 @@ func annotateLangfuse(
 	cfg *config.Config,
 	logger *slog.Logger,
 	results []runResult,
-	dataset []goldenItem,
+	dataset []regression.Item,
 	datasetID, shaOverride string,
 ) {
 	if !cfg.Observability.Langfuse.Enabled {
@@ -307,7 +294,7 @@ func annotateLangfuse(
 // runResult mismatch (if any), using a deterministic hash of the title
 // as DatasetItemID so the operator's upload step can produce matching
 // IDs without coordinating with this binary.
-func buildDatasetRunItems(dataset []goldenItem, r *runResult) []langfuse.DatasetRunItem {
+func buildDatasetRunItems(dataset []regression.Item, r *runResult) []langfuse.DatasetRunItem {
 	mismatchByTitle := make(map[string]mismatch, len(r.Mismatches))
 	for _, m := range r.Mismatches {
 		mismatchByTitle[m.Title] = m
@@ -316,7 +303,7 @@ func buildDatasetRunItems(dataset []goldenItem, r *runResult) []langfuse.Dataset
 	items := make([]langfuse.DatasetRunItem, 0, len(dataset))
 	for i := range dataset {
 		item := &dataset[i]
-		entry := langfuse.DatasetRunItem{DatasetItemID: titleHash(item.Title)}
+		entry := langfuse.DatasetRunItem{DatasetItemID: regression.TitleHash(item.Title)}
 		if m, ok := mismatchByTitle[item.Title]; ok {
 			entry.Output = map[string]any{
 				"expected": string(m.Expected),
@@ -334,14 +321,6 @@ func buildDatasetRunItems(dataset []goldenItem, r *runResult) []langfuse.Dataset
 	return items
 }
 
-// titleHash returns a short, deterministic ID for a dataset title.
-// Operators upload dataset items with the same hash as DatasetItemID so
-// runs and items align without out-of-band coordination.
-func titleHash(title string) string {
-	sum := sha256.Sum256([]byte(title))
-	return hex.EncodeToString(sum[:8])
-}
-
 // currentCommitSHA shells out to `git rev-parse HEAD`. Returns "" when
 // git isn't available or the working tree isn't a repo — caller logs
 // and skips the annotation. Trims trailing whitespace.
@@ -355,30 +334,6 @@ func currentCommitSHA(logger *slog.Logger) string {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
-}
-
-func loadDataset(path string) ([]goldenItem, error) {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return nil, fmt.Errorf("resolving path: %w", err)
-	}
-	// G304: path is operator-supplied via --dataset and intended to
-	// point at testdata/golden_classifications.json on the operator's
-	// local checkout. The runner is operator-only (no CI surface, no
-	// unauthenticated callers) so the inclusion-via-variable warning
-	// does not apply.
-	raw, err := os.ReadFile(abs) //nolint:gosec // operator-supplied dataset path; no untrusted input surface
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var items []goldenItem
-	if err := json.Unmarshal(raw, &items); err != nil {
-		return nil, fmt.Errorf("parsing JSON: %w", err)
-	}
-	return items, nil
 }
 
 // buildBackendByName mirrors cmd/server-price-tracker/cmd/serve.go::buildLLMBackend
@@ -434,7 +389,7 @@ func modelOfBackend(cfg *config.Config, name string) string {
 func runDataset(
 	ctx context.Context,
 	extractor *extract.LLMExtractor,
-	dataset []goldenItem,
+	dataset []regression.Item,
 	backendName, modelName string,
 ) runResult {
 	start := time.Now()

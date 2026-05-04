@@ -39,19 +39,10 @@ import (
 	"sort"
 
 	"github.com/donaldgifford/server-price-tracker/internal/config"
+	"github.com/donaldgifford/server-price-tracker/internal/regression"
 	"github.com/donaldgifford/server-price-tracker/internal/store"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
-
-// candidateItem mirrors the goldenItem shape consumed by
-// tools/regression-runner and pkg/extract/regression_test.go. Kept in
-// sync by hand — there's no shared package for these test types.
-type candidateItem struct {
-	Title              string               `json:"title"`
-	ItemSpecifics      map[string]string    `json:"item_specifics"`
-	ExpectedComponent  domain.ComponentType `json:"expected_component"`
-	ExpectedProductKey string               `json:"expected_product_key,omitempty"`
-}
 
 func main() {
 	if err := run(); err != nil {
@@ -110,7 +101,7 @@ func stratifiedSample(
 	st store.Store,
 	perComponent int,
 	logger *slog.Logger,
-) []candidateItem {
+) []regression.Item {
 	types := []domain.ComponentType{
 		domain.ComponentRAM,
 		domain.ComponentDrive,
@@ -123,7 +114,7 @@ func stratifiedSample(
 		domain.ComponentOther,
 	}
 
-	out := make([]candidateItem, 0, perComponent*len(types))
+	out := make([]regression.Item, 0, perComponent*len(types))
 	for _, ct := range types {
 		ctStr := string(ct)
 		listings, _, err := st.ListListings(ctx, &store.ListingQuery{
@@ -152,8 +143,8 @@ func stratifiedSample(
 // item_specifics is left empty because the original eBay specifics
 // aren't persisted on the listings row — the operator can attach them
 // manually if a particular row needs them for accurate audit.
-func candidateFromListing(l *domain.Listing) candidateItem {
-	return candidateItem{
+func candidateFromListing(l *domain.Listing) regression.Item {
+	return regression.Item{
 		Title:              l.Title,
 		ItemSpecifics:      map[string]string{},
 		ExpectedComponent:  l.ComponentType,

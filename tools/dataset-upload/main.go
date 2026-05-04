@@ -26,31 +26,16 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 
 	"github.com/donaldgifford/server-price-tracker/internal/config"
+	"github.com/donaldgifford/server-price-tracker/internal/regression"
 	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
-	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
-
-// goldenItem mirrors the JSON shape testdata/golden_classifications.json
-// uses. Kept in sync by hand with the same struct in
-// tools/regression-runner; refactoring to a shared package is a
-// follow-up.
-type goldenItem struct {
-	Title              string               `json:"title"`
-	ItemSpecifics      map[string]string    `json:"item_specifics"`
-	ExpectedComponent  domain.ComponentType `json:"expected_component"`
-	ExpectedProductKey string               `json:"expected_product_key,omitempty"`
-}
 
 func main() {
 	if err := run(); err != nil {
@@ -85,7 +70,7 @@ func run() error {
 		return errors.New("observability.langfuse.enabled must be true in config to upload")
 	}
 
-	dataset, err := loadDataset(*datasetPath)
+	dataset, err := regression.LoadDataset(*datasetPath)
 	if err != nil {
 		return fmt.Errorf("loading dataset %s: %w", *datasetPath, err)
 	}
@@ -122,12 +107,12 @@ func run() error {
 	return nil
 }
 
-// datasetItem converts a goldenItem to a langfuse.DatasetItem, using
+// datasetItem converts a regression.Item to a langfuse.DatasetItem, using
 // the same deterministic title hash the regression-runner uses for
 // DatasetItemID so runs and items align.
-func datasetItem(g *goldenItem) *langfuse.DatasetItem {
+func datasetItem(g *regression.Item) *langfuse.DatasetItem {
 	return &langfuse.DatasetItem{
-		ID: titleHash(g.Title),
+		ID: regression.TitleHash(g.Title),
 		Input: map[string]any{
 			"title":          g.Title,
 			"item_specifics": g.ItemSpecifics,
@@ -140,33 +125,6 @@ func datasetItem(g *goldenItem) *langfuse.DatasetItem {
 			"source": "golden_classifications.json",
 		},
 	}
-}
-
-// titleHash matches tools/regression-runner.titleHash. Kept duplicated
-// (rather than exporting) so this small CLI stays free of cross-tool
-// coupling; both copies are tested and the algorithm is unlikely to
-// change.
-func titleHash(title string) string {
-	sum := sha256.Sum256([]byte(title))
-	return hex.EncodeToString(sum[:8])
-}
-
-func loadDataset(path string) ([]goldenItem, error) {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return nil, fmt.Errorf("resolving path: %w", err)
-	}
-	// G304: path is operator-supplied via --dataset; this CLI is
-	// operator-only with no untrusted input surface.
-	raw, err := os.ReadFile(abs) //nolint:gosec // operator-supplied dataset path
-	if err != nil {
-		return nil, err
-	}
-	var items []goldenItem
-	if err := json.Unmarshal(raw, &items); err != nil {
-		return nil, fmt.Errorf("parsing JSON: %w", err)
-	}
-	return items, nil
 }
 
 func truncate(s string, n int) string {

@@ -19,43 +19,26 @@ package extract_test
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/donaldgifford/server-price-tracker/internal/regression"
 	"github.com/donaldgifford/server-price-tracker/pkg/extract"
-	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
-// goldenItem mirrors the shape of one row in
-// testdata/golden_classifications.json. ExpectedComponent is the
-// operator-truth label; ItemSpecifics is the same map we pass to
-// ClassifyAndExtract in production.
-type goldenItem struct {
-	Title              string               `json:"title"`
-	ItemSpecifics      map[string]string    `json:"item_specifics"`
-	ExpectedComponent  domain.ComponentType `json:"expected_component"`
-	ExpectedProductKey string               `json:"expected_product_key,omitempty"`
-}
-
-// loadGoldenDataset reads the JSON dataset, returning (nil, false)
-// when the file doesn't exist so the test can SKIP rather than fail
-// — bootstrapping the dataset is an explicit operator step.
-func loadGoldenDataset(t *testing.T) ([]goldenItem, bool) {
+// loadGoldenDataset reads the dataset via the shared `regression`
+// helpers and returns (nil, false) when the file doesn't exist so the
+// test can SKIP rather than fail. Bootstrapping the dataset is an
+// explicit operator step.
+func loadGoldenDataset(t *testing.T) ([]regression.Item, bool) {
 	t.Helper()
 	path := filepath.Join("..", "..", "testdata", "golden_classifications.json")
-	raw, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, false
-	}
+	items, err := regression.LoadDataset(path)
 	if err != nil {
 		t.Fatalf("reading golden dataset: %v", err)
 	}
-	var items []goldenItem
-	if err := json.Unmarshal(raw, &items); err != nil {
-		t.Fatalf("parsing golden dataset: %v", err)
+	if items == nil {
+		return nil, false
 	}
 	return items, true
 }
