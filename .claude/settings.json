@@ -28,6 +28,7 @@
       "Bash(docz --help)",
       "Bash(docz update *)",
       "Bash(go build *)",
+      "Bash(golangci-lint *)",
       "Bash(make lint-md *)",
       "WebFetch(domain:www.ebay.com)",
       "Bash(make test *)",
