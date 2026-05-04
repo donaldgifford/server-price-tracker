@@ -39,10 +39,12 @@ dist/
 /server-price-tracker
 /regression-runner
 /dataset-bootstrap
+/judge-bootstrap
 tools/dashgen/dashgen
 tools/docgen/docgen
 tools/regression-runner/regression-runner
 tools/dataset-bootstrap/dataset-bootstrap
+tools/judge-bootstrap/judge-bootstrap
 *.log
 *.log.*
 .log.meta

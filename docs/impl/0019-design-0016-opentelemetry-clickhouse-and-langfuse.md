@@ -561,11 +561,18 @@ cutoff prevents runaway spend. Operator-triggered backfill via
       `observability.judge.backend` if they want a different model
       for judging (parked — config field exists, override path TBD
       when v2 backends land).
-- [ ] Cold-start: write `tools/judge-bootstrap/main.go` that pulls a
-      stratified sample of recent alerts from the DB and prompts the
-      operator for `deal/noise/edge` labels (~30 total), then writes
-      `pkg/judge/examples.json`. *(Empty stub shipped today; bootstrap
-      tool is the next-up follow-up.)*
+- [x] Cold-start: shipped `tools/judge-bootstrap/main.go` as a
+      two-mode CLI:
+      `--list` (default) pulls a stratified sample of recent
+      alerts via `Store.ListAlertsForJudging`, interleaves across
+      ComponentTypes so the labelling queue isn't dominated by one
+      bucket, and emits a labellable JSON array with empty `label`
+      and `verdict` fields for the operator. `--apply <input>`
+      reads the operator-labelled JSON, validates each row
+      (`label ∈ {deal,edge,noise}`, `score ∈ [0,1]`, non-empty
+      reason), and writes `pkg/judge/examples.json`. Unit tests
+      cover the stratify interleaving, the limit clamp, and every
+      validation failure mode.
 - [x] Wire judge into scheduler: new entry via
       `Scheduler.AddJudge(interval, runFn)`. Skip entirely when
       `judge.enabled = false`.
