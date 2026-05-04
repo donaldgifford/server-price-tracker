@@ -4,17 +4,16 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-)
 
-// Version is set at build time via ldflags.
-var Version = "dev"
+	"github.com/donaldgifford/server-price-tracker/internal/version"
+)
 
 func versionCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Print the version",
 		Run: func(_ *cobra.Command, _ []string) {
-			fmt.Println("server-price-tracker " + Version)
+			fmt.Printf("server-price-tracker %s (%s)\n", version.Semver, version.CommitSHA)
 		},
 	}
 }

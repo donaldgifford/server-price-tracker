@@ -716,3 +716,98 @@ Alerts require all of:
 Check listings have scores: `spt listings list --order-by score --limit 5`.
 If all scores are 50, baselines haven't activated yet — need more
 ingestion cycles.
+
+## 8. OpenTelemetry, Clickhouse, and Langfuse (DESIGN-0016)
+
+The application emits OTel traces and metrics over OTLP/gRPC to a
+Collector that **must** be deployed and configured separately.
+Clickhouse and Langfuse are also assumed to exist as platform
+infrastructure (separate Helm charts, separate ownership). This
+section describes the requirements `server-price-tracker` places
+on those upstream components.
+
+All three observability subtrees in `config.observability.*`
+default to disabled — existing deployments are unaffected by the
+upgrade until the operator opts in. See
+`configs/config.example.yaml` for the full schema.
+
+### Collector tail-sampling requirement
+
+The Go application emits **100% of spans** (`AlwaysSample`).
+Sampling decisions live entirely in the Collector. The `tail_sampling`
+processor must be configured with at minimum these policies:
+
+1. **Keep 100% of traces that produced an alert.** Match on the
+   presence of any span with `name == alert.evaluate` and a
+   `spt.alert.fired = true` attribute.
+2. **Keep 100% of error traces.** Match on `status.code == ERROR`
+   on any span in the trace.
+3. **Keep 100% of extract spans.** Match on `name == extract.extract`
+   or `name == extract.classify`. These carry the LLM-call
+   observability we cannot lose.
+4. **Sample N% of clean ingestion-only traces.** Operator-tunable;
+   suggested 10% to start. Without this gate, ingestion traces
+   (one per listing per cycle) dominate Clickhouse storage with
+   low information density.
+
+Example Collector snippet:
+
+```yaml
+processors:
+  tail_sampling:
+    decision_wait: 30s
+    num_traces: 50000
+    expected_new_traces_per_sec: 200
+    policies:
+      - name: keep-alerts
+        type: string_attribute
+        string_attribute:
+          key: spt.alert.fired
+          values: ["true"]
+      - name: keep-errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: keep-extracts
+        type: span_count
+        span_count:
+          min_spans: 1
+          # combined with a span-name pattern processor upstream
+      - name: sample-ingestion
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+```
+
+The exact config syntax depends on Collector version; the policy
+intents above are what matters. Coordinate with the platform side
+when standing up the Collector — IMPL-0019 Phase 7 reviews policy
+effectiveness after 7 days of production data.
+
+### Enabling OTel in `server-price-tracker`
+
+```yaml
+observability:
+  otel:
+    enabled: true
+    endpoint: "otel-collector.observability:4317"
+    service_name: "server-price-tracker"
+    insecure: false  # true only for local Collectors without TLS
+    timeout: 10s
+```
+
+When enabled, the binary attaches `service.name`, `service.version`,
+and `service.instance.id` (commit SHA) as resource attributes on
+every span. The commit SHA is injected at build time via
+`-ldflags "-X internal/version.CommitSHA=$(git rev-parse HEAD)"` —
+running via `go run` falls back to the literal string `dev`.
+
+### Disabled-mode guarantee
+
+With `observability.otel.enabled: false` (the default), the binary
+emits zero OTLP traffic and zero new log lines. The global OTel
+tracer/meter providers remain as their no-op defaults, so any
+future instrumentation calls (`otel.Tracer(...).Start(...)`)
+become free non-operations. This is the explicit guarantee that
+makes the IMPL-0019 phases shippable before Clickhouse or Langfuse
+exist.

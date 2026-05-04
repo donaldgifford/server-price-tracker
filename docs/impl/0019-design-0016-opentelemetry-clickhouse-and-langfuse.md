@@ -246,34 +246,47 @@ today.**
       `configs/config.dev.yaml` with `enabled: false` defaults.
       Dev config uses `insecure: true` for OTel (local Collectors
       typically don't terminate TLS).
-- [ ] Add `internal/observability/otel.go`:
+- [x] Add `internal/observability/otel.go`:
       `Init(ctx, cfg) (shutdown func(context.Context) error, err
-      error)`. Returns no-op tracer + no-op meter when
-      `cfg.Otel.Enabled = false`.
-- [ ] Wire OTLP/gRPC trace exporter with `sdktrace.AlwaysSample()`.
+      error)`. Returns no-op (global tracer/meter providers stay
+      as their default no-ops) when `cfg.Otel.Enabled = false`.
+      Uses semconv v1.34.0 for `service.name` / `service.version`
+      / `service.instance.id`.
+- [x] Wire OTLP/gRPC trace exporter with `sdktrace.AlwaysSample()`.
       App emits 100% of spans; sampling decisions happen in the
       Collector's `tail_sampling` processor (platform-side
       requirement). Service name, version, and commit SHA attached
-      as resource attributes.
-- [ ] Document the Collector deployment requirement in
-      `docs/OPERATIONS.md`: `tail_sampling` processor must be
-      configured with policies (1) keep 100% of traces that produced
-      an alert, (2) keep 100% of error traces, (3) keep 100% of
-      extract spans, (4) sample N% of clean ingestion-only traces
-      (operator-tunable, suggested 10%).
-- [ ] Call `observability.Init` from `cmd/server-price-tracker`
-      `serve` action; defer shutdown.
-- [ ] Add `internal/observability/otel_test.go`:
-      verify Init with `Enabled=false` returns no-op + no error;
-      Init with `Enabled=true` against a fake collector emits one
-      smoke span successfully.
-- [ ] Update `Makefile`: add `-ldflags "-X
-      github.com/donaldgifford/server-price-tracker/internal/version.CommitSHA=$(git
-      rev-parse HEAD)"` to `make build` so commit SHA is available
-      at runtime.
-- [ ] Add a `internal/version` package with `CommitSHA string`
-      (overridden via ldflags), default `"dev"`.
-- [ ] Run `make lint` + `make test`.
+      as resource attributes. `otlpmetricgrpc` exporter wired with
+      a 60s periodic reader for the meter provider.
+- [x] Document the Collector deployment requirement in
+      `docs/OPERATIONS.md` (new section 8): `tail_sampling`
+      processor must be configured with policies (1) keep 100%
+      of traces that produced an alert, (2) keep 100% of error
+      traces, (3) keep 100% of extract spans, (4) sample N% of
+      clean ingestion-only traces (operator-tunable, suggested
+      10%). Includes example Collector snippet + enable/disable
+      mode walkthrough.
+- [x] Call `observability.Init` from `cmd/server-price-tracker`
+      `serve` action; defer shutdown. Extracted into `initOTel`
+      helper to keep `startServer` under the funlen budget; also
+      extracted the existing shutdown sequence into
+      `shutdownServer` for the same reason.
+- [x] Add `internal/observability/otel_test.go`: covers Init with
+      `Enabled=false` (verifies no-op tracer/meter still work),
+      Init with `Enabled=true` requires endpoint, Init with
+      `Enabled=true` against an in-process gRPC stub succeeds
+      and emits a smoke span. Also covers `chainShutdown` error
+      aggregation.
+- [x] Update Makefile to inject commit SHA + semver into
+      `internal/version`. Added `LDFLAGS` to `common.mk` and
+      threaded through `build-core`. Verified via
+      `./build/bin/server-price-tracker version` — output
+      includes the actual short SHA, not "dev".
+- [x] Add `internal/version` package with `CommitSHA string` and
+      `Semver string` (both overridden via ldflags), default
+      `"dev"`. Used by `internal/observability` resource
+      attributes and the `version` Cobra command.
+- [x] Run `make lint` + `make test` — green.
 
 #### Success Criteria
 

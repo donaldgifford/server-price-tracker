@@ -16,7 +16,7 @@ build: build-core build-spt ## Build everything (server + CLI)
 build-core: templ-generate ## Build server binary
 	@ $(MAKE) --no-print-directory log-$@
 	@mkdir -p $(BIN_DIR)
-	@go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT_HASH)" -o $(BIN_DIR)/$(PROJECT_NAME) $(CMD)/$(PROJECT_NAME)
+	@go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(PROJECT_NAME) $(CMD)/$(PROJECT_NAME)
 	@echo "✓ Server binary built"
 
 build-spt: ## Build spt CLI client binary

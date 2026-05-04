@@ -25,6 +25,7 @@ import (
 	"github.com/donaldgifford/server-price-tracker/internal/ebay"
 	"github.com/donaldgifford/server-price-tracker/internal/engine"
 	"github.com/donaldgifford/server-price-tracker/internal/notify"
+	"github.com/donaldgifford/server-price-tracker/internal/observability"
 	"github.com/donaldgifford/server-price-tracker/internal/store"
 	"github.com/donaldgifford/server-price-tracker/pkg/extract"
 	sptlog "github.com/donaldgifford/server-price-tracker/pkg/logger"
@@ -38,6 +39,13 @@ func startServer(opts *Options) error {
 
 	slogger := sptlog.New(cfg.Logging.Level, cfg.Logging.Format)
 	slog.SetDefault(slogger)
+
+	// --- OpenTelemetry (no-op when observability.otel.enabled=false) ---
+	otelShutdown, err := initOTel(cfg.Observability.Otel, slogger)
+	if err != nil {
+		return err
+	}
+	defer otelShutdown()
 
 	// --- Database ---
 	ctx := context.Background()
@@ -108,16 +116,28 @@ func startServer(opts *Options) error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	slogger.Info("shutting down server")
+	return shutdownServer(e, scheduler, workerCancel, slogger)
+}
+
+// shutdownServer runs the orderly shutdown sequence: cancel extraction
+// workers, drain the scheduler, then close the HTTP server with a
+// 10-second deadline. Extracted from startServer to keep its statement
+// count under the funlen budget; behaviour is unchanged.
+func shutdownServer(
+	e *echo.Echo,
+	scheduler *engine.Scheduler,
+	workerCancel context.CancelFunc,
+	logger *slog.Logger,
+) error {
+	logger.Info("shutting down server")
 
 	workerCancel()
-	slogger.Info("extraction workers stopped")
+	logger.Info("extraction workers stopped")
 
-	// Stop scheduler first.
 	if scheduler != nil {
 		schedCtx := scheduler.Stop()
 		<-schedCtx.Done()
-		slogger.Info("scheduler stopped")
+		logger.Info("scheduler stopped")
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -127,8 +147,37 @@ func startServer(opts *Options) error {
 		return fmt.Errorf("shutting down server: %w", err)
 	}
 
-	slogger.Info("server stopped")
+	logger.Info("server stopped")
 	return nil
+}
+
+// initOTel boots the OTel SDK from cfg and returns a deferred-friendly
+// shutdown closure that swallows shutdown errors (logging them) so the
+// caller can defer it without juggling errors. Returns a no-op closure
+// when otel is disabled — safe to defer regardless.
+func initOTel(cfg config.OtelConfig, logger *slog.Logger) (func(), error) {
+	initCtx, initCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer initCancel()
+
+	shutdown, err := observability.Init(initCtx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("initialising observability: %w", err)
+	}
+
+	if cfg.Enabled {
+		logger.Info("opentelemetry enabled",
+			"endpoint", cfg.Endpoint,
+			"service_name", cfg.ServiceName,
+		)
+	}
+
+	return func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := shutdown(shutdownCtx); err != nil {
+			logger.Error("otel shutdown error", "err", err)
+		}
+	}, nil
 }
 
 // registerAlertsUI mounts the alert review UI under /alerts and the static
