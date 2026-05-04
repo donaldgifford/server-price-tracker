@@ -340,6 +340,47 @@ bump the watch threshold via
 The same shape works for any future component type by swapping the
 `'gpu:%'` prefix.
 
+### Re-extract LLM server-line hallucinations (IMPL-0018 Phase 6 fix)
+
+When the LLM hallucinates a server brand (PowerEdge, ProLiant, UCS, ...)
+as the `line` field for a workstation/desktop extraction, the listing
+ends up with a wrong product key like `workstation:dell:poweredge:t3620`
+instead of joining the existing `workstation:dell:precision:t3620`
+baseline. The `systemServerLineDenylist` in
+`pkg/extract/system_normalize.go` fixes this for *new* extractions; to
+fix *historical* misclassifications, re-queue the affected listings:
+
+```sql
+INSERT INTO extraction_queue (listing_id, priority)
+SELECT id, 2
+FROM listings
+WHERE active = true
+  AND component_type IN ('workstation', 'desktop')
+  AND attributes->>'line' ~* '\y(poweredge|proliant|ucs|supermicro|dell.?emc|system.?x)\y'
+ON CONFLICT DO NOTHING;
+```
+
+After the queue drains, refresh baselines and drop orphans (the old
+`workstation:dell:poweredge:*` baseline rows won't auto-delete):
+
+```sql
+DELETE FROM price_baselines
+WHERE product_key NOT IN (
+    SELECT DISTINCT product_key FROM listings
+    WHERE active = true AND product_key IS NOT NULL
+);
+```
+
+Verify no server-line keys remain:
+
+```sql
+SELECT product_key, sample_count
+FROM price_baselines
+WHERE product_key ~ '^(workstation|desktop):.*:(poweredge|proliant|ucs|supermicro|dell-emc|system-x):'
+ORDER BY sample_count DESC;
+-- expected: 0 rows
+```
+
 ### Workstation/desktop baseline maturity check (IMPL-0018 Phase 6)
 
 After deploying workstation+desktop support, the
@@ -359,6 +400,25 @@ ORDER BY sample_count DESC;
 
 Bump each watch's threshold individually as its product_key matures —
 they're per-SKU baselines, not per-vendor.
+
+To list current watches and their thresholds (note the SQL column is
+`score_threshold`, while the CLI flag is `--threshold`):
+
+```sql
+SELECT id, name, score_threshold
+FROM watches
+WHERE component_type IN ('workstation', 'desktop')
+ORDER BY component_type, name;
+```
+
+Cross-reference each watch by name → expected line keyword in the
+baseline list (e.g., "Dell Precision T-series" → look for keys
+matching `workstation:dell:precision:t*`). When the watch's lead
+product_key has `sample_count >= 10`, bump:
+
+```bash
+spt watches update <watch-id> --threshold 80 --server https://spt.fartlab.dev
+```
 
 ### Backfill misclassified workstations and desktops (IMPL-0018 Phase 7)
 

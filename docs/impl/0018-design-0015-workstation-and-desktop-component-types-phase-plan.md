@@ -1,7 +1,7 @@
 ---
 id: IMPL-0018
 title: "DESIGN-0015 workstation and desktop component types phase plan"
-status: Draft
+status: Implemented
 author: Donald Gifford
 created: 2026-05-02
 ---
@@ -9,9 +9,10 @@ created: 2026-05-02
 
 # IMPL 0018: DESIGN-0015 workstation and desktop component types phase plan
 
-**Status:** Draft
+**Status:** Implemented (Phases 1–6 complete; Phase 7 skipped — dev/prod share DB)
 **Author:** Donald Gifford
 **Date:** 2026-05-02
+**Released:** v0.8.0 (PR #49, merged 2026-05-03)
 
 <!--toc:start-->
 - [Objective](#objective)
@@ -414,19 +415,22 @@ baselines mature.
 
 #### Tasks
 
-- [ ] Merge PR to main.
-- [ ] Confirm release workflow tags + builds + publishes prod
-  image.
-- [ ] Operator deploys prod (Helm release tagged with new
-  `appVersion`).
-- [ ] Trigger initial baseline + rescore:
+- [x] Merge PR to main. Merged at `8ebcf20`, PR #49.
+- [x] Confirm release workflow tags + builds + publishes prod
+  image. Tagged `v0.8.0`, chart bumped to `0.1.28` /
+  `appVersion: 0.8.0`.
+- [x] Operator deploys prod (Helm release tagged with new
+  `appVersion`). Image tag bump from `dev` to `v0.8.0` — no
+  template changes, only `Chart.yaml` version bumps. Migration 011
+  applied automatically by init container on pod restart.
+- [x] Trigger initial baseline + rescore:
   ```bash
   curl -X POST https://spt.fartlab.dev/api/v1/baselines/refresh
   curl -X POST https://spt.fartlab.dev/api/v1/rescore
   ```
 - [ ] Monitor `spt_alerts_created_total{component_type=~"workstation|desktop"}`
   over ~24h. Expect: low volume initially because baselines start
-  cold and thresholds are 65.
+  cold and thresholds are 65. (In-progress at v0.8.0 deploy time.)
 - [ ] Check baseline maturity once per week:
   ```sql
   SELECT product_key, sample_count, p50 AS p50_usd
@@ -436,7 +440,38 @@ baselines mature.
   ORDER BY sample_count DESC;
   ```
 - [ ] Bump each watch's threshold from 65 → 80 once its
-  product_key reaches `sample_count >= 10`.
+  product_key reaches `sample_count >= 10`. (Most workstation +
+  desktop watches were ready at deploy time — 22 workstation
+  baselines / 54 desktop baselines mature.)
+
+#### Phase 5 → 6 iterative fixes
+
+Two real failure modes surfaced during dev validation, both shipped
+on the same PR before merge:
+
+- **`7040888 fix(extract): title-based system pre-class catches LLM
+  + cable-bundle misses`** — added `DetectSystemTypeFromTitle` as a
+  third pre-class hook (chassis token + system-completeness signal)
+  that runs FIRST, before `IsAccessoryOnly`. Caught (a) 10
+  ThinkStation/HP Z workstations the LLM was routing to `server`
+  despite the prompt rule, and (b) bundled-cable desktop listings
+  ("HP EliteDesk 800 ... + Power Cable") that the
+  `compoundAccessoryPatterns` "power cable" rule was short-circuiting
+  to `other`.
+- **`cca93a5 fix(extract): drop server-line hallucinations from
+  workstation/desktop normaliser`** — added `systemServerLineDenylist`
+  (poweredge/proliant/ucs/supermicro/dell-emc/system-x). Surfaced
+  when 31 Dell Precision T3620 listings landed at
+  `workstation:dell:poweredge:t3620` instead of joining the existing
+  103-sample `workstation:dell:precision:t3620` baseline. After the
+  fix shipped + re-extract ran, the merged baseline reads 134 samples
+  at one key.
+
+Three known follow-ups parked for separate PRs (don't block):
+
+1. BOXX APEXX brand support (`\bboxx\b` to chassis primaries).
+2. `dell t\d{4}` chassis token without "Precision" prefix.
+3. Threadripper Pro custom-build heuristic (no vendor chassis token).
 - [x] Document the production transition in `docs/SQL_HELPERS.md`
   ("Workstation/desktop baseline maturity check"). Done ahead of
   rollout so the runbook is in tree before the operator deploys.
@@ -461,6 +496,16 @@ Historical listings classified as `server` or `other` whose titles
 match the new workstation/desktop primaries should be re-classified
 so the new buckets aren't slow to mature. **Optional** — skip if
 Phase 6 baselines mature on their own without backfill.
+
+**Status: skipped.** `spt-dev.fartlab.dev` and `spt.fartlab.dev`
+share the same Postgres database, so the re-extracts run during
+Phase 5 dev validation already updated the live prod dataset. By the
+time Phase 6 deploy completed, prod had **22 mature workstation
+baselines (avg ~50 samples each) and 54 mature desktop baselines
+(avg ~16 samples each)** — Phase 6 acceptance was met on day 0
+without an explicit backfill step. SQL helpers below remain for
+future ComponentType additions where a separate prod environment
+might apply.
 
 #### Tasks
 
