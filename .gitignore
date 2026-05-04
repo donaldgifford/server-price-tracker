@@ -37,8 +37,10 @@ bin/
 build/
 dist/
 /server-price-tracker
+/regression-runner
 tools/dashgen/dashgen
 tools/docgen/docgen
+tools/regression-runner/regression-runner
 *.log
 *.log.*
 .log.meta
