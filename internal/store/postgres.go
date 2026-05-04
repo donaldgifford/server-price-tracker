@@ -810,6 +810,96 @@ func (s *PostgresStore) RestoreAlerts(ctx context.Context, ids []string) (int, e
 	return count, rows.Err()
 }
 
+// ListAlertsForJudging returns alerts in the lookback window that don't
+// yet have a row in judge_scores. Joins to listings + watches +
+// price_baselines so the worker has everything it needs in one query.
+//
+// Limit defaults to 50 when the caller passes 0; the daily budget
+// caps wall-clock spend independently of batch size.
+func (s *PostgresStore) ListAlertsForJudging(ctx context.Context, q *JudgeCandidatesQuery) ([]domain.JudgeCandidate, error) {
+	defer observeQueryDuration("judge.list_candidates", time.Now())
+
+	lookback := q.Lookback
+	if lookback <= 0 {
+		lookback = 6 * time.Hour
+	}
+	limit := q.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	since := time.Now().Add(-lookback)
+
+	rows, err := s.pool.Query(ctx, queryListAlertsForJudging, since, limit)
+	if err != nil {
+		return nil, fmt.Errorf("listing alerts for judging: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]domain.JudgeCandidate, 0, limit)
+	for rows.Next() {
+		var c domain.JudgeCandidate
+		if err := rows.Scan(
+			&c.AlertID, &c.WatchID, &c.WatchName,
+			&c.ListingID, &c.ListingTitle, &c.ComponentType,
+			&c.Condition, &c.PriceUSD,
+			&c.BaselineP25, &c.BaselineP50, &c.BaselineP75, &c.SampleSize,
+			&c.Score, &c.Threshold, &c.TraceID, &c.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning judge candidate: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// InsertJudgeScore upserts a verdict; conflict on alert_id is a no-op
+// so the worker is idempotent. Re-judging an alert is a manual DELETE
+// + worker re-run, not an update path.
+func (s *PostgresStore) InsertJudgeScore(ctx context.Context, sc *domain.JudgeScore) error {
+	defer observeQueryDuration("judge.insert_score", time.Now())
+	_, err := s.pool.Exec(ctx, queryInsertJudgeScore,
+		sc.AlertID, sc.Score, sc.Reason, sc.Model,
+		sc.InputTokens, sc.OutputTokens, sc.CostUSD,
+	)
+	if err != nil {
+		return fmt.Errorf("inserting judge score: %w", err)
+	}
+	return nil
+}
+
+// SumJudgeCostSince returns the total cost_usd for verdicts judged at
+// or after `since`. The worker passes UTC midnight so the result is
+// today's spend; comparison against daily_budget_usd gates the next
+// batch.
+func (s *PostgresStore) SumJudgeCostSince(ctx context.Context, since time.Time) (float64, error) {
+	defer observeQueryDuration("judge.sum_cost", time.Now())
+	var sum float64
+	if err := s.pool.QueryRow(ctx, querySumJudgeCostSince, since).Scan(&sum); err != nil {
+		return 0, fmt.Errorf("summing judge cost: %w", err)
+	}
+	return sum, nil
+}
+
+// GetJudgeScore returns the verdict for one alert, or nil + nil error
+// when no row exists. Used by the alert review UI to populate the
+// judge_score column on the detail page.
+func (s *PostgresStore) GetJudgeScore(ctx context.Context, alertID string) (*domain.JudgeScore, error) {
+	defer observeQueryDuration("judge.get_score", time.Now())
+	var sc domain.JudgeScore
+	err := s.pool.QueryRow(ctx, queryGetJudgeScore, alertID).Scan(
+		&sc.AlertID, &sc.Score, &sc.Reason, &sc.Model,
+		&sc.InputTokens, &sc.OutputTokens, &sc.CostUSD, &sc.JudgedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			//nolint:nilnil // documented surface: nil + nil signals "no judge verdict yet" so the caller renders an empty cell
+			return nil, nil
+		}
+		return nil, fmt.Errorf("fetching judge score: %w", err)
+	}
+	return &sc, nil
+}
+
 // GetSystemState queries the system_state view for a single-row snapshot.
 func (s *PostgresStore) GetSystemState(ctx context.Context) (*domain.SystemState, error) {
 	var st domain.SystemState

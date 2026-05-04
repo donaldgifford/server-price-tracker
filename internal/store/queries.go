@@ -425,4 +425,45 @@ const (
 		FROM notification_attempts
 		WHERE alert_id = $1
 		ORDER BY attempted_at DESC`
+
+	// queryListAlertsForJudging pulls the per-tick batch for the
+	// LLM-as-judge worker (IMPL-0019 Phase 5). LEFT JOIN price_baselines
+	// because cold-start product keys have no baseline yet — the worker
+	// inspects sample_size and skips zero-sample candidates rather than
+	// posting noise to the judge.
+	//
+	// `judge_scores js IS NULL` filter makes the worker idempotent —
+	// re-running the cron entry never re-judges an alert.
+	queryListAlertsForJudging = `
+		SELECT
+		    a.id, a.watch_id, w.name,
+		    a.listing_id, l.title, l.component_type,
+		    l.condition_norm, l.price,
+		    COALESCE(pb.p25, 0), COALESCE(pb.p50, 0), COALESCE(pb.p75, 0), COALESCE(pb.sample_size, 0),
+		    a.score, w.score_threshold, a.trace_id, a.created_at
+		FROM alerts a
+		JOIN listings l ON l.id = a.listing_id
+		JOIN watches w ON w.id = a.watch_id
+		LEFT JOIN price_baselines pb ON pb.product_key = l.product_key
+		LEFT JOIN judge_scores js ON js.alert_id = a.id
+		WHERE a.created_at >= $1
+		  AND js.alert_id IS NULL
+		ORDER BY a.created_at DESC
+		LIMIT $2`
+
+	queryInsertJudgeScore = `
+		INSERT INTO judge_scores
+		    (alert_id, score, reason, model, input_tokens, output_tokens, cost_usd)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (alert_id) DO NOTHING`
+
+	querySumJudgeCostSince = `
+		SELECT COALESCE(SUM(cost_usd), 0)
+		FROM judge_scores
+		WHERE judged_at >= $1`
+
+	queryGetJudgeScore = `
+		SELECT alert_id, score, reason, model, input_tokens, output_tokens, cost_usd, judged_at
+		FROM judge_scores
+		WHERE alert_id = $1`
 )

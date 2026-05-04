@@ -360,3 +360,43 @@ type AlertDetail struct {
 	Watch               Watch                 `json:"watch"`
 	NotificationHistory []NotificationAttempt `json:"notification_history"`
 }
+
+// JudgeCandidate is the fully-joined row the LLM-as-judge worker pulls
+// when it builds an AlertContext for evaluation. Carries everything the
+// prompt template needs in one query so the worker doesn't fan out to
+// the baselines table per alert.
+//
+// BaselineP25/P50/P75 may be 0 when the listing's product_key has no
+// baseline yet (cold start) — the worker treats that as "skip judging,
+// no useful comparison" and bypasses these alerts.
+type JudgeCandidate struct {
+	AlertID       string        `json:"alert_id"`
+	WatchID       string        `json:"watch_id"`
+	WatchName     string        `json:"watch_name"`
+	ListingID     string        `json:"listing_id"`
+	ListingTitle  string        `json:"listing_title"`
+	ComponentType ComponentType `json:"component_type"`
+	Condition     Condition     `json:"condition"`
+	PriceUSD      float64       `json:"price_usd"`
+	BaselineP25   float64       `json:"baseline_p25"`
+	BaselineP50   float64       `json:"baseline_p50"`
+	BaselineP75   float64       `json:"baseline_p75"`
+	SampleSize    int           `json:"sample_size"`
+	Score         int           `json:"score"`
+	Threshold     int           `json:"threshold"`
+	TraceID       *string       `json:"trace_id,omitempty"`
+	CreatedAt     time.Time     `json:"created_at"`
+}
+
+// JudgeScore is one row from the judge_scores table. Mirrors the
+// migration shape exactly so SELECT ... matches scan order.
+type JudgeScore struct {
+	AlertID      string    `json:"alert_id"      db:"alert_id"`
+	Score        float64   `json:"score"         db:"score"`
+	Reason       string    `json:"reason"        db:"reason"`
+	Model        string    `json:"model"         db:"model"`
+	InputTokens  int       `json:"input_tokens"  db:"input_tokens"`
+	OutputTokens int       `json:"output_tokens" db:"output_tokens"`
+	CostUSD      float64   `json:"cost_usd"      db:"cost_usd"`
+	JudgedAt     time.Time `json:"judged_at"     db:"judged_at"`
+}

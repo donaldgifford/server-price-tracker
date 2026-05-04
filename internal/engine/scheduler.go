@@ -210,3 +210,33 @@ func (s *Scheduler) runReExtraction() {
 		s.log.Error("scheduled re-extraction failed", "error", err)
 	}
 }
+
+// AddJudge registers an LLM-as-judge cron entry running runFn every
+// `interval`. Wired this way (rather than as a NewScheduler arg) so
+// the judge worker stays an opt-in that doesn't pollute the scheduler
+// constructor when judge.enabled = false. Returns an error only if
+// the cron spec rejects the interval.
+//
+// The supplied runFn is the judge.Worker.Run signature
+// `(ctx) (judged int, err error)` — we wrap it so the
+// scheduler-level lock + run tracking + tracing work the same as
+// every other scheduled job.
+func (s *Scheduler) AddJudge(interval time.Duration, runFn func(context.Context) (int, error)) error {
+	tick := func() {
+		ctx, span := withSpan(context.Background(), "engine.judge")
+		defer span.End()
+
+		s.log.Info("scheduled judge starting")
+		fn := func(ctx context.Context) error {
+			judged, err := runFn(ctx)
+			s.log.Info("scheduled judge completed", "judged", judged, "error", err)
+			return err
+		}
+		if err := s.runJob(ctx, "judge", 30*time.Minute, fn); err != nil {
+			recordRunErr(span, err)
+			s.log.Error("scheduled judge failed", "error", err)
+		}
+	}
+	_, err := s.cron.AddFunc("@every "+interval.String(), tick)
+	return err
+}

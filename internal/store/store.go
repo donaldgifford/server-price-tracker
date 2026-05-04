@@ -61,6 +61,15 @@ type AlertReviewResult struct {
 	PerPage int
 }
 
+// JudgeCandidatesQuery scopes the LLM-as-judge worker's per-tick batch.
+// Lookback bounds the alerts.created_at window so we don't repeatedly
+// scan the full alert history when the worker is healthy. Limit caps
+// the batch — the worker enforces the daily budget separately.
+type JudgeCandidatesQuery struct {
+	Lookback time.Duration // alerts.created_at >= now() - Lookback
+	Limit    int           // 0 = use store default (50)
+}
+
 // Store defines all data access operations for server-price-tracker.
 type Store interface {
 	// Listings
@@ -118,6 +127,24 @@ type Store interface {
 	// the slice directly without a guard.
 	DismissAlerts(ctx context.Context, ids []string) (int, []string, error)
 	RestoreAlerts(ctx context.Context, ids []string) (int, error)
+
+	// Judge (IMPL-0019 Phase 5)
+	//
+	// ListAlertsForJudging returns the AlertContext slice the LLM-as-judge
+	// worker should evaluate this tick — alerts created in (now-lookback)
+	// that don't yet have a row in judge_scores. Limit caps the batch
+	// size; 0 means "use the worker's default."
+	ListAlertsForJudging(ctx context.Context, q *JudgeCandidatesQuery) ([]domain.JudgeCandidate, error)
+	// InsertJudgeScore persists the verdict. Conflict on alert_id is a
+	// no-op so the worker can be re-run without poisoning duplicates.
+	InsertJudgeScore(ctx context.Context, s *domain.JudgeScore) error
+	// SumJudgeCostSince is the daily-budget query. Returns the total
+	// cost_usd for verdicts judged on/after `since`; the worker
+	// multiplies UTC midnight in.
+	SumJudgeCostSince(ctx context.Context, since time.Time) (float64, error)
+	// GetJudgeScore returns the persisted verdict for a single alert,
+	// or nil + nil error when no row exists yet (pre-judge alerts).
+	GetJudgeScore(ctx context.Context, alertID string) (*domain.JudgeScore, error)
 
 	GetSystemState(ctx context.Context) (*domain.SystemState, error)
 

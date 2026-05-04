@@ -408,3 +408,38 @@ var (
 		Buckets:   prometheus.DefBuckets,
 	})
 )
+
+// LLM-as-judge worker metrics (IMPL-0019 Phase 5).
+//
+// `verdict` label buckets the score into deal/edge/noise so a Grafana
+// panel can show distribution drift over time. `component_type` on the
+// score histogram lets the operator see if the judge weights certain
+// component types more aggressively. Cost counter feeds the daily-
+// budget dashboards alongside the budget_exhausted counter that
+// increments whenever the worker cuts a tick short.
+var (
+	JudgeEvaluationsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "judge_evaluations_total",
+		Help:      "Number of alerts evaluated by the LLM-as-judge worker, bucketed by verdict (deal/edge/noise).",
+	}, []string{"verdict"})
+
+	JudgeScore = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Name:      "judge_score",
+		Help:      "Distribution of LLM-as-judge quality scores, partitioned by component type.",
+		Buckets:   []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0},
+	}, []string{"component_type"})
+
+	JudgeCostUSDTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "judge_cost_usd_total",
+		Help:      "Cumulative USD cost of LLM-as-judge calls, per model.",
+	}, []string{"model"})
+
+	JudgeBudgetExhaustedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "judge_budget_exhausted_total",
+		Help:      "Number of judge ticks that hit the configured daily USD budget cap.",
+	})
+)

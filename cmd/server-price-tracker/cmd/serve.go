@@ -24,10 +24,12 @@ import (
 	"github.com/donaldgifford/server-price-tracker/internal/config"
 	"github.com/donaldgifford/server-price-tracker/internal/ebay"
 	"github.com/donaldgifford/server-price-tracker/internal/engine"
+	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	"github.com/donaldgifford/server-price-tracker/internal/notify"
 	"github.com/donaldgifford/server-price-tracker/internal/observability"
 	"github.com/donaldgifford/server-price-tracker/internal/store"
 	"github.com/donaldgifford/server-price-tracker/pkg/extract"
+	"github.com/donaldgifford/server-price-tracker/pkg/judge"
 	sptlog "github.com/donaldgifford/server-price-tracker/pkg/logger"
 	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 )
@@ -82,7 +84,7 @@ func startServer(opts *Options) error {
 	// --- Engine + Scheduler ---
 	eng, scheduler := buildEngine(
 		cfg, pgStore, ebayClient, extractor, notifier,
-		analyticsClient, rateLimiter, slogger,
+		analyticsClient, rateLimiter, lfClient, slogger,
 	)
 	if eng != nil {
 		eng.StartExtractionWorkers(workerCtx)
@@ -457,6 +459,7 @@ func buildEngine(
 	notifier notify.Notifier,
 	ac *ebay.AnalyticsClient,
 	rl *ebay.RateLimiter,
+	lf langfuse.Client,
 	logger *slog.Logger,
 ) (*engine.Engine, *engine.Scheduler) {
 	if s == nil || ebayClient == nil || extractor == nil {
@@ -539,7 +542,76 @@ func buildEngine(
 	// Recover any job runs that were left in 'running' state at last crash.
 	sched.RecoverStaleJobRuns(context.Background())
 
+	// Register the LLM-as-judge worker as a cron entry when enabled.
+	// Skipped silently otherwise so judge.enabled = false matches the
+	// pre-IMPL-0019 deployment shape exactly.
+	if err := registerJudgeWorker(cfg, s, lf, sched, logger); err != nil {
+		logger.Error("judge worker registration failed", "error", err)
+	}
+
 	return eng, sched
+}
+
+// registerJudgeWorker wires the judge.Worker into the scheduler when
+// observability.judge.enabled = true. Builds a fresh LLMBackend so the
+// extract pipeline and the judge each have their own client (separate
+// generation names in Langfuse, no contention on a single Anthropic
+// rate limiter); the same model defaults apply unless judge.model
+// overrides.
+//
+// Returns nil when judge is disabled (the common case); the caller
+// treats the absence of an error as a no-op outcome.
+func registerJudgeWorker(
+	cfg *config.Config,
+	s store.Store,
+	lf langfuse.Client,
+	sched *engine.Scheduler,
+	logger *slog.Logger,
+) error {
+	if !cfg.Observability.Judge.Enabled {
+		return nil
+	}
+	backend := buildLLMBackend(cfg, logger)
+	if backend == nil {
+		logger.Warn("judge enabled but llm backend is nil; skipping registration")
+		return nil
+	}
+	if _, isNoop := lf.(langfuse.NoopClient); !isNoop && lf != nil {
+		decoratorOpts := []extract.LangfuseBackendOption{extract.WithLangfuseGenerationName("judge-llm")}
+		if len(cfg.Observability.Langfuse.ModelCosts) > 0 {
+			decoratorOpts = append(decoratorOpts, extract.WithModelCosts(cfg.Observability.Langfuse.ModelCosts))
+		}
+		backend = extract.NewLangfuseBackend(backend, lf, decoratorOpts...)
+	}
+	llmJudge, err := judge.NewLLMJudge(backend,
+		judge.WithModelCosts(cfg.Observability.Langfuse.ModelCosts),
+	)
+	if err != nil {
+		return fmt.Errorf("constructing LLM judge: %w", err)
+	}
+	worker, err := judge.NewWorker(&judge.WorkerConfig{
+		Judge:          llmJudge,
+		Store:          newJudgeStoreAdapter(s),
+		Metrics:        metrics.JudgeRecorder{},
+		Langfuse:       lf,
+		Logger:         logger,
+		Lookback:       cfg.Observability.Judge.Lookback,
+		BatchSize:      cfg.Observability.Judge.BatchSize,
+		DailyBudgetUSD: cfg.Observability.Judge.DailyBudgetUSD,
+	})
+	if err != nil {
+		return fmt.Errorf("constructing judge worker: %w", err)
+	}
+	if err := sched.AddJudge(cfg.Observability.Judge.Interval, worker.Run); err != nil {
+		return fmt.Errorf("registering judge cron entry: %w", err)
+	}
+	logger.Info("judge worker registered",
+		"interval", cfg.Observability.Judge.Interval,
+		"lookback", cfg.Observability.Judge.Lookback,
+		"batch_size", cfg.Observability.Judge.BatchSize,
+		"daily_budget_usd", cfg.Observability.Judge.DailyBudgetUSD,
+	)
+	return nil
 }
 
 func buildLLMBackend(cfg *config.Config, logger *slog.Logger) extract.LLMBackend {

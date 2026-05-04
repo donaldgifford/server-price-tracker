@@ -15,11 +15,13 @@ import (
 
 // renderRow runs AlertRow with the given options and returns the
 // rendered HTML so individual feature flags can be asserted by
-// substring. Tiny helper kept here so each test stays compact.
-func renderRow(t *testing.T, a domain.AlertWithListing, opts components.TableOptions) string {
+// substring. AlertWithListing is heavy (504 bytes), so we take a
+// pointer here purely to satisfy gocritic — the templ wrapper still
+// renders against the value form.
+func renderRow(t *testing.T, a *domain.AlertWithListing, opts components.TableOptions) string {
 	t.Helper()
 	var buf bytes.Buffer
-	require.NoError(t, components.AlertRow(a, opts).Render(context.Background(), &buf))
+	require.NoError(t, components.AlertRow(*a, opts).Render(context.Background(), &buf))
 	return buf.String()
 }
 
@@ -45,7 +47,7 @@ func TestAlertRow_LangfuseEnabledRendersTraceLink(t *testing.T) {
 		WatchName: "RAM watch",
 	}
 
-	html := renderRow(t, a, components.TableOptions{
+	html := renderRow(t, &a, components.TableOptions{
 		LangfuseEndpoint: "https://langfuse.example.com",
 	})
 	assert.Contains(t, html, "https://langfuse.example.com/trace/abc123")
@@ -67,7 +69,7 @@ func TestAlertRow_LangfuseDisabledHidesTraceLink(t *testing.T) {
 		Listing: domain.Listing{ItemURL: "https://www.ebay.com/itm/123", Title: "x"},
 	}
 
-	html := renderRow(t, a, components.TableOptions{LangfuseEndpoint: ""})
+	html := renderRow(t, &a, components.TableOptions{LangfuseEndpoint: ""})
 	assert.NotContains(t, html, "Trace ↗")
 }
 
@@ -80,7 +82,7 @@ func TestAlertRow_NoTraceIDHidesTraceLink(t *testing.T) {
 		Alert:   domain.Alert{ID: "alert-1", Score: 85, TraceID: nil},
 		Listing: domain.Listing{ItemURL: "https://www.ebay.com/itm/123", Title: "x"},
 	}
-	html := renderRow(t, a, components.TableOptions{LangfuseEndpoint: "https://langfuse.example.com"})
+	html := renderRow(t, &a, components.TableOptions{LangfuseEndpoint: "https://langfuse.example.com"})
 	assert.NotContains(t, html, "Trace ↗")
 }
 
@@ -95,11 +97,11 @@ func TestAlertRow_JudgeEnabledRendersColumn(t *testing.T) {
 		Listing: domain.Listing{Title: "x"},
 	}
 
-	enabled := renderRow(t, a, components.TableOptions{JudgeEnabled: true})
+	enabled := renderRow(t, &a, components.TableOptions{JudgeEnabled: true})
 	assert.Contains(t, enabled, `class="judge-score"`,
 		"judge-score column must render when JudgeEnabled is true")
 
-	disabled := renderRow(t, a, components.TableOptions{JudgeEnabled: false})
+	disabled := renderRow(t, &a, components.TableOptions{JudgeEnabled: false})
 	assert.NotContains(t, disabled, `class="judge-score"`,
 		"judge-score column must be absent when JudgeEnabled is false")
 }
