@@ -683,10 +683,14 @@ from CI.
       `//go:build regression` build tag — placeholder shipped today;
       runner integration is the parked follow-up
       (`tools/regression-runner`).
-- [ ] Backend comparison: extend `tools/regression-runner` with
-      `--backends ollama,anthropic,openai` flag — runs the dataset
-      against each in turn, prints a comparison table
-      (accuracy, p50 latency, $/1k extractions, error rate).
+- [x] Backend comparison: extended `tools/regression-runner` with
+      `--backends ollama,anthropic,openai_compat` flag — runs the
+      dataset against each in turn, prints a comparison table
+      (accuracy, error rate, p50/p95 latency). Per-extraction token
+      usage is not surfaced through the LLMExtractor return path
+      today, so the `$/1k extractions` column emits `—`; surfacing
+      tokens (via an exported counter snapshot or a Generate-result
+      hook) is parked as a small follow-up.
 - [x] When prompts change in a PR, the workflow becomes:
       operator runs `make test-regression` locally (or asks Claude
       Code to run it), pastes the accuracy delta into the PR
@@ -700,7 +704,7 @@ from CI.
 - [ ] Push a `classify_prompt:<sha>` annotation to Langfuse on each
       regression run via `CreateDatasetRun`, so operators can
       compare runs by commit SHA in the Langfuse UI.
-- [ ] Run `make lint` + `make test`.
+- [x] Run `make lint` + `make test`.
 
 #### Success Criteria
 
