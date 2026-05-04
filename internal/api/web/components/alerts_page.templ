@@ -9,10 +9,15 @@ import (
 // AlertsPageData is the input to AlertsPage. Carries the search/filter
 // values so the form can pre-fill on render and so the pagination links
 // can preserve filter state.
+//
+// TableOpts threads observability flags to the row + header templates
+// (Phase 4 IMPL-0019). Default zero value matches the pre-IMPL-0019
+// UI so existing tests pass unchanged.
 type AlertsPageData struct {
-	Result    store.AlertReviewResult
-	Query     store.AlertReviewQuery
-	RawQuery  string // original URL query string (used for pagination links)
+	Result     store.AlertReviewResult
+	Query      store.AlertReviewQuery
+	RawQuery   string // original URL query string (used for pagination links)
+	TableOpts  TableOptions
 }
 
 // AlertsPage is the top-level list view at GET /alerts.
@@ -62,6 +67,6 @@ templ AlertsPage(data AlertsPageData) {
 			<button type="submit" class="btn-primary">Search</button>
 		</form>
 
-		@AlertsTable(data.Result, data.RawQuery)
+		@AlertsTable(data.Result, data.RawQuery, data.TableOpts)
 	}
 }

@@ -9,7 +9,11 @@ import (
 // AlertsTable renders the alerts table body plus pagination controls.
 // The outer #alerts-table wrapper is the HTMX swap target — search,
 // filter changes, and dismiss/restore all return this partial.
-templ AlertsTable(result store.AlertReviewResult, query string) {
+templ AlertsTable(result store.AlertReviewResult, query string, opts TableOptions) {
+	{{ colspan := "7" }}
+	if opts.JudgeEnabled {
+		{{ colspan = "8" }}
+	}
 	<div id="alerts-table" x-data="{ selected: [] }">
 		<form
 			method="post"
@@ -32,15 +36,18 @@ templ AlertsTable(result store.AlertReviewResult, query string) {
 						<th>Watch</th>
 						<th>Type</th>
 						<th>Created</th>
+						if opts.JudgeEnabled {
+							<th>Judge</th>
+						}
 						<th></th>
 					</tr>
 				</thead>
 				<tbody>
 					if len(result.Items) == 0 {
-						<tr><td colspan="7" style="text-align:center;color:var(--color-muted);padding:2rem;">No alerts match these filters.</td></tr>
+						<tr><td colspan={ colspan } style="text-align:center;color:var(--color-muted);padding:2rem;">No alerts match these filters.</td></tr>
 					}
 					for _, item := range result.Items {
-						@AlertRow(item)
+						@AlertRow(item, opts)
 					}
 				</tbody>
 			</table>

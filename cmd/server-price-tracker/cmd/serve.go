@@ -93,7 +93,7 @@ func startServer(opts *Options) error {
 	e, humaAPI := buildHTTPServer(slogger)
 
 	// --- Routes ---
-	registerRoutes(humaAPI, pgStore, ebayClient, extractor, eng, rateLimiter)
+	registerRoutes(humaAPI, pgStore, ebayClient, extractor, eng, rateLimiter, cfg.Observability.Langfuse.Endpoint)
 
 	if err := registerAlertsUI(e, cfg, pgStore, notifier, lfClient, slogger); err != nil {
 		workerCancel()
@@ -244,6 +244,7 @@ func registerAlertsUI(
 		Notifier:         notifier,
 		Langfuse:         lf,
 		LangfuseEndpoint: cfg.Observability.Langfuse.Endpoint,
+		JudgeEnabled:     cfg.Observability.Judge.Enabled,
 		AlertsURLBase:    cfg.Web.AlertsURLBase,
 		Logger:           logger,
 	})
@@ -285,7 +286,10 @@ func buildHTTPServer(logger *slog.Logger) (*echo.Echo, huma.API) {
 	return e, humaecho.New(e, humaConfig)
 }
 
-// registerRoutes sets up all HTTP routes on the Huma API.
+// registerRoutes sets up all HTTP routes on the Huma API. The
+// langfuseEndpoint is wired through to the alerts trace handler so
+// trace deep-links can be resolved by clients without re-reading
+// config.
 func registerRoutes(
 	humaAPI huma.API,
 	s store.Store,
@@ -293,6 +297,7 @@ func registerRoutes(
 	extractor extract.Extractor,
 	eng *engine.Engine,
 	rl *ebay.RateLimiter,
+	langfuseEndpoint string,
 ) {
 	// Health endpoints (Huma).
 	healthH := handlers.NewHealthHandler(s)
@@ -321,6 +326,9 @@ func registerRoutes(
 
 		systemStateH := handlers.NewSystemStateHandler(s)
 		handlers.RegisterSystemStateRoutes(humaAPI, systemStateH)
+
+		alertsAPI := handlers.NewAlertsAPIHandler(s, langfuseEndpoint)
+		handlers.RegisterAlertsAPIRoutes(humaAPI, alertsAPI)
 
 		jobsH := handlers.NewJobsHandler(s)
 		handlers.RegisterJobRoutes(humaAPI, jobsH)

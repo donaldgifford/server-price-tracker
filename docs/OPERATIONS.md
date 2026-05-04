@@ -567,6 +567,38 @@ config:
       summary_only: true
 ```
 
+#### Trace deep-links and dismissal scoring (IMPL-0019)
+
+When `observability.langfuse.enabled: true` and the alert has a
+`trace_id` (every alert created after migration 012 does), each row in
+the `/alerts` table renders a **Trace ↗** button alongside the existing
+**eBay ↗** link, deep-linking into the Langfuse trace viewer. The
+detail page at `/alerts/{id}` renders the same button next to
+Retry/Dismiss/Restore. Empty `observability.langfuse.endpoint`
+suppresses the button across the UI — no degraded experience for users
+with Langfuse off.
+
+A separate JSON endpoint, `GET /api/v1/alerts/{id}/trace`, returns
+`{"trace_url": "..."}` for programmatic consumers. Returns 404 when
+Langfuse is disabled, the alert doesn't exist, or the alert predates
+trace propagation.
+
+Dismissing an alert (single or bulk) also fires a best-effort Langfuse
+score:
+
+- `name = "operator_dismissed"`, `value = 1.0`, attached to the
+  alert's trace ID
+- score writes go through the buffered Langfuse client — failures
+  never fail a dismiss
+- the same dismissals also drive the Phase 5 LLM-as-judge regression
+  set when it ships, because operator-truth labels become the column
+  the judge prompt is graded against
+
+When `observability.judge.enabled: true` the alerts table renders an
+extra **Judge** column. Phase 5 fills the cell; today the column
+renders empty — the placeholder is here so the layout doesn't shift
+mid-rollout.
+
 #### Discord rate-limit observability
 
 The Discord notifier now parses `X-RateLimit-*` headers on every

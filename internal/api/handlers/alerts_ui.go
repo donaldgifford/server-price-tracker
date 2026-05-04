@@ -60,6 +60,7 @@ type AlertsUIDeps struct {
 	Notifier         notify.Notifier
 	Langfuse         langfuse.Client
 	LangfuseEndpoint string
+	JudgeEnabled     bool
 	AlertsURLBase    string // unused today; threaded through for the summary embed in Phase 6
 	Logger           *slog.Logger
 }
@@ -67,6 +68,16 @@ type AlertsUIDeps struct {
 // AlertsUIHandler serves the /alerts route group.
 type AlertsUIHandler struct {
 	deps AlertsUIDeps
+}
+
+// tableOpts derives the per-render TableOptions struct from deps so the
+// Langfuse/Judge feature flags propagate uniformly to every component
+// that renders alert rows.
+func (h *AlertsUIHandler) tableOpts() components.TableOptions {
+	return components.TableOptions{
+		LangfuseEndpoint: h.deps.LangfuseEndpoint,
+		JudgeEnabled:     h.deps.JudgeEnabled,
+	}
 }
 
 // NewAlertsUIHandler returns a handler ready to register against an Echo
@@ -133,13 +144,15 @@ func (h *AlertsUIHandler) ListPage(c echo.Context) error {
 
 	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
 	w := c.Response().Writer
+	opts := h.tableOpts()
 	if isHTMX(c) {
-		return components.AlertsTable(result, c.Request().URL.RawQuery).Render(c.Request().Context(), w)
+		return components.AlertsTable(result, c.Request().URL.RawQuery, opts).Render(c.Request().Context(), w)
 	}
 	return components.AlertsPage(components.AlertsPageData{
-		Result:   result,
-		Query:    q,
-		RawQuery: c.Request().URL.RawQuery,
+		Result:    result,
+		Query:     q,
+		RawQuery:  c.Request().URL.RawQuery,
+		TableOpts: opts,
 	}).Render(c.Request().Context(), w)
 }
 
@@ -165,7 +178,10 @@ func (h *AlertsUIHandler) DetailPage(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "fetching alert detail: "+err.Error())
 	}
 	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
-	return components.AlertDetailPage(d).Render(c.Request().Context(), c.Response().Writer)
+	return components.AlertDetailPage(components.AlertDetailData{
+		Detail:           d,
+		LangfuseEndpoint: h.deps.LangfuseEndpoint,
+	}).Render(c.Request().Context(), c.Response().Writer)
 }
 
 // DismissOne dismisses a single alert by path-param id. Returns the
@@ -215,7 +231,7 @@ func (h *AlertsUIHandler) DismissBulk(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusInternalServerError, "refreshing alerts: "+err.Error())
 		}
 		c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
-		return components.AlertsTable(result, c.Request().URL.RawQuery).
+		return components.AlertsTable(result, c.Request().URL.RawQuery, h.tableOpts()).
 			Render(c.Request().Context(), c.Response().Writer)
 	}
 	return c.Redirect(http.StatusSeeOther, "/alerts")

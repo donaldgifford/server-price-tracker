@@ -485,26 +485,33 @@ Judge column added but blank until Phase 5 lights it up.
 
 #### Tasks
 
-- [ ] Add `GET /api/v1/alerts/{id}/trace` Huma handler. Returns
+- [x] Add `GET /api/v1/alerts/{id}/trace` Huma handler. Returns
       `{ "trace_url": "https://langfuse.example/trace/<id>" }`.
       404 when Langfuse disabled or `alerts.trace_id IS NULL`.
-- [ ] Templ component update: alert row gains a "View trace" button
+- [x] Templ component update: alert row gains a "View trace" button
       (only rendered when `cfg.Observability.Langfuse.Enabled`).
-- [ ] Add a `judge_score` column to the alert review UI table
+- [x] Add a `judge_score` column to the alert review UI table
       (rendered when `cfg.Observability.Judge.Enabled`). Empty cell
       until Phase 5.
-- [ ] Wire dismiss action: existing dismiss endpoint also calls
+- [x] Wire dismiss action: existing dismiss endpoint also calls
       `langfuse.Score(traceID, "operator_dismissed", 1.0, reason)`.
       Best-effort — failure to score doesn't fail the dismiss.
 - [ ] Add an "undo dismiss" action that posts
-      `operator_dismissed = 0`. Optional but cheap.
-- [ ] Tests:
+      `operator_dismissed = 0`. Optional but cheap. *(Deferred —
+      restore endpoint exists but does not currently emit a Langfuse
+      score; the Phase 5 judge will treat absence of
+      `operator_dismissed` as the negative label automatically. Track
+      as follow-up if regression set demands explicit zero rows.)*
+- [x] Tests:
       - Templ render test covers both feature-flag states.
+        (`alert_row_test.go`)
       - Handler test asserts 404 when Langfuse disabled.
+        (`alerts_test.go::TestGetAlertTrace_LangfuseDisabled`)
       - Mock Langfuse client asserts `Score` called on dismiss.
-- [ ] Add CHANGELOG-style note in `docs/OPERATIONS.md` describing the
+        (`alerts_ui_test.go::TestDismissOne_PostsLangfuseScore`)
+- [x] Add CHANGELOG-style note in `docs/OPERATIONS.md` describing the
       new UI elements.
-- [ ] Run `make templ-generate`, `make lint`, `make test`.
+- [x] Run `make templ-generate`, `make lint`, `make test`.
 
 #### Success Criteria
 
