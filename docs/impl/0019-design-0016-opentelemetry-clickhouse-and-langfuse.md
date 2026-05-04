@@ -682,13 +682,14 @@ from CI.
       `--backends ollama,anthropic,openai` flag — runs the dataset
       against each in turn, prints a comparison table
       (accuracy, p50 latency, $/1k extractions, error rate).
-- [ ] When prompts change in a PR, the workflow becomes:
+- [x] When prompts change in a PR, the workflow becomes:
       operator runs `make test-regression` locally (or asks Claude
       Code to run it), pastes the accuracy delta into the PR
-      description. Add a checkbox to `.github/PULL_REQUEST_TEMPLATE.md`
-      ("Did you run `make test-regression` if `pkg/extract/`
-      changed? Paste accuracy delta:").
-- [ ] Add a CLAUDE.md note: when working in `pkg/extract/`,
+      description. Added a checkbox to
+      `.github/PULL_REQUEST_TEMPLATE.md` ("Did you run
+      `make test-regression` if `pkg/extract/` changed? Paste
+      accuracy delta:").
+- [x] Added a CLAUDE.md note: when working in `pkg/extract/`,
       always run `make test-regression` before requesting review
       and paste the result.
 - [ ] Push a `classify_prompt:<sha>` annotation to Langfuse on each
@@ -750,7 +751,7 @@ new OTel-derived data. Document the operator workflow.
       alert/error/extract traces, sampled clean ingestion) are
       producing the data we need without exceeding the storage
       budget. Hand off any policy tweaks to the platform side.
-- [ ] Document the new operator workflow in `docs/OPERATIONS.md`:
+- [x] Document the new operator workflow in `docs/OPERATIONS.md`:
       - Reading judge scores in the UI.
       - Refreshing `examples.json` when adding a new ComponentType.
       - Pulling weekly judge-vs-dismiss alignment report from

@@ -957,3 +957,85 @@ registered, the HTTP endpoint responds 503, and `judge_scores`
 stays empty. The alert review UI hides the judge_score column
 under the `JudgeEnabled` flag (Phase 4) so users not opted in see
 the original lean table.
+
+### Operator workflow (Phase 7)
+
+The day-to-day routines once OTel + Langfuse + judge are all on.
+
+#### Reading judge scores in the UI
+
+The alert detail page (`/alerts/{id}`) renders a `Judge score`
+row alongside the existing breakdown when `judge.enabled: true`.
+Score is a 0.0–1.0 float; the inline reason is the LLM's one-line
+rationale. Heuristic mapping:
+
+- ≥ 0.7 — judge calls it a deal. If `notified=false`, the operator
+  should reconsider their dismissal.
+- 0.3–0.7 — edge call. The judge is uncertain; review the
+  breakdown.
+- < 0.3 — judge calls it noise. If the alert fired *and*
+  `notified=true`, that's an alert-noise leak — the operator's
+  pre-classifier or score curve is too generous.
+
+The `Trace ↗` button on each alert deep-links to the Langfuse
+trace for the original extract + classify call so the operator
+can see exactly what the LLM saw.
+
+#### Refreshing `examples.json` after a ComponentType addition
+
+When a new ComponentType lands (e.g. workstation in IMPL-0018), the
+judge has zero few-shot examples covering it and verdict quality
+for that bucket craters until the operator backfills. Workflow:
+
+1. After ~50 alerts have fired against the new ComponentType,
+   manually classify a stratified sample of ~10–15 of them as
+   `deal` / `noise` / `edge` with one-line reasons.
+2. Append them to `pkg/judge/examples.json` (see "Cold-start
+   few-shot examples" above for the exact JSON shape).
+3. Commit, redeploy. The next judge tick uses the refreshed
+   examples; existing `judge_scores` rows are untouched (judging
+   is idempotent — no automatic re-judge of older alerts).
+4. If the operator needs a forced re-judge of older rows, the
+   manual SQL is `DELETE FROM judge_scores WHERE alert_id IN
+   (...)` followed by `spt judge run` (within budget).
+
+#### Weekly judge-vs-dismiss alignment report
+
+Each week, pull a Langfuse trace export filtered on the past 7
+days where both `operator_dismissed` and `judge_alert_quality`
+scores are present on the same trace. The agreement rate is the
+fraction of traces where one of:
+
+- `operator_dismissed = 1` AND `judge_alert_quality < 0.3`
+  (operator and judge both call it noise)
+- `operator_dismissed = 0` AND `judge_alert_quality ≥ 0.7`
+  (operator and judge both call it a deal)
+
+Below 75% agreement is the trigger for refreshing
+`pkg/judge/examples.json` or relabelling the dataset (next
+section). The Grafana panel `JudgeVsOperatorAgreement` is the
+near-real-time version of this report — the weekly export is the
+audit record.
+
+#### Quarterly dataset relabelling
+
+Operator-curated truth drifts. Once a quarter:
+
+1. Re-pull a stratified sample of the last quarter's alerts (~50
+   listings across all enabled ComponentTypes).
+2. Re-label using current operator intuition. If a label flipped
+   relative to the original, update both
+   `pkg/judge/examples.json` *and*
+   `testdata/golden_classifications.json` (the regression dataset
+   from Phase 6).
+3. Commit, redeploy, run `make test-regression` to confirm the
+   classifier accuracy didn't regress against the new truth set.
+4. If accuracy drops > 5%, that's a signal the prompt is drifting
+   away from operator intent — open a follow-up to retune
+   `pkg/extract/prompts.go` rather than papering over it with new
+   examples.
+
+The dataset bootstrap and regression-runner CLIs
+(`tools/dataset-bootstrap`, `tools/regression-runner`) are the
+intended tooling for steps 1–3 — both are parked as follow-ups;
+the manual workflow above unblocks the operator until they ship.
