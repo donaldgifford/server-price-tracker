@@ -719,21 +719,31 @@ new OTel-derived data. Document the operator workflow.
 
 #### Tasks
 
-- [ ] Add `tools/dashgen` panels for:
-      - `JudgeScoreDistribution` — histogram of `spt_judge_score`
-        by component_type.
-      - `JudgeVsOperatorAgreement` — overlay of
-        `judge_alert_quality < 0.5` rate vs `operator_dismissed`
-        rate over time.
-      - `LangfuseGenerationCost` — `$` spent per backend per day
-        (derived from generation cost field exported via Langfuse
-        webhook or polling).
-      - `TraceVolumeByPipelineStage` — span count per stage per
-        minute.
-- [ ] Bump `totalPanels` in `tools/dashgen/dashgen_test.go`.
-- [ ] Register all new metric names in
-      `tools/dashgen/config.go::KnownMetrics`.
-- [ ] Run `make dashboards` to regenerate
+- [x] Add `tools/dashgen` panels for:
+      - `JudgeScoreDistribution` — heatmap of `spt_judge_score`
+        bucketed by component_type.
+      - `JudgeVsOperatorAgreement` — overlay of judge "noise"
+        verdict rate (`spt_judge_evaluations_total{verdict="noise"}`)
+        vs `spt_alerts_dismissed_total` rate over time.
+      - `JudgeCostByModel` — cumulative USD spend per model from
+        `spt_judge_cost_usd_total`. Closest in-tree analog to the
+        spec'd `LangfuseGenerationCost`; the Langfuse-derived per-
+        generation cost field requires a polling job that is parked
+        as a follow-up.
+      - `PipelineStageVolume` — proxy for trace volume per pipeline
+        stage built from existing histogram `_count` rates
+        (ingestion / extraction / alerts query / notification).
+        Replaces the spec'd `TraceVolumeByPipelineStage` until OTel-
+        derived span counters are surfaced via the Collector →
+        Prometheus pathway.
+- [x] Bump `totalPanels` in `tools/dashgen/dashgen_test.go`
+      (34 → 38; row count 7 → 8).
+- [x] Register all new metric names in
+      `tools/dashgen/config.go::KnownMetrics`
+      (`spt_judge_evaluations_total`, `spt_judge_score`,
+      `spt_judge_cost_usd_total`,
+      `spt_judge_budget_exhausted_total`).
+- [x] Run `make dashboards` to regenerate
       `deploy/grafana/data/spt-overview.json` + Prometheus rules.
 - [ ] Review Collector tail-sampling effectiveness after 7 days:
       confirm the platform-side `tail_sampling` policies (kept

@@ -53,8 +53,8 @@ func TestBuildOverviewDashboard(t *testing.T) {
 	assert.Len(t, dash.Templating.List, 1)
 	assert.Equal(t, "datasource", dash.Templating.List[0].Name)
 
-	// Verify we have 7 rows.
-	assert.Len(t, dash.Panels, 7)
+	// Verify we have 8 rows.
+	assert.Len(t, dash.Panels, 8)
 
 	// Count total inner panels.
 	totalPanels := 0
@@ -63,7 +63,7 @@ func TestBuildOverviewDashboard(t *testing.T) {
 			totalPanels += len(p.RowPanel.Panels)
 		}
 	}
-	assert.Equal(t, 34, totalPanels)
+	assert.Equal(t, 38, totalPanels)
 
 	// Validate PromQL and metrics.
 	result := validate.Dashboard(dash, KnownMetrics)

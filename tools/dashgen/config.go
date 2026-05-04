@@ -50,6 +50,12 @@ var KnownMetrics = map[string]bool{
 	"spt_alerts_table_rows":                    true,
 	"spt_notification_attempts_inserted_total": true,
 
+	// Observability — judge metrics (IMPL-0019 Phase 5/7).
+	"spt_judge_evaluations_total":      true,
+	"spt_judge_score":                  true,
+	"spt_judge_cost_usd_total":         true,
+	"spt_judge_budget_exhausted_total": true,
+
 	// Notification metrics.
 	"spt_notification_duration_seconds":       true,
 	"spt_notification_last_success_timestamp": true,

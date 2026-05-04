@@ -2053,6 +2053,252 @@
           }
         }
       ]
+    },
+    {
+      "type": "row",
+      "collapsed": true,
+      "title": "Observability",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 127
+      },
+      "id": 0,
+      "panels": [
+        {
+          "type": "heatmap",
+          "targets": [
+            {
+              "expr": "sum by (le, component_type) (increase(spt_judge_score_bucket{job=\"server-price-tracker\"}[5m]))",
+              "legendFormat": "{{component_type}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Judge Score Distribution",
+          "description": "Distribution of LLM-as-judge quality scores by component type (heatmap of spt_judge_score histogram buckets)",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 128
+          },
+          "repeatDirection": "h"
+        },
+        {
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(rate(spt_judge_evaluations_total{job=\"server-price-tracker\",verdict=\"noise\"}[5m]))",
+              "legendFormat": "judge noise",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(spt_alerts_dismissed_total{job=\"server-price-tracker\"}[5m]))",
+              "legendFormat": "operator dismissals",
+              "refId": "B"
+            }
+          ],
+          "title": "Judge vs Operator Agreement",
+          "description": "Overlay of judge 'noise' verdict rate vs operator dismissal rate — divergence indicates judge drift",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 136
+          },
+          "repeatDirection": "h",
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": false,
+              "calcs": [
+                "mean",
+                "max",
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 15
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum by (model) (spt_judge_cost_usd_total{job=\"server-price-tracker\"})",
+              "legendFormat": "{{model}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Judge Cost by Model",
+          "description": "Cumulative USD cost of LLM-as-judge calls per model (spt_judge_cost_usd_total)",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 144
+          },
+          "repeatDirection": "h",
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": false,
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "currencyUSD",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 20
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(rate(spt_ingestion_duration_seconds_count{job=\"server-price-tracker\"}[5m]))",
+              "legendFormat": "ingestion",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(spt_extraction_duration_seconds_count{job=\"server-price-tracker\"}[5m]))",
+              "legendFormat": "extraction",
+              "refId": "B"
+            },
+            {
+              "expr": "sum(rate(spt_alerts_query_duration_seconds_count{job=\"server-price-tracker\"}[5m]))",
+              "legendFormat": "alerts query",
+              "refId": "C"
+            },
+            {
+              "expr": "sum(rate(spt_notification_duration_seconds_count{job=\"server-price-tracker\"}[5m]))",
+              "legendFormat": "notification",
+              "refId": "D"
+            }
+          ],
+          "title": "Pipeline Stage Volume",
+          "description": "Operations per second per pipeline stage (proxy for OTel span count by stage)",
+          "transparent": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 144
+          },
+          "repeatDirection": "h",
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": false,
+              "calcs": [
+                "mean",
+                "max",
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "value": null,
+                    "color": "green"
+                  }
+                ]
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          }
+        }
+      ]
     }
   ],
   "templating": {

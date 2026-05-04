@@ -74,6 +74,13 @@ func BuildOverview() *dashboard.DashboardBuilder {
 		WithPanel(panels.NotificationFailures()).
 		WithPanel(panels.AlertsQueryLatency()))
 
+	// Row 8: Observability (IMPL-0019 Phase 7).
+	b.WithRow(dashboard.NewRowBuilder("Observability").
+		WithPanel(panels.JudgeScoreDistribution()).
+		WithPanel(panels.JudgeVsOperatorAgreement()).
+		WithPanel(panels.JudgeCostByModel()).
+		WithPanel(panels.PipelineStageVolume()))
+
 	return b
 }
 
