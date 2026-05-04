@@ -19,6 +19,7 @@ created: 2026-05-03
   - [In Scope](#in-scope)
   - [Out of Scope](#out-of-scope)
 - [Guiding Principles](#guiding-principles)
+- [Agent workflow: don't wait for the operator unnecessarily](#agent-workflow-dont-wait-for-the-operator-unnecessarily)
 - [Implementation Phases](#implementation-phases)
   - [Phase 1: OTel SDK foundation + config wiring](#phase-1-otel-sdk-foundation--config-wiring)
   - [Phase 2: Pipeline span instrumentation](#phase-2-pipeline-span-instrumentation)
@@ -123,6 +124,91 @@ observability subtrees disabled behaves identically to today's
 5. **One change per PR.** Each phase ships as its own PR with the
    appropriate semver label
    (Phases 1-2 `minor`, Phase 3+ `minor`, fixes `patch`).
+6. **Don't sit blocked on the operator.** This plan is built so an
+   AI agent can keep coding through Phases 1–4 entirely without
+   Clickhouse or Langfuse existing yet, and can write all of
+   Phases 5–6's code (worker, tools, tests with mocks) before the
+   operator-labelling step runs. The next section spells out
+   exactly what is and isn't blocking.
+
+## Agent workflow: don't wait for the operator unnecessarily
+
+This section is a directive for any AI agent (or future-self
+operator) implementing this plan. **The default assumption is keep
+moving.** Most operator handoffs are verification or labelling
+tasks that come at the *end* of a phase, not the start.
+
+### What is NOT blocking (keep coding)
+
+- **Backend availability.** Clickhouse and Langfuse don't have to
+  exist for Phases 1–4 code to be written, tested, and merged.
+  Mocks + in-memory exporters cover all unit/integration tests.
+  Code ships behind feature flags that default off.
+- **Schema migrations on prod.** Migrations `012` (Phase 2) and
+  `013` (Phase 5) can ship in code; the operator applies them
+  whenever convenient. Don't block PR merge waiting for the
+  apply.
+- **Operator labelling for cold-start.** Phase 5's
+  `examples.json` and Phase 6's `golden_classifications.json`
+  are the LAST tasks of their respective phases. Build the tools
+  (`tools/judge-bootstrap`, `tools/dataset-bootstrap`,
+  `tools/regression-runner`) and all surrounding code first;
+  operator labels when you hand them the working tool.
+- **Verification of "appears in Langfuse UI" success criteria.**
+  These are end-of-phase checks. Code can be written and merged;
+  verification gets batched once Langfuse is up.
+
+### What IS blocking (stop and ask)
+
+- **A new ComponentType lands** while you're mid-implementation.
+  Pause, sync IMPL-0019 file paths and migrations to whatever the
+  new state is, then resume.
+- **Migration number collision.** First task of Phase 2 and Phase
+  5 is to verify `012`/`013` are still free. If something landed
+  in the meantime, ask the operator before bumping (in case
+  there's an in-flight branch you don't know about).
+- **OTel module version skew** that makes existing transitive
+  versions (currently `v1.42.0` core / `v0.49.0` contrib) hard to
+  upgrade past. Open a separate issue rather than working around
+  it in this plan.
+- **A judge prompt or example file change** the operator hasn't
+  reviewed. The few-shot examples are the judge's calibration —
+  don't ship them without operator sign-off.
+- **Anything that touches Discord notification semantics.** Out
+  of scope for this design but tempting to "just fix while I'm
+  here." Don't.
+
+### Phase-by-phase blocking matrix
+
+| Phase | Code can land before infra? | Operator must do (when) | Time |
+|-------|----------------------------|-------------------------|------|
+| 1     | Yes — no-op defaults, in-memory tests | Hand off Collector tail-sampling requirement to platform side | ~15 min, end of phase |
+| 2     | Yes — code + migration `012` ship; spans emit when flag on | Apply migration `012` to prod | ~5 min, post-merge |
+| 3     | Yes — code ships with `langfuse.enabled: false` | Provision Langfuse keys + k8s Secret (when Langfuse exists) | ~10 min |
+| 4     | Yes — UI ships with feature-flag hidden | Toggle Langfuse flag in dev to validate | ~10 min |
+| 5     | **Yes for code** (mocks cover worker logic); operator labelling blocks **execution** of bootstrap CLI | Run `tools/judge-bootstrap` to label ~30 alerts | **~15 min focused work** |
+| 6     | **Yes for tools**; operator labelling blocks dataset use | Run `tools/dataset-bootstrap` to label ~100 listings; run `make test-regression` per PR thereafter | **~50 min focused work** + ~2 min/PR |
+| 7     | Partially — dashgen panels are code-only; rollout review needs 7 days of real data | Monitor prod for 7 days; pull weekly judge-vs-dismiss report; finalise OPERATIONS.md runbook | spread over ~7 days |
+
+### Recommended sequencing for an agent
+
+1. **Code Phases 1 → 4 sequentially**, each as its own PR. Don't
+   wait for backends. Each PR ships with feature-flag default
+   off; existing deployments are unaffected.
+2. **In parallel, ping the operator** that Clickhouse + Langfuse
+   need to be stood up before the verification milestones at the
+   end of Phase 2 (Clickhouse) and Phase 3 (Langfuse). Single
+   ping, not per-phase nags.
+3. **When starting Phase 5**, build the worker + judge package +
+   `tools/judge-bootstrap` first. The labelling task is the
+   *last* thing — hand the operator a working CLI and ~15
+   minutes' notice.
+4. **Phase 6 same pattern**: build `tools/dataset-bootstrap` +
+   `tools/regression-runner` first; labelling and PR template
+   updates last.
+5. **Batch operator handoffs**. If Phase 4 needs the operator to
+   toggle a flag and Phase 5 needs labelling, ask for both in
+   one message rather than two interrupts.
 
 ## Implementation Phases
 
