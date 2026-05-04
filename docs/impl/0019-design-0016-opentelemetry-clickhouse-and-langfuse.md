@@ -658,11 +658,18 @@ from CI.
 
 #### Tasks
 
-- [ ] Build the golden dataset:
-      `tools/dataset-bootstrap/main.go` selects ~100 listings
-      stratified by ComponentType + extraction confidence. Operator
-      labels with correct `component_type` + `product_key`. Output:
-      `testdata/golden_classifications.json`.
+- [x] Build the golden dataset (CLI shipped; operator labelling
+      blocks dataset use):
+      `tools/dataset-bootstrap/main.go` selects up to
+      `--per-component` listings per ComponentType from the live
+      DB and emits them as the same JSON shape
+      testdata/golden_classifications.json expects, with
+      `expected_component` and `expected_product_key` pre-filled
+      from each listing's existing `component_type` /
+      `product_key`. Operator audit-corrects the JSON and saves
+      it as the dataset; the LLM has already done the heavy
+      lifting on every active listing so the workflow is *audit*,
+      not label-from-scratch.
 - [ ] Upload dataset to Langfuse as `golden_classifications:v1` via
       the in-house client's `CreateDatasetItem` (Phase 3 endpoint).
       Document the upload step in OPERATIONS.md.

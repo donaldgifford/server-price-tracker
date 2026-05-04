@@ -38,9 +38,11 @@ build/
 dist/
 /server-price-tracker
 /regression-runner
+/dataset-bootstrap
 tools/dashgen/dashgen
 tools/docgen/docgen
 tools/regression-runner/regression-runner
+tools/dataset-bootstrap/dataset-bootstrap
 *.log
 *.log.*
 .log.meta
