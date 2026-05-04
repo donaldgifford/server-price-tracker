@@ -95,7 +95,7 @@ func startServer(opts *Options) error {
 	// --- Routes ---
 	registerRoutes(humaAPI, pgStore, ebayClient, extractor, eng, rateLimiter)
 
-	if err := registerAlertsUI(e, cfg, pgStore, notifier, slogger); err != nil {
+	if err := registerAlertsUI(e, cfg, pgStore, notifier, lfClient, slogger); err != nil {
 		workerCancel()
 		return err
 	}
@@ -233,15 +233,19 @@ func registerAlertsUI(
 	cfg *config.Config,
 	pgStore store.Store,
 	notifier notify.Notifier,
+	lf langfuse.Client,
 	logger *slog.Logger,
 ) error {
 	if !cfg.Web.Enabled || pgStore == nil {
 		return nil
 	}
-	alertsUI := handlers.NewAlertsUIHandler(handlers.AlertsUIDeps{
-		Store:         pgStore,
-		Notifier:      notifier,
-		AlertsURLBase: cfg.Web.AlertsURLBase,
+	alertsUI := handlers.NewAlertsUIHandler(&handlers.AlertsUIDeps{
+		Store:            pgStore,
+		Notifier:         notifier,
+		Langfuse:         lf,
+		LangfuseEndpoint: cfg.Observability.Langfuse.Endpoint,
+		AlertsURLBase:    cfg.Web.AlertsURLBase,
+		Logger:           logger,
 	})
 	handlers.RegisterAlertsUIRoutes(e, alertsUI)
 	staticSub, err := fs.Sub(web.StaticFS, "static")

@@ -752,29 +752,37 @@ func (s *PostgresStore) listNotificationAttempts(
 }
 
 // DismissAlerts marks the given alerts as dismissed, skipping any that are
-// already dismissed. Returns the number of rows actually transitioned, so
-// callers can distinguish "nothing to do" from "I dismissed N rows" for
-// UI feedback and metric counting.
-func (s *PostgresStore) DismissAlerts(ctx context.Context, ids []string) (int, error) {
+// already dismissed. Returns the number of rows actually transitioned plus
+// the trace IDs of those rows so the alert-review handler can post a
+// Langfuse dismissal score (IMPL-0019 Phase 4). Empty/NULL trace IDs are
+// filtered out — callers iterate the slice directly without a guard.
+func (s *PostgresStore) DismissAlerts(ctx context.Context, ids []string) (int, []string, error) {
 	defer observeQueryDuration("dismiss", time.Now())
 	if len(ids) == 0 {
-		return 0, nil
+		return 0, nil, nil
 	}
 	rows, err := s.pool.Query(ctx, queryDismissAlerts, ids)
 	if err != nil {
-		return 0, fmt.Errorf("dismissing alerts: %w", err)
+		return 0, nil, fmt.Errorf("dismissing alerts: %w", err)
 	}
 	defer rows.Close()
 
 	count := 0
+	traceIDs := make([]string, 0, len(ids))
 	for rows.Next() {
-		var ignored string
-		if err := rows.Scan(&ignored); err != nil {
-			return 0, fmt.Errorf("scanning dismissed alert id: %w", err)
+		var (
+			id      string
+			traceID string
+		)
+		if err := rows.Scan(&id, &traceID); err != nil {
+			return 0, nil, fmt.Errorf("scanning dismissed alert id: %w", err)
 		}
 		count++
+		if traceID != "" {
+			traceIDs = append(traceIDs, traceID)
+		}
 	}
-	return count, rows.Err()
+	return count, traceIDs, rows.Err()
 }
 
 // RestoreAlerts clears dismissed_at on the given alerts. Returns the number

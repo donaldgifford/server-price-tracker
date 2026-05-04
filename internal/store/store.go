@@ -109,7 +109,14 @@ type Store interface {
 	// Alert review (DESIGN-0010)
 	ListAlertsForReview(ctx context.Context, q *AlertReviewQuery) (AlertReviewResult, error)
 	GetAlertDetail(ctx context.Context, id string) (*domain.AlertDetail, error)
-	DismissAlerts(ctx context.Context, ids []string) (int, error)
+	// DismissAlerts marks the given alerts as dismissed (skipping any
+	// already dismissed). Returns the number of rows actually
+	// transitioned plus the slice of non-empty trace IDs for those rows
+	// — the IMPL-0019 alert-review-UI flow scores each dismissed trace
+	// in Langfuse so dismissals become labelled training data. NULL or
+	// empty trace_id values are filtered out, so callers can iterate
+	// the slice directly without a guard.
+	DismissAlerts(ctx context.Context, ids []string) (int, []string, error)
 	RestoreAlerts(ctx context.Context, ids []string) (int, error)
 
 	GetSystemState(ctx context.Context) (*domain.SystemState, error)

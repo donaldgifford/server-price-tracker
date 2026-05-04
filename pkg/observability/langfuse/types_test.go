@@ -65,3 +65,53 @@ func TestModelCost_ComputeCost(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildTraceURL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		endpoint string
+		traceID  string
+		want     string
+	}{
+		{
+			name:     "happy path",
+			endpoint: "https://langfuse.example.com",
+			traceID:  "abc123",
+			want:     "https://langfuse.example.com/trace/abc123",
+		},
+		{
+			name:     "trailing slash on endpoint is tolerated",
+			endpoint: "https://langfuse.example.com/",
+			traceID:  "abc123",
+			want:     "https://langfuse.example.com/trace/abc123",
+		},
+		{
+			name:     "empty endpoint returns empty",
+			endpoint: "",
+			traceID:  "abc123",
+			want:     "",
+		},
+		{
+			name:     "empty trace ID returns empty",
+			endpoint: "https://langfuse.example.com",
+			traceID:  "",
+			want:     "",
+		},
+		{
+			name:     "both empty",
+			endpoint: "",
+			traceID:  "",
+			want:     "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := BuildTraceURL(tt.endpoint, tt.traceID)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

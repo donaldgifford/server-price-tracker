@@ -412,7 +412,7 @@ const (
 		UPDATE alerts SET dismissed_at = now()
 		WHERE id = ANY($1)
 		  AND dismissed_at IS NULL
-		RETURNING id`
+		RETURNING id, COALESCE(trace_id, '')`
 
 	queryRestoreAlerts = `
 		UPDATE alerts SET dismissed_at = NULL

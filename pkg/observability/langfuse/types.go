@@ -22,6 +22,7 @@ package langfuse
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -122,6 +123,21 @@ func (m ModelCost) ComputeCost(usage TokenUsage) float64 {
 	const tokensPerMillion = 1_000_000.0
 	return float64(usage.InputTokens)/tokensPerMillion*m.InputUSDPerMillion +
 		float64(usage.OutputTokens)/tokensPerMillion*m.OutputUSDPerMillion
+}
+
+// BuildTraceURL composes a Langfuse trace-detail URL from the configured
+// endpoint and a trace ID. Returns "" when either input is empty so
+// callers can use the result as a "render the button?" predicate.
+//
+// Trailing slashes on endpoint are tolerated; double-slashes never
+// appear in the result. The URL shape (`/trace/<id>`) matches the
+// Langfuse self-hosted UI convention as of 2026.
+func BuildTraceURL(endpoint, traceID string) string {
+	if endpoint == "" || traceID == "" {
+		return ""
+	}
+	endpoint = strings.TrimRight(endpoint, "/")
+	return endpoint + "/trace/" + traceID
 }
 
 // Level is the Langfuse "level" enum for generation severity.

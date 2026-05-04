@@ -16,6 +16,7 @@ import (
 	notifymocks "github.com/donaldgifford/server-price-tracker/internal/notify/mocks"
 	"github.com/donaldgifford/server-price-tracker/internal/store"
 	storemocks "github.com/donaldgifford/server-price-tracker/internal/store/mocks"
+	langfusemocks "github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse/mocks"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
@@ -26,7 +27,7 @@ func newAlertsUITestServer(t *testing.T) (*echo.Echo, *storemocks.MockStore, *no
 	t.Helper()
 	s := storemocks.NewMockStore(t)
 	n := notifymocks.NewMockNotifier(t)
-	h := handlers.NewAlertsUIHandler(handlers.AlertsUIDeps{Store: s, Notifier: n})
+	h := handlers.NewAlertsUIHandler(&handlers.AlertsUIDeps{Store: s, Notifier: n})
 	e := echo.New()
 	handlers.RegisterAlertsUIRoutes(e, h)
 	return e, s, n
@@ -255,7 +256,7 @@ func TestDismissOne(t *testing.T) {
 			e, s, _ := newAlertsUITestServer(t)
 			s.EXPECT().
 				DismissAlerts(mock.Anything, []string{"alert-1"}).
-				Return(1, nil).
+				Return(1, nil, nil).
 				Once()
 
 			req := httptest.NewRequest(http.MethodPost, "/alerts/alert-1/dismiss", http.NoBody)
@@ -268,6 +269,71 @@ func TestDismissOne(t *testing.T) {
 			require.Equal(t, tt.wantStatus, rec.Code, "body=%s", rec.Body.String())
 		})
 	}
+}
+
+// TestDismissOne_PostsLangfuseScore verifies that a successful dismiss
+// fires a Langfuse `operator_dismissed=1.0` score against the alert's
+// trace ID — the IMPL-0019 Phase 4 dismissal-as-training-data wiring.
+func TestDismissOne_PostsLangfuseScore(t *testing.T) {
+	t.Parallel()
+
+	s := storemocks.NewMockStore(t)
+	n := notifymocks.NewMockNotifier(t)
+	lf := langfusemocks.NewMockClient(t)
+
+	s.EXPECT().
+		DismissAlerts(mock.Anything, []string{"alert-1"}).
+		Return(1, []string{"trace-abc"}, nil).
+		Once()
+	lf.EXPECT().
+		Score(mock.Anything, "trace-abc", "operator_dismissed", 1.0, "").
+		Return(nil).
+		Once()
+
+	h := handlers.NewAlertsUIHandler(&handlers.AlertsUIDeps{
+		Store:    s,
+		Notifier: n,
+		Langfuse: lf,
+	})
+	e := echo.New()
+	handlers.RegisterAlertsUIRoutes(e, h)
+
+	req := httptest.NewRequest(http.MethodPost, "/alerts/alert-1/dismiss", http.NoBody)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusSeeOther, rec.Code)
+}
+
+// TestDismissOne_NoTraceIDSkipsScore verifies that when the dismissed
+// alert has no trace_id (older alert pre-IMPL-0019), no Score call is
+// made — mockery fails the test if Score is invoked.
+func TestDismissOne_NoTraceIDSkipsScore(t *testing.T) {
+	t.Parallel()
+
+	s := storemocks.NewMockStore(t)
+	n := notifymocks.NewMockNotifier(t)
+	lf := langfusemocks.NewMockClient(t)
+
+	// Empty trace_ids slice — store filtered out the NULL/empty traces.
+	s.EXPECT().
+		DismissAlerts(mock.Anything, []string{"alert-1"}).
+		Return(1, nil, nil).
+		Once()
+
+	h := handlers.NewAlertsUIHandler(&handlers.AlertsUIDeps{
+		Store:    s,
+		Notifier: n,
+		Langfuse: lf,
+	})
+	e := echo.New()
+	handlers.RegisterAlertsUIRoutes(e, h)
+
+	req := httptest.NewRequest(http.MethodPost, "/alerts/alert-1/dismiss", http.NoBody)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusSeeOther, rec.Code)
 }
 
 // TestDismissBulk_BadRequest covers the empty-ids branch.
