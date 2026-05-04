@@ -507,6 +507,57 @@ ORDER BY a.fired_at DESC;
 
 ---
 
+## Judge scores (IMPL-0019 Phase 5)
+
+`judge_scores` (migration 013) stores one row per alert with the LLM-as-judge
+verdict. Populated by the async judge worker (cron entry, `POST /api/v1/judge/run`,
+or `spt judge run`). Compare against the `operator_dismissed` Langfuse score
+to measure judge agreement with operator truth.
+
+### Daily judge spend
+
+```sql
+SELECT model,
+       COUNT(*)                            AS verdicts,
+       ROUND(SUM(cost_usd)::numeric, 4)    AS spend_usd,
+       SUM(input_tokens)                   AS in_tokens,
+       SUM(output_tokens)                  AS out_tokens
+FROM judge_scores
+WHERE judged_at >= date_trunc('day', NOW())
+GROUP BY model
+ORDER BY spend_usd DESC;
+```
+
+### Judge vs operator agreement (last 7d)
+
+```sql
+SELECT
+    CASE
+        WHEN js.score < 0.33 THEN 'noise'
+        WHEN js.score < 0.66 THEN 'edge'
+        ELSE 'deal'
+    END                              AS judge_verdict,
+    a.dismissed_at IS NOT NULL       AS operator_dismissed,
+    COUNT(*)                         AS alerts
+FROM alerts a
+JOIN judge_scores js ON js.alert_id = a.id
+WHERE a.created_at > NOW() - INTERVAL '7 days'
+GROUP BY judge_verdict, operator_dismissed
+ORDER BY judge_verdict, operator_dismissed;
+```
+
+### Manual re-judge
+
+The worker pre-filters with `NOT EXISTS`, so deleting a row forces a
+re-judge on the next pass.
+
+```sql
+DELETE FROM judge_scores WHERE alert_id IN ('<id1>', '<id2>');
+-- Then: POST /api/v1/judge/run   (or `spt judge run`)
+```
+
+---
+
 ## System State (read-only)
 
 The `system_state` view aggregates counts used by `/api/v1/system/state`.

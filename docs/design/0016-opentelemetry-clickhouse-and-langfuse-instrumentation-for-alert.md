@@ -1,7 +1,7 @@
 ---
 id: DESIGN-0016
 title: "OpenTelemetry, Clickhouse, and Langfuse instrumentation for alert quality"
-status: Accepted
+status: Implemented
 author: Donald Gifford
 created: 2026-05-03
 ---
@@ -9,7 +9,7 @@ created: 2026-05-03
 
 # DESIGN 0016: OpenTelemetry, Clickhouse, and Langfuse instrumentation for alert quality
 
-**Status:** Accepted
+**Status:** Implemented
 **Author:** Donald Gifford
 **Date:** 2026-05-03
 

@@ -174,6 +174,11 @@ migrations/                   PostgreSQL schema migrations (source of truth)
 internal/store/migrations/    Embedded copy for Go embed.FS
 scripts/makefiles/            Modular Makefile includes (common, go, docker, db, helm, docs)
 tools/mock-server/            Mock eBay API server for local dev (JSON fixtures)
+tools/dashgen/                Grafana dashboard + Prometheus rules generator (Go-defined panels)
+tools/regression-runner/      Classifier accuracy gate (`make test-regression`)
+tools/dataset-bootstrap/      Stratified live-DB sample → editable golden dataset
+tools/dataset-upload/         Upload golden dataset to Langfuse (idempotent, title-hash IDs)
+tools/judge-bootstrap/        Cold-start CLI for labelling judge few-shot examples
 test/                         Top-level test directories
   e2e/                        End-to-end tests (//go:build e2e)
   integration/                Cross-cutting integration tests (//go:build integration)
@@ -198,6 +203,8 @@ docs/                         Design and implementation documentation (managed v
 - `pkg/types/` (package `domain`) — Core domain types: `Listing`, `Watch`, `WatchFilters`, `PriceBaseline`, `Alert`, `ScoreBreakdown`. Enums: `ComponentType`, `Condition`, `ListingType`. Contains `WatchFilters.Match()`.
 - `pkg/scorer/` (package `score`) — Composite scoring with `Score(ListingData, *Baseline, Weights) Breakdown`. Decoupled from DB models via `ListingData` input struct.
 - `pkg/extract/` — `LLMBackend` and `Extractor` interfaces, implementations (Ollama, Anthropic, OpenAI-compatible), extraction orchestrator, prompt templates, response validation.
+- `pkg/observability/langfuse/` — In-house Langfuse HTTP client (traces/generations/scores/dataset items+runs), buffered async client, MockClient. Optional `DatasetItem.ID` enables idempotent upserts so `tools/dataset-upload` is safe to re-run.
+- `pkg/judge/` — `Judge` interface + `LLMJudge` (prompt template + few-shot `examples.json`), `Worker` with daily-budget enforcement, `Score` ↔ `Verdict` plumbing. Persists to Postgres (`judge_scores`, migration 013) and Langfuse (best-effort).
 
 **Internal (`internal/`)** — application-specific, not importable:
 - `internal/api/` — Echo HTTP server with Huma v2 typed handlers, middleware (Prometheus metrics, request logging, panic recovery), API client for CLI. Also hosts the alert review UI at `/alerts` (DESIGN-0010): server-rendered HTML via [templ](https://templ.guide) components in `internal/api/web/components/`, [HTMX](https://htmx.org) 1.9 for swap-in-place interactions, [Alpine.js](https://alpinejs.dev) 3.14 for small reactive bits. Generated `*_templ.go` files are gitignored — `make build` runs `templ generate` first. Static assets (htmx.min.js, alpine.min.js, spt.css) ship via `go:embed` in `internal/api/web/embed.go`.
@@ -206,6 +213,8 @@ docs/                         Design and implementation documentation (managed v
 - `internal/ebay/` — `EbayClient` and `TokenProvider` interfaces + implementations
 - `internal/notify/` — `Notifier` interface + `DiscordNotifier` implementation
 - `internal/config/` — YAML config loader with `os.ExpandEnv()` for secrets
+- `internal/observability/` — OTel SDK bootstrap (OTLP/gRPC trace + metric exporters), tracer/meter providers, propagators. No-op when `observability.otel.enabled=false`.
+- `internal/regression/` — Shared types (`Item`, `TitleHash`, `LoadDataset`) used by all four Phase 6 operator CLIs. `sha256-trunc-8(title)` ID convention is defined here once so `tools/dataset-upload` (DatasetItem.ID) and `tools/regression-runner` (DatasetRunItem.DatasetItemID) align in Langfuse without out-of-band coordination.
 
 ### Configuration
 
@@ -233,6 +242,8 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 - `GET /api/v1/system/state` — system health metrics (listing/baseline/alert counts)
 - `GET /api/v1/jobs` — scheduler job run history
 - `GET /api/v1/jobs/{job_name}` — job runs for a specific job
+- `GET /api/v1/alerts/{id}/trace` — Langfuse trace deep-link for an alert (returns `{trace_url}`); off when `observability.langfuse.enabled=false`
+- `POST /api/v1/judge/run` — manually trigger a judge worker pass over recent un-scored alerts (operator backfill)
 
 ## Testing Strategy
 
