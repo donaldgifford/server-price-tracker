@@ -816,6 +816,112 @@ intents above are what matters. Coordinate with the platform side
 when standing up the Collector — IMPL-0019 Phase 7 reviews policy
 effectiveness after 7 days of production data.
 
+#### 7-day tail-sampling review checklist
+
+Run this checklist exactly once, 7 days after the Phase 1-2 OTel
+rollout reaches production. The output is the input to either
+"keep current policy" or "hand off tweak to platform".
+
+1. **Span-emission rate (sanity check).** The application is
+   emitting 100% of spans regardless of sampling. Confirm
+   ingestion is healthy:
+
+   ```promql
+   # Should be > 0 for every active stage.
+   sum by (job) (rate(spt_ingestion_duration_seconds_count[1h]))
+   sum by (job) (rate(spt_extraction_duration_seconds_count[1h]))
+   sum by (job) (rate(spt_alerts_query_duration_seconds_count[1h]))
+   ```
+
+   If any stage is at 0 for the full 7 days, the corresponding
+   span path isn't wired up — file a bug, don't tune sampling
+   yet.
+
+2. **Trace volume in Clickhouse.** Query the platform-side
+   storage. Exact query depends on the Clickhouse schema your
+   Collector exporter writes; the typical shape is:
+
+   ```sql
+   SELECT
+     toStartOfDay(Timestamp) AS day,
+     count() AS spans,
+     sum(length(SpanAttributes)) AS attr_bytes
+   FROM otel_traces
+   WHERE Timestamp >= now() - INTERVAL 7 DAY
+     AND ServiceName = 'server-price-tracker'
+   GROUP BY day
+   ORDER BY day;
+   ```
+
+   - **Healthy:** total spans/day stable or trending sideways.
+   - **Concerning:** spans/day growing >2× day-over-day with no
+     traffic increase — sampling policy is too permissive on
+     ingestion. Bump `sample-ingestion` from 10% → 5%.
+   - **Critical:** approaching Collector / Clickhouse storage
+     budget (operator's own threshold). Cut probabilistic
+     sampling further or raise `decision_wait` to coalesce more
+     traces.
+
+3. **Alert/error/extract retention (the high-value 100%
+   policies).** Confirm those buckets are not accidentally being
+   sampled out:
+
+   ```sql
+   -- Every alert in spt_alerts_created_total should have a trace.
+   SELECT count(DISTINCT TraceId) AS alert_traces
+   FROM otel_traces
+   WHERE Timestamp >= now() - INTERVAL 7 DAY
+     AND ServiceName = 'server-price-tracker'
+     AND has(SpanAttributes, 'spt.alert.fired')
+     AND SpanAttributes['spt.alert.fired'] = 'true';
+   ```
+
+   Compare against `sum(increase(spt_alerts_created_total[7d]))`
+   (Prometheus). The Clickhouse count should equal the
+   Prometheus counter. A gap means the `keep-alerts` policy is
+   misconfigured — the trace fired but didn't make it past
+   sampling.
+
+4. **Judge-score plausibility.** Pull the per-bucket judge
+   verdict counts:
+
+   ```promql
+   sum by (verdict) (increase(spt_judge_evaluations_total[7d]))
+   ```
+
+   Healthy: all three buckets (`deal`, `edge`, `noise`) have
+   non-zero counts, with a distribution that roughly matches
+   operator intuition — typically `noise` ≥ `edge` ≥ `deal`.
+   Pathological signals:
+   - All `noise` (judge thinks every alert is bad) → prompt
+     issue; refresh `pkg/judge/examples.json`.
+   - All `deal` (judge rubber-stamps everything) → prompt is
+     missing the rubric; same refresh.
+   - Zero `edge` for 7 days → judge isn't producing scores in
+     the middle band, which suggests prompt is too binary.
+
+5. **Manual judge validation.** Pick one alert flagged
+   `verdict.score < 0.3` (judge says noise) by the worker.
+   Compare against the operator's own intuition. If the judge
+   was right, the score is doing what it was built for. If the
+   judge was wrong, log it as an example to refresh.
+
+6. **Decision matrix.**
+   - All four checks green → policy is good; commit nothing.
+   - Step 2 yellow/red → hand off probabilistic-sample tweak
+     to platform side. Open a ticket against the Collector
+     repo, not this one.
+   - Step 3 gap → policy bug; same — open a Collector ticket
+     citing the Prometheus / Clickhouse mismatch.
+   - Steps 4-5 indicate prompt drift, not sampling — refresh
+     `pkg/judge/examples.json` per the cold-start workflow
+     above.
+
+After running the checklist, paste the four numbers (alerts
+traces, errors traces, extract spans, ingestion spans) into a
+follow-up comment on the IMPL-0019 PR (or the rollout-tracking
+issue) so future operators have a baseline to compare against.
+
 ### Enabling OTel in `server-price-tracker`
 
 ```yaml

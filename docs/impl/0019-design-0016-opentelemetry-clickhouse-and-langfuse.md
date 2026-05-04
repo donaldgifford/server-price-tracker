@@ -800,6 +800,12 @@ new OTel-derived data. Document the operator workflow.
       alert/error/extract traces, sampled clean ingestion) are
       producing the data we need without exceeding the storage
       budget. Hand off any policy tweaks to the platform side.
+      *(Runbook shipped — `docs/OPERATIONS.md` §8 "7-day
+      tail-sampling review checklist" enumerates the four PromQL
+      / Clickhouse queries to run, the decision matrix for each
+      outcome, and where to file policy tweaks. The review itself
+      remains genuinely time-blocked: it can only run after the
+      OTel pipeline has 7 days of production data.)*
 - [x] Document the new operator workflow in `docs/OPERATIONS.md`:
       - Reading judge scores in the UI.
       - Refreshing `examples.json` when adding a new ComponentType.
