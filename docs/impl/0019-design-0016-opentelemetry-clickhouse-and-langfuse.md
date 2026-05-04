@@ -395,7 +395,7 @@ loop yet.
 
 #### Tasks
 
-- [ ] Define `pkg/observability/langfuse/Client` interface:
+- [x] Define `pkg/observability/langfuse/Client` interface:
       `LogGeneration(ctx, GenerationRecord) error`,
       `Score(ctx, traceID, name string, value float64, comment
       string) error`,
@@ -404,25 +404,25 @@ loop yet.
       `CreateDatasetRun(ctx, runRequest RunRequest) error`.
       Surface is small (~5 endpoints) and matches the Langfuse REST
       API directly.
-- [ ] Implement `pkg/observability/langfuse/http_client.go`:
+- [x] Implement `pkg/observability/langfuse/http_client.go`:
       authenticated HTTP client (public+secret keys via Basic auth),
       JSON request/response, retry-with-backoff on 5xx. Mirrors the
       patterns in `pkg/extract/anthropic.go`.
-- [ ] Implement `pkg/observability/langfuse/noop_client.go`:
+- [x] Implement `pkg/observability/langfuse/noop_client.go`:
       satisfies the interface, every method returns nil. Used when
       `langfuse.enabled: false`.
-- [ ] Implement async buffer:
+- [x] Implement async buffer:
       `pkg/observability/langfuse/buffered_client.go` wraps the HTTP
       client with a bounded channel (default capacity 1000) and a
       drain goroutine. On full buffer, drop oldest entry and
       increment drop counter. Drain goroutine exits cleanly on
       shutdown context.
-- [ ] Wire 4 Prometheus metrics on the buffered client:
+- [x] Wire 4 Prometheus metrics on the buffered client:
       `spt_langfuse_buffer_depth` (gauge),
       `spt_langfuse_buffer_drops_total` (counter),
       `spt_langfuse_writes_total{result}` (counter),
       `spt_langfuse_write_duration_seconds` (histogram).
-- [ ] Add `pkg/extract/langfuse_backend.go`: decorator wrapping
+- [x] Add `pkg/extract/langfuse_backend.go`: decorator wrapping
       `LLMBackend` that:
       1. Reads active span context from `ctx`.
       2. Calls inner `Generate`.
@@ -430,10 +430,10 @@ loop yet.
          prompt, completion, model, token usage, cost, latency,
          parent trace ID, commit SHA tag.
       4. Returns inner response unchanged.
-- [ ] Construction-time wiring: `NewLLMExtractor` accepts an
+- [x] Construction-time wiring: `NewLLMExtractor` accepts an
       optional `langfuse.Client`. When nil (or noop), no decorator
       is applied. Config flips this on/off.
-- [ ] Auto-score: after a successful extract, push a Langfuse score
+- [x] Auto-score: after a successful extract, push a Langfuse score
       `extraction_self_confidence = attrs["confidence"]` on the
       extract trace.
 - [ ] Token cost calculation: pull per-model rates from config

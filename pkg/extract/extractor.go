@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/donaldgifford/server-price-tracker/internal/metrics"
+	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
@@ -33,7 +34,8 @@ type LLMExtractor struct {
 	backend     LLMBackend
 	backendName string // cached at construction; backend identity is stable
 	log         *slog.Logger
-	tracer      trace.Tracer // no-op when OTel is disabled
+	tracer      trace.Tracer    // no-op when OTel is disabled
+	langfuse    langfuse.Client // NoopClient when Langfuse is disabled
 	temperature float64
 	maxTokens   int
 }
@@ -74,6 +76,18 @@ func WithTracer(t trace.Tracer) LLMExtractorOption {
 	}
 }
 
+// WithLangfuseClient supplies the Langfuse client used to post per-
+// extraction scores (e.g., extraction_self_confidence). NoopClient is
+// the default — passing the real client lights up the score writes.
+func WithLangfuseClient(c langfuse.Client) LLMExtractorOption {
+	return func(e *LLMExtractor) {
+		if c == nil {
+			c = langfuse.NoopClient{}
+		}
+		e.langfuse = c
+	}
+}
+
 // NewLLMExtractor creates a new LLMExtractor.
 func NewLLMExtractor(backend LLMBackend, opts ...LLMExtractorOption) *LLMExtractor {
 	e := &LLMExtractor{
@@ -81,6 +95,7 @@ func NewLLMExtractor(backend LLMBackend, opts ...LLMExtractorOption) *LLMExtract
 		backendName: backend.Name(),
 		log:         slog.Default(),
 		tracer:      otel.Tracer(extractorTracerName),
+		langfuse:    langfuse.NoopClient{},
 		temperature: 0.1,
 		maxTokens:   512,
 	}
@@ -235,7 +250,31 @@ func (e *LLMExtractor) Extract(
 	if conf, ok := attrs["confidence"].(float64); ok {
 		span.SetAttributes(attribute.Float64("spt.extraction.confidence", conf))
 	}
+	e.autoScoreConfidence(ctx, attrs)
 	return attrs, nil
+}
+
+// autoScoreConfidence posts the extraction_self_confidence score to
+// Langfuse on the active extract trace. Three preconditions: an OTel
+// trace ID must exist (no anchor otherwise), the Langfuse client must
+// not be the no-op (avoid pointless work), and attrs must carry a
+// numeric confidence value (LLM didn't return one → nothing to score).
+//
+// Score writes are best-effort — the buffered client absorbs transient
+// outages, and any returned error is logged at debug only. Telemetry
+// failures never propagate to the extraction caller.
+func (e *LLMExtractor) autoScoreConfidence(ctx context.Context, attrs map[string]any) {
+	conf, ok := attrs["confidence"].(float64)
+	if !ok {
+		return
+	}
+	traceID := traceIDFromContext(ctx)
+	if traceID == "" {
+		return
+	}
+	if err := e.langfuse.Score(ctx, traceID, "extraction_self_confidence", conf, ""); err != nil {
+		e.log.Debug("langfuse Score failed (dropped)", "error", err)
+	}
 }
 
 // parseExtractAttrs is the JSON parse step lifted into its own span so the

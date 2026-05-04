@@ -29,6 +29,7 @@ import (
 	"github.com/donaldgifford/server-price-tracker/internal/store"
 	"github.com/donaldgifford/server-price-tracker/pkg/extract"
 	sptlog "github.com/donaldgifford/server-price-tracker/pkg/logger"
+	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 )
 
 func startServer(opts *Options) error {
@@ -47,6 +48,13 @@ func startServer(opts *Options) error {
 	}
 	defer otelShutdown()
 
+	// --- Langfuse (no-op when observability.langfuse.enabled=false) ---
+	lfClient, lfShutdown, err := initLangfuse(cfg.Observability.Langfuse, slogger)
+	if err != nil {
+		return err
+	}
+	defer lfShutdown()
+
 	// --- Database ---
 	ctx := context.Background()
 	var pgStore store.Store
@@ -62,8 +70,8 @@ func startServer(opts *Options) error {
 	// --- eBay client ---
 	ebayClient, rateLimiter, analyticsClient := buildEbayClient(cfg, slogger)
 
-	// --- LLM extractor ---
-	extractor := buildExtractor(cfg, slogger)
+	// --- LLM extractor (Langfuse-decorated when langfuse client is real) ---
+	extractor := buildExtractor(cfg, slogger, lfClient)
 
 	// --- Notifier ---
 	notifier := buildNotifier(cfg, slogger)
@@ -149,6 +157,43 @@ func shutdownServer(
 
 	logger.Info("server stopped")
 	return nil
+}
+
+// initLangfuse builds a Langfuse client from cfg. When disabled, returns
+// langfuse.NoopClient + a no-op shutdown — the rest of the app never
+// has to branch on "is Langfuse enabled". When enabled, wraps the
+// HTTP client in a BufferedClient so transient outages don't block
+// the extract path; the deferred shutdown drains pending writes
+// within a 5-second deadline.
+func initLangfuse(cfg config.LangfuseConfig, logger *slog.Logger) (langfuse.Client, func(), error) {
+	if !cfg.Enabled {
+		return langfuse.NoopClient{}, func() {}, nil
+	}
+	if cfg.Endpoint == "" || cfg.PublicKey == "" || cfg.SecretKey == "" {
+		return nil, nil, fmt.Errorf(
+			"langfuse enabled but endpoint/public_key/secret_key missing — refusing to start",
+		)
+	}
+
+	httpClient, err := langfuse.NewHTTPClient(cfg.Endpoint, cfg.PublicKey, cfg.SecretKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("building langfuse http client: %w", err)
+	}
+
+	buffered := langfuse.NewBufferedClient(httpClient, cfg.BufferSize, langfuse.WithBufferLogger(logger))
+	buffered.Start(context.Background())
+	logger.Info("langfuse enabled",
+		"endpoint", cfg.Endpoint,
+		"buffer_size", cfg.BufferSize,
+	)
+
+	return buffered, func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := buffered.Stop(shutdownCtx); err != nil {
+			logger.Error("langfuse shutdown error", "err", err)
+		}
+	}, nil
 }
 
 // initOTel boots the OTel SDK from cfg and returns a deferred-friendly
@@ -348,11 +393,20 @@ func buildEbayClient(
 	return client, rl, ac
 }
 
-func buildExtractor(cfg *config.Config, logger *slog.Logger) extract.Extractor {
+func buildExtractor(cfg *config.Config, logger *slog.Logger, lf langfuse.Client) extract.Extractor {
 	backend := buildLLMBackend(cfg, logger)
 	if backend == nil {
 		logger.Warn("llm extractor disabled")
 		return nil
+	}
+	// Decorate with Langfuse when the client is more than the no-op.
+	// NoopClient.LogGeneration is a free non-op so the wrap is safe
+	// either way; the conditional is purely to preserve the
+	// no-decorator span tree for tests/operators that disabled
+	// observability.langfuse explicitly.
+	if _, isNoop := lf.(langfuse.NoopClient); !isNoop && lf != nil {
+		backend = extract.NewLangfuseBackend(backend, lf)
+		logger.Info("llm extractor wrapped with langfuse decorator")
 	}
 	logger.Info("llm extractor configured", "backend", cfg.LLM.Backend)
 	return extract.NewLLMExtractor(backend, extract.WithLogger(logger))
