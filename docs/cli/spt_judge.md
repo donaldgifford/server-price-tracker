@@ -1,16 +1,15 @@
-## spt jobs
+## spt judge
 
-View scheduler job history
+LLM-as-judge worker controls
 
 ### Synopsis
 
-View the execution history of scheduled jobs (ingestion, baseline_refresh,
-re_extraction). Each job records status, duration, and any errors.
+Manual triggers and inspection helpers for the LLM-as-judge worker (DESIGN-0016 / IMPL-0019 Phase 5).
 
 ### Options
 
 ```
-  -h, --help   help for jobs
+  -h, --help   help for judge
 ```
 
 ### Options inherited from parent commands
@@ -24,6 +23,5 @@ re_extraction). Each job records status, duration, and any errors.
 ### SEE ALSO
 
 * [spt](spt.md)	 - CLI client for Server Price Tracker
-* [spt jobs history](spt_jobs_history.md)	 - Show run history for a job
-* [spt jobs list](spt_jobs_list.md)	 - List latest run per job
+* [spt judge run](spt_judge_run.md)	 - Run one tick of the LLM-as-judge worker
 

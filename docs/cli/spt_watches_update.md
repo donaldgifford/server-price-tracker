@@ -46,7 +46,7 @@ spt watches update <id> [flags]
       --name string              watch name
       --query string             eBay search query
       --threshold int            score threshold for alerts
-      --type string              component type (ram, drive, server, cpu, nic, other)
+      --type string              component type (ram, drive, server, cpu, nic, gpu, workstation, desktop, other)
 ```
 
 ### Options inherited from parent commands
@@ -59,5 +59,5 @@ spt watches update <id> [flags]
 
 ### SEE ALSO
 
-* [spt watches](spt_watches.md)  - Manage watches
+* [spt watches](spt_watches.md)	 - Manage watches
 

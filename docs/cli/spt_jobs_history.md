@@ -29,5 +29,5 @@ spt jobs history <job_name> [flags]
 
 ### SEE ALSO
 
-* [spt jobs](spt_jobs.md)  - View scheduler job history
+* [spt jobs](spt_jobs.md)	 - View scheduler job history
 

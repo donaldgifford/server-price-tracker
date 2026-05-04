@@ -170,18 +170,29 @@ func (h *AlertsUIHandler) ListJSON(c echo.Context) error {
 // DetailPage renders the full per-alert detail view.
 func (h *AlertsUIHandler) DetailPage(c echo.Context) error {
 	id := c.Param("id")
-	d, err := h.deps.Store.GetAlertDetail(c.Request().Context(), id)
+	ctx := c.Request().Context()
+	d, err := h.deps.Store.GetAlertDetail(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "alert not found")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "fetching alert detail: "+err.Error())
 	}
+	// Best-effort judge score lookup. Failures here log and render an
+	// empty score cell rather than blocking the detail page — the
+	// score is supplemental, not authoritative.
+	judgeScore, scoreErr := h.deps.Store.GetJudgeScore(ctx, id)
+	if scoreErr != nil {
+		h.deps.Logger.Warn("failed to fetch judge score for detail page",
+			"alert_id", id, "error", scoreErr)
+	}
+
 	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
 	return components.AlertDetailPage(components.AlertDetailData{
 		Detail:           d,
 		LangfuseEndpoint: h.deps.LangfuseEndpoint,
-	}).Render(c.Request().Context(), c.Response().Writer)
+		JudgeScore:       judgeScore,
+	}).Render(ctx, c.Response().Writer)
 }
 
 // DismissOne dismisses a single alert by path-param id. Returns the

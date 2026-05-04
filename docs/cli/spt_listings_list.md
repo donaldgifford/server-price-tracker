@@ -50,5 +50,5 @@ spt listings list [flags]
 
 ### SEE ALSO
 
-* [spt listings](spt_listings.md)  - Query listings
+* [spt listings](spt_listings.md)	 - Query listings
 

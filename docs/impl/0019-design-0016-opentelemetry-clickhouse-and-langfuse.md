@@ -537,78 +537,88 @@ cutoff prevents runaway spend. Operator-triggered backfill via
 
 #### Tasks
 
-- [ ] **Verify migration number is still free.** Run
+- [x] **Verify migration number is still free.** Run
       `ls migrations/`; bump the reserved `013` to next free if
-      needed. Update File Changes table accordingly.
-- [ ] Add `pkg/judge/judge.go`:
+      needed. Update File Changes table accordingly. *(013 is free;
+      shipped as `013_add_judge_scores.sql`.)*
+- [x] Add `pkg/judge/judge.go`:
       `Judge` interface with
-      `EvaluateAlert(ctx, AlertContext) (Verdict, error)`.
+      `EvaluateAlert(ctx, *AlertContext) (Verdict, error)`.
       `AlertContext` carries title, condition, price, baseline
-      p25/p50, score, component_type. `Verdict` is
-      `{Score float64, Reason string}`.
-- [ ] Implementation `pkg/judge/llm_judge.go` builds a prompt from a
+      p25/p50/p75, score, component_type. `Verdict` is
+      `{Score, Reason, Tokens, Model, CostUSD}`. Pointer arg satisfies
+      gocritic hugeParam.
+- [x] Implementation `pkg/judge/llm_judge.go` builds a prompt from a
       template + few-shot examples (loaded from
-      `pkg/judge/examples.json` — operator-curated, ~10 each of
-      `deal` / `noise` / `edge`). Hardcoded for v1; revisit
-      Langfuse-fetched examples in v2.
-- [ ] Judge LLM backend selection: defaults to the extract backend's
+      `pkg/judge/examples.json` — operator-curated). Hardcoded for v1;
+      revisit Langfuse-fetched examples in v2.
+- [x] Judge LLM backend selection: defaults to the extract backend's
       configured model so a Haiku upgrade in `extract.anthropic`
       auto-applies. Operator can override via
       `observability.judge.backend` if they want a different model
-      for judging (e.g., a stronger model for higher-quality grade).
+      for judging (parked — config field exists, override path TBD
+      when v2 backends land).
 - [ ] Cold-start: write `tools/judge-bootstrap/main.go` that pulls a
       stratified sample of recent alerts from the DB and prompts the
       operator for `deal/noise/edge` labels (~30 total), then writes
-      `pkg/judge/examples.json`.
-- [ ] Wire judge into scheduler: new entry in
-      `internal/engine/scheduler.go::NewScheduler`, interval from
-      `observability.judge.interval` (default `15m`). Skip entirely
-      when `judge.enabled = false`.
-- [ ] Worker: select alerts where
+      `pkg/judge/examples.json`. *(Empty stub shipped today; bootstrap
+      tool is the next-up follow-up.)*
+- [x] Wire judge into scheduler: new entry via
+      `Scheduler.AddJudge(interval, runFn)`. Skip entirely when
+      `judge.enabled = false`.
+- [x] Worker: select alerts where
       `created_at > NOW() - judge.lookback` (default `6h`) AND not
-      already in `judge_scores`. Track judged alerts in a new table
-      `judge_scores (alert_id, score, reason, model, input_tokens,
+      already in `judge_scores`. Track judged alerts in
+      `judge_scores (alert_id PK, score, reason, model, input_tokens,
       output_tokens, cost_usd, judged_at)` — migration
-      `013_add_judge_scores.sql` (or next free).
-- [ ] **Daily budget enforcement**: before each judge call, query
-      `SUM(cost_usd) FROM judge_scores WHERE judged_at >= today`.
+      `013_add_judge_scores.sql`.
+- [x] **Daily budget enforcement**: before each judge call, query
+      `SUM(cost_usd) FROM judge_scores WHERE judged_at >= today UTC`.
       If sum >= `observability.judge.daily_budget_usd` (default
       `10.00`), skip remaining alerts and log a slog warning. Emit
       `spt_judge_budget_exhausted_total` counter when triggered.
       Skipped alerts get caught up next day when budget resets.
-- [ ] For each alert: call judge, persist to `judge_scores` for the
+- [x] For each alert: call judge, persist to `judge_scores` for the
       UI column, push to Langfuse via
       `Client.Score(traceID, "judge_alert_quality", verdict.Score,
-      verdict.Reason)`. Postgres write is the durable source; Lang-
-      fuse write is best-effort (already buffered from Phase 3).
-- [ ] CLI: `spt judge run --since 24h [--limit N] [--dry-run]` —
-      reaches a new HTTP endpoint `POST /api/v1/judge/run` that
-      triggers the worker out-of-band. Respects daily budget.
-- [ ] Update Phase 4's UI judge-score column to read from
-      `judge_scores` and render the score (verdict reason as
-      tooltip).
-- [ ] Prometheus metrics:
+      verdict.Reason)`. Postgres write is the durable source;
+      Langfuse write is best-effort (buffered from Phase 3).
+- [x] CLI: `spt judge run` reaches a new HTTP endpoint `POST
+      /api/v1/judge/run` that triggers the worker out-of-band.
+      Respects daily budget. *(`--since` / `--limit` / `--dry-run`
+      knobs deferred to a follow-up — server config currently
+      authoritative.)*
+- [x] Update Phase 4's UI judge-score column to read from
+      `judge_scores` (alert detail page renders `JudgeScore` when
+      present; table-row column is the placeholder from Phase 4).
+- [x] Prometheus metrics:
       `spt_judge_evaluations_total{verdict}` (counter),
       `spt_judge_score{component_type}` (histogram),
       `spt_judge_cost_usd_total{model}` (counter — for budget
       dashboards),
       `spt_judge_budget_exhausted_total` (counter).
-      Dual-emit OTel counterparts.
-- [ ] Tests:
+      Dual-emit OTel counterparts deferred — Prometheus path is the
+      operator-facing surface today.
+- [x] Tests:
       - Mock `LLMBackend` for judge; table-driven tests on
         `AlertContext → prompt`.
-      - End-to-end test with mock store + mock LLM + mock Langfuse
-        client: insert 3 alerts, run worker, assert all three got
+        (`pkg/judge/llm_judge_test.go::TestLLMJudge_EvaluateAlert_RendersPrompt`)
+      - End-to-end test with fake store + fake judge + fake Langfuse
+        client: insert 3 candidates, run worker, assert all three got
         scored, persisted, and Langfuse received `Score` calls.
-      - Budget enforcement test: pre-seed `judge_scores` with rows
-        summing to `daily_budget_usd`, verify worker skips and emits
-        counter.
-      - CLI test for `spt judge run --dry-run`.
-- [ ] Document the cold-start labelling workflow in
+        (`pkg/judge/worker_test.go::TestWorker_Run_HappyPath`)
+      - Budget enforcement test: pre-seed spend ≥ cap; verify worker
+        skips and emits counter.
+        (`TestWorker_Run_BudgetAlreadyExhausted` /
+        `TestWorker_Run_BudgetCrossedMidBatch`)
+      - CLI test for `spt judge run` deferred — covered by
+        `internal/api/handlers/judge_test.go` round-tripping the HTTP
+        contract the CLI consumes.
+- [x] Document the cold-start labelling workflow in
       `docs/OPERATIONS.md` — how to refresh `examples.json` when
       new ComponentTypes land. Document the budget knob and how to
       raise it.
-- [ ] Run `make lint` + `make test`.
+- [x] Run `make lint` + `make test`.
 
 #### Success Criteria
 

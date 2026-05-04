@@ -332,6 +332,15 @@ func registerRoutes(
 		alertsAPI := handlers.NewAlertsAPIHandler(s, langfuseEndpoint)
 		handlers.RegisterAlertsAPIRoutes(humaAPI, alertsAPI)
 
+		// Judge manual-trigger endpoint. Always registered so the
+		// OpenAPI surface stays stable; the handler responds 503 when
+		// the worker isn't configured.
+		var judgeRunner handlers.JudgeRunner
+		if judgeWorker != nil {
+			judgeRunner = judgeWorker
+		}
+		handlers.RegisterJudgeRoutes(humaAPI, handlers.NewJudgeHandler(judgeRunner))
+
 		jobsH := handlers.NewJobsHandler(s)
 		handlers.RegisterJobRoutes(humaAPI, jobsH)
 	}
@@ -544,13 +553,25 @@ func buildEngine(
 
 	// Register the LLM-as-judge worker as a cron entry when enabled.
 	// Skipped silently otherwise so judge.enabled = false matches the
-	// pre-IMPL-0019 deployment shape exactly.
-	if err := registerJudgeWorker(cfg, s, lf, sched, logger); err != nil {
+	// pre-IMPL-0019 deployment shape exactly. The constructed worker
+	// is also returned so registerRoutes can mount the manual-trigger
+	// HTTP endpoint over the same instance — keeps the cron and HTTP
+	// surfaces sharing one budget tracker.
+	worker, err := registerJudgeWorker(cfg, s, lf, sched, logger)
+	if err != nil {
 		logger.Error("judge worker registration failed", "error", err)
 	}
+	judgeWorker = worker
 
 	return eng, sched
 }
+
+// judgeWorker is set during buildEngine so registerRoutes can mount
+// the HTTP handler over the same Worker instance the cron uses.
+// Package-level variable rather than a return-value rewire to avoid
+// churning every existing buildEngine caller — the alternative is a
+// 6-arg signature that nobody else cares about.
+var judgeWorker *judge.Worker
 
 // registerJudgeWorker wires the judge.Worker into the scheduler when
 // observability.judge.enabled = true. Builds a fresh LLMBackend so the
@@ -559,22 +580,24 @@ func buildEngine(
 // rate limiter); the same model defaults apply unless judge.model
 // overrides.
 //
-// Returns nil when judge is disabled (the common case); the caller
-// treats the absence of an error as a no-op outcome.
+// Returns the constructed worker (or nil when disabled). nil is also
+// returned alongside an error when construction fails — call sites
+// fall back to the disabled-worker code path so judge bugs don't
+// crash startup.
 func registerJudgeWorker(
 	cfg *config.Config,
 	s store.Store,
 	lf langfuse.Client,
 	sched *engine.Scheduler,
 	logger *slog.Logger,
-) error {
+) (*judge.Worker, error) {
 	if !cfg.Observability.Judge.Enabled {
-		return nil
+		return nil, nil //nolint:nilnil // documented surface: nil + nil signals "judge disabled"
 	}
 	backend := buildLLMBackend(cfg, logger)
 	if backend == nil {
 		logger.Warn("judge enabled but llm backend is nil; skipping registration")
-		return nil
+		return nil, nil //nolint:nilnil // disabled-equivalent outcome — handler responds 503
 	}
 	if _, isNoop := lf.(langfuse.NoopClient); !isNoop && lf != nil {
 		decoratorOpts := []extract.LangfuseBackendOption{extract.WithLangfuseGenerationName("judge-llm")}
@@ -587,7 +610,7 @@ func registerJudgeWorker(
 		judge.WithModelCosts(cfg.Observability.Langfuse.ModelCosts),
 	)
 	if err != nil {
-		return fmt.Errorf("constructing LLM judge: %w", err)
+		return nil, fmt.Errorf("constructing LLM judge: %w", err)
 	}
 	worker, err := judge.NewWorker(&judge.WorkerConfig{
 		Judge:          llmJudge,
@@ -600,10 +623,10 @@ func registerJudgeWorker(
 		DailyBudgetUSD: cfg.Observability.Judge.DailyBudgetUSD,
 	})
 	if err != nil {
-		return fmt.Errorf("constructing judge worker: %w", err)
+		return nil, fmt.Errorf("constructing judge worker: %w", err)
 	}
 	if err := sched.AddJudge(cfg.Observability.Judge.Interval, worker.Run); err != nil {
-		return fmt.Errorf("registering judge cron entry: %w", err)
+		return nil, fmt.Errorf("registering judge cron entry: %w", err)
 	}
 	logger.Info("judge worker registered",
 		"interval", cfg.Observability.Judge.Interval,
@@ -611,7 +634,7 @@ func registerJudgeWorker(
 		"batch_size", cfg.Observability.Judge.BatchSize,
 		"daily_budget_usd", cfg.Observability.Judge.DailyBudgetUSD,
 	)
-	return nil
+	return worker, nil
 }
 
 func buildLLMBackend(cfg *config.Config, logger *slog.Logger) extract.LLMBackend {

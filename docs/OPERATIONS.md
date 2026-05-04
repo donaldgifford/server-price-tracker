@@ -843,3 +843,117 @@ future instrumentation calls (`otel.Tracer(...).Start(...)`)
 become free non-operations. This is the explicit guarantee that
 makes the IMPL-0019 phases shippable before Clickhouse or Langfuse
 exist.
+
+### LLM-as-judge worker (Phase 5)
+
+The judge worker grades fired alerts retrospectively against an
+operator-curated rubric so the operator can see, at a glance, which
+alerts the LLM thought were genuine deals versus noise. Output goes
+two places:
+
+- `judge_scores` Postgres table — durable; one row per alert, ever.
+  The alert detail page reads from here to render the score + reason
+  next to the existing breakdown.
+- Langfuse — best-effort; `Client.Score(traceID,
+  "judge_alert_quality", value, reason)` lands on the same trace as
+  the original extract generation, so a regression-set query in
+  Langfuse can plot judge score versus operator dismissal over time.
+
+Enable the worker:
+
+```yaml
+observability:
+  judge:
+    enabled: true
+    backend: ""           # "" = inherit from llm.backend
+    model: ""             # "" = inherit from selected backend
+    interval: 15m
+    lookback: 6h
+    batch_size: 50
+    daily_budget_usd: 10  # hard cap; tick exits early when reached
+```
+
+When enabled the binary registers a cron entry that runs every
+`interval`. Each tick:
+
+1. Looks at `SUM(cost_usd)` from `judge_scores` rows judged today
+   (UTC). If ≥ `daily_budget_usd`, log a warning, increment
+   `spt_judge_budget_exhausted_total`, and return.
+2. Pulls up to `batch_size` un-judged alerts created within
+   `lookback`. The query LEFT JOINs `price_baselines` so the prompt
+   has the same percentile context the scorer used.
+3. For each alert: calls the judge LLM, parses a strict
+   `{score, reason}` JSON verdict, persists to `judge_scores`, posts
+   a Langfuse score on the alert's trace.
+4. Re-checks budget between calls so a long batch can't accidentally
+   blow past the cap by one or two big-prompt verdicts.
+
+Manual trigger:
+
+```bash
+spt judge run
+# Judged 12 alerts.
+# (or "Daily budget exhausted — remaining alerts will be picked up
+# next run." when the cap was hit)
+```
+
+Or directly:
+
+```bash
+curl -X POST $SPT_API/api/v1/judge/run
+{"judged":12,"budget_exhausted":false}
+```
+
+The endpoint returns 503 when `judge.enabled = false`; the CLI
+surfaces that as a HTTP error.
+
+#### Cold-start few-shot examples
+
+The first run with an empty `pkg/judge/examples.json` works — the
+prompt template renders cleanly with zero few-shot examples — but
+verdict quality is materially lower until ~30 labelled examples are
+in place. Workflow when bootstrapping or refreshing after a
+ComponentType addition:
+
+1. Pull a stratified sample of recent alerts from production
+   (mix `dismissed` / `notified` / `active` so labels cover the
+   distribution).
+2. Manually label each as `deal` / `noise` / `edge` plus a short
+   reason (≤80 chars).
+3. Encode the set as JSON matching `pkg/judge.Example`:
+
+   ```json
+   [
+     {
+       "label": "deal",
+       "alert": { ... AlertContext fields ... },
+       "verdict": { "score": 0.92, "reason": "below P25 + full spec" }
+     }
+   ]
+   ```
+
+4. Save to `pkg/judge/examples.json`, commit, redeploy. The
+   embedded JSON ships in the binary so the regression set stays
+   versioned alongside the prompt.
+
+A `tools/judge-bootstrap` interactive labeller is parked as a
+follow-up — the manual workflow above gets the dataset built today
+without blocking on the tool.
+
+#### Budget knob
+
+`daily_budget_usd: 10` is a deliberate ceiling, not an estimate of
+spend. At Anthropic Haiku 4.5 rates (~$1/M input, $5/M output), a
+typical 1.2k-token prompt + 25-token verdict costs ~$0.002 per
+call; $10/day = 5,000 verdicts/day, comfortably above current
+volume. Raise the cap if `spt_judge_budget_exhausted_total` is
+incrementing during normal operation; lower it if a model upgrade
+unexpectedly inflates per-verdict cost.
+
+#### Disabled-mode guarantee
+
+With `observability.judge.enabled: false`, no cron entry is
+registered, the HTTP endpoint responds 503, and `judge_scores`
+stays empty. The alert review UI hides the judge_score column
+under the `JudgeEnabled` flag (Phase 4) so users not opted in see
+the original lean table.
