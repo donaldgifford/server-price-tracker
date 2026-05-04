@@ -440,19 +440,23 @@ loop yet.
       (`observability.langfuse.model_costs`) so we don't hardcode
       Anthropic/Ollama pricing. Default empty → Langfuse handles its
       own cost lookup.
-- [ ] Tests:
+- [x] Tests:
       - Mock `Client` interface; assert decorator calls
         `LogGeneration` exactly once per `Generate` with correct
-        fields.
+        fields. (`langfuse_backend_test.go::TestLangfuseBackend_RecordsGenerationOnSuccess`)
       - Verify when `Client` is nil/noop, behaviour matches today
         byte-for-byte (no extra calls, no extra latency).
+        (`TestLangfuseBackend_NilClientFallsThroughToNoop`)
       - Buffer test: fill the channel, assert drops counter
         increments and oldest entries are evicted.
+        (`pkg/observability/langfuse/buffered_client_test.go`)
       - HTTP client test against `httptest.Server` for auth header,
         retry behaviour, error mapping.
+        (`pkg/observability/langfuse/http_client_test.go`)
       - Table-driven test for cost calculation.
-- [ ] Update `make mocks` to regenerate Langfuse client mock.
-- [ ] Run `make lint` + `make test`.
+        (`pkg/observability/langfuse/types_test.go::TestModelCost_ComputeCost`)
+- [x] Update `make mocks` to regenerate Langfuse client mock.
+- [x] Run `make lint` + `make test`.
 
 #### Success Criteria
 
