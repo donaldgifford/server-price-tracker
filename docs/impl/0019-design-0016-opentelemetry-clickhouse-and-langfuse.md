@@ -234,12 +234,18 @@ today.**
       (`go.opentelemetry.io/otel/sdk`) was tidied out (nobody
       imported it yet); will return as a direct dep with the
       next task when `internal/observability/otel.go` lands.
-- [ ] Add `observability` block to `internal/config/config.go`:
+- [x] Add `observability` block to `internal/config/config.go`:
       `Otel`, `Langfuse`, `Judge` sub-structs each with an `Enabled
       bool` and backend-specific fields (endpoint, sampling,
-      timeouts).
-- [ ] Mirror in `configs/config.example.yaml` and
+      timeouts). Defaults applied via `applyObservabilityDefaults`;
+      test in `config_test.go` confirms all subtrees default
+      disabled with sensible non-zero numerics
+      (buffer_size=1000, judge interval=15m, lookback=6h,
+      daily_budget_usd=10.0).
+- [x] Mirror in `configs/config.example.yaml` and
       `configs/config.dev.yaml` with `enabled: false` defaults.
+      Dev config uses `insecure: true` for OTel (local Collectors
+      typically don't terminate TLS).
 - [ ] Add `internal/observability/otel.go`:
       `Init(ctx, cfg) (shutdown func(context.Context) error, err
       error)`. Returns no-op tracer + no-op meter when
