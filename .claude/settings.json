@@ -17,6 +17,7 @@
       "Bash(curl -sS https://spt.fartlab.dev/metrics)",
       "Bash(go test *)",
       "Bash(make lint *)",
+      "Bash(make *)",
       "Bash(make fmt *)",
       "Bash(go tool *)",
       "Bash(gh run *)",
