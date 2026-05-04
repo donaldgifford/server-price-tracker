@@ -29,6 +29,7 @@
       "Bash(docz update *)",
       "Bash(go build *)",
       "Bash(golangci-lint *)",
+      "Bash(./build/bin/server-price-tracker *)",
       "Bash(make lint-md *)",
       "WebFetch(domain:www.ebay.com)",
       "Bash(make test *)",
