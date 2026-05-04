@@ -499,12 +499,17 @@ Judge column added but blank until Phase 5 lights it up.
 - [x] Wire dismiss action: existing dismiss endpoint also calls
       `langfuse.Score(traceID, "operator_dismissed", 1.0, reason)`.
       Best-effort — failure to score doesn't fail the dismiss.
-- [ ] Add an "undo dismiss" action that posts
-      `operator_dismissed = 0`. Optional but cheap. *(Deferred —
-      restore endpoint exists but does not currently emit a Langfuse
-      score; the Phase 5 judge will treat absence of
-      `operator_dismissed` as the negative label automatically. Track
-      as follow-up if regression set demands explicit zero rows.)*
+- [x] Add an "undo dismiss" action that posts
+      `operator_dismissed = 0`. The existing `POST /alerts/{id}/restore`
+      endpoint now returns trace IDs alongside the row count
+      (`Store.RestoreAlerts(ctx, ids) (int, []string, error)`,
+      mirroring `DismissAlerts`) and the handler posts
+      `Langfuse.Score(traceID, "operator_dismissed", 0.0, "")`
+      best-effort on every restored alert. Symmetric with the dismiss
+      path so the judge regression set sees explicit positive labels
+      rather than relying on absence to imply "not dismissed". Two
+      handler tests cover the score-emission and skip-when-no-trace
+      branches.
 - [x] Tests:
       - Templ render test covers both feature-flag states.
         (`alert_row_test.go`)

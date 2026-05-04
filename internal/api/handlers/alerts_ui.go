@@ -109,12 +109,30 @@ func NewAlertsUIHandler(deps *AlertsUIDeps) *AlertsUIHandler {
 // trace, and the dismissed flag becomes the operator-truth label that
 // the regression set is graded against.
 func (h *AlertsUIHandler) scoreOperatorDismissed(ctx context.Context, traceIDs []string) {
+	h.scoreOperatorDismissValue(ctx, traceIDs, 1.0)
+}
+
+// scoreOperatorRestored posts `operator_dismissed = 0` on every trace
+// ID returned from Store.RestoreAlerts. Best-effort, same posture as
+// the dismiss-side score. Symmetric with scoreOperatorDismissed: when
+// the operator clicks "Restore" they're explicitly retracting the
+// negative label, and the Phase 5 judge regression set should see a
+// positive (0.0) score rather than relying on absence to mean "not
+// dismissed".
+func (h *AlertsUIHandler) scoreOperatorRestored(ctx context.Context, traceIDs []string) {
+	h.scoreOperatorDismissValue(ctx, traceIDs, 0.0)
+}
+
+// scoreOperatorDismissValue is the shared implementation behind the
+// dismiss / restore score posts.
+func (h *AlertsUIHandler) scoreOperatorDismissValue(ctx context.Context, traceIDs []string, value float64) {
 	if len(traceIDs) == 0 {
 		return
 	}
 	for _, traceID := range traceIDs {
-		if err := h.deps.Langfuse.Score(ctx, traceID, "operator_dismissed", 1.0, ""); err != nil {
-			h.deps.Logger.Debug("langfuse Score (operator_dismissed) failed", "error", err, "trace_id", traceID)
+		if err := h.deps.Langfuse.Score(ctx, traceID, "operator_dismissed", value, ""); err != nil {
+			h.deps.Logger.Debug("langfuse Score (operator_dismissed) failed",
+				"error", err, "trace_id", traceID, "value", value)
 		}
 	}
 }
@@ -248,12 +266,16 @@ func (h *AlertsUIHandler) DismissBulk(c echo.Context) error {
 	return c.Redirect(http.StatusSeeOther, "/alerts")
 }
 
-// Restore clears dismissed_at on a single alert.
+// Restore clears dismissed_at on a single alert and posts a Langfuse
+// `operator_dismissed = 0` score on the alert's trace so the judge
+// regression set sees the explicit retraction.
 func (h *AlertsUIHandler) Restore(c echo.Context) error {
 	id := c.Param("id")
-	if _, err := h.deps.Store.RestoreAlerts(c.Request().Context(), []string{id}); err != nil {
+	_, traceIDs, err := h.deps.Store.RestoreAlerts(c.Request().Context(), []string{id})
+	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "restoring alert: "+err.Error())
 	}
+	h.scoreOperatorRestored(c.Request().Context(), traceIDs)
 	if isHTMX(c) {
 		return c.NoContent(http.StatusOK)
 	}

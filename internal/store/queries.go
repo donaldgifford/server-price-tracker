@@ -418,7 +418,7 @@ const (
 		UPDATE alerts SET dismissed_at = NULL
 		WHERE id = ANY($1)
 		  AND dismissed_at IS NOT NULL
-		RETURNING id`
+		RETURNING id, COALESCE(trace_id, '')`
 
 	queryNotificationAttemptsByAlert = `
 		SELECT id, alert_id, attempted_at, succeeded, http_status, error_text

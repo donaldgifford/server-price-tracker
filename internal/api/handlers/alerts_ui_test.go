@@ -336,6 +336,70 @@ func TestDismissOne_NoTraceIDSkipsScore(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, rec.Code)
 }
 
+// TestRestore_PostsLangfuseScoreZero verifies that a successful restore
+// fires a Langfuse `operator_dismissed=0.0` score against the alert's
+// trace ID — symmetric with the dismiss path so the judge regression
+// set sees explicit positive labels rather than relying on absence.
+func TestRestore_PostsLangfuseScoreZero(t *testing.T) {
+	t.Parallel()
+
+	s := storemocks.NewMockStore(t)
+	n := notifymocks.NewMockNotifier(t)
+	lf := langfusemocks.NewMockClient(t)
+
+	s.EXPECT().
+		RestoreAlerts(mock.Anything, []string{"alert-2"}).
+		Return(1, []string{"trace-xyz"}, nil).
+		Once()
+	lf.EXPECT().
+		Score(mock.Anything, "trace-xyz", "operator_dismissed", 0.0, "").
+		Return(nil).
+		Once()
+
+	h := handlers.NewAlertsUIHandler(&handlers.AlertsUIDeps{
+		Store:    s,
+		Notifier: n,
+		Langfuse: lf,
+	})
+	e := echo.New()
+	handlers.RegisterAlertsUIRoutes(e, h)
+
+	req := httptest.NewRequest(http.MethodPost, "/alerts/alert-2/restore", http.NoBody)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusSeeOther, rec.Code)
+}
+
+// TestRestore_NoTraceIDSkipsScore verifies that when a restored alert
+// has no trace_id, no Score call is made.
+func TestRestore_NoTraceIDSkipsScore(t *testing.T) {
+	t.Parallel()
+
+	s := storemocks.NewMockStore(t)
+	n := notifymocks.NewMockNotifier(t)
+	lf := langfusemocks.NewMockClient(t)
+
+	s.EXPECT().
+		RestoreAlerts(mock.Anything, []string{"alert-2"}).
+		Return(1, nil, nil).
+		Once()
+
+	h := handlers.NewAlertsUIHandler(&handlers.AlertsUIDeps{
+		Store:    s,
+		Notifier: n,
+		Langfuse: lf,
+	})
+	e := echo.New()
+	handlers.RegisterAlertsUIRoutes(e, h)
+
+	req := httptest.NewRequest(http.MethodPost, "/alerts/alert-2/restore", http.NoBody)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusSeeOther, rec.Code)
+}
+
 // TestDismissBulk_BadRequest covers the empty-ids branch.
 func TestDismissBulk_BadRequest(t *testing.T) {
 	t.Parallel()

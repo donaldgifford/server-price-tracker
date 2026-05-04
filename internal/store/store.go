@@ -126,7 +126,13 @@ type Store interface {
 	// empty trace_id values are filtered out, so callers can iterate
 	// the slice directly without a guard.
 	DismissAlerts(ctx context.Context, ids []string) (int, []string, error)
-	RestoreAlerts(ctx context.Context, ids []string) (int, error)
+	// RestoreAlerts clears dismissed_at on the given alerts (skipping
+	// any not currently dismissed). Returns the row count plus the
+	// non-empty trace IDs of restored alerts so the handler can post
+	// `operator_dismissed = 0` Langfuse scores — symmetric with
+	// DismissAlerts so the regression set sees explicit positive and
+	// negative labels rather than relying on absence of a dismissal.
+	RestoreAlerts(ctx context.Context, ids []string) (int, []string, error)
 
 	// Judge (IMPL-0019 Phase 5)
 	//

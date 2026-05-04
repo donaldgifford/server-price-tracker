@@ -2505,7 +2505,7 @@ func (_c *MockStore_ReleaseSchedulerLock_Call) RunAndReturn(run func(context.Con
 }
 
 // RestoreAlerts provides a mock function with given fields: ctx, ids
-func (_m *MockStore) RestoreAlerts(ctx context.Context, ids []string) (int, error) {
+func (_m *MockStore) RestoreAlerts(ctx context.Context, ids []string) (int, []string, error) {
 	ret := _m.Called(ctx, ids)
 
 	if len(ret) == 0 {
@@ -2513,8 +2513,9 @@ func (_m *MockStore) RestoreAlerts(ctx context.Context, ids []string) (int, erro
 	}
 
 	var r0 int
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []string) (int, error)); ok {
+	var r1 []string
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, []string) (int, []string, error)); ok {
 		return rf(ctx, ids)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, []string) int); ok {
@@ -2523,13 +2524,21 @@ func (_m *MockStore) RestoreAlerts(ctx context.Context, ids []string) (int, erro
 		r0 = ret.Get(0).(int)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []string) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []string) []string); ok {
 		r1 = rf(ctx, ids)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]string)
+		}
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context, []string) error); ok {
+		r2 = rf(ctx, ids)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // MockStore_RestoreAlerts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RestoreAlerts'
@@ -2551,12 +2560,12 @@ func (_c *MockStore_RestoreAlerts_Call) Run(run func(ctx context.Context, ids []
 	return _c
 }
 
-func (_c *MockStore_RestoreAlerts_Call) Return(_a0 int, _a1 error) *MockStore_RestoreAlerts_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *MockStore_RestoreAlerts_Call) Return(_a0 int, _a1 []string, _a2 error) *MockStore_RestoreAlerts_Call {
+	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *MockStore_RestoreAlerts_Call) RunAndReturn(run func(context.Context, []string) (int, error)) *MockStore_RestoreAlerts_Call {
+func (_c *MockStore_RestoreAlerts_Call) RunAndReturn(run func(context.Context, []string) (int, []string, error)) *MockStore_RestoreAlerts_Call {
 	_c.Call.Return(run)
 	return _c
 }

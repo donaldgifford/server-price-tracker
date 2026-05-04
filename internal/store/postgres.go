@@ -786,28 +786,38 @@ func (s *PostgresStore) DismissAlerts(ctx context.Context, ids []string) (int, [
 }
 
 // RestoreAlerts clears dismissed_at on the given alerts. Returns the number
-// of rows actually transitioned (alerts that were not previously dismissed
-// are skipped silently).
-func (s *PostgresStore) RestoreAlerts(ctx context.Context, ids []string) (int, error) {
+// of rows actually transitioned plus the trace IDs of those rows so the
+// alert-review handler can post a Langfuse `operator_dismissed = 0` score
+// (IMPL-0019 Phase 4 follow-up). Alerts that were not previously dismissed
+// are skipped silently. Empty/NULL trace IDs are filtered out — callers
+// iterate the slice directly without a guard.
+func (s *PostgresStore) RestoreAlerts(ctx context.Context, ids []string) (int, []string, error) {
 	defer observeQueryDuration("restore", time.Now())
 	if len(ids) == 0 {
-		return 0, nil
+		return 0, nil, nil
 	}
 	rows, err := s.pool.Query(ctx, queryRestoreAlerts, ids)
 	if err != nil {
-		return 0, fmt.Errorf("restoring alerts: %w", err)
+		return 0, nil, fmt.Errorf("restoring alerts: %w", err)
 	}
 	defer rows.Close()
 
 	count := 0
+	traceIDs := make([]string, 0, len(ids))
 	for rows.Next() {
-		var ignored string
-		if err := rows.Scan(&ignored); err != nil {
-			return 0, fmt.Errorf("scanning restored alert id: %w", err)
+		var (
+			id      string
+			traceID string
+		)
+		if err := rows.Scan(&id, &traceID); err != nil {
+			return 0, nil, fmt.Errorf("scanning restored alert id: %w", err)
 		}
 		count++
+		if traceID != "" {
+			traceIDs = append(traceIDs, traceID)
+		}
 	}
-	return count, rows.Err()
+	return count, traceIDs, rows.Err()
 }
 
 // ListAlertsForJudging returns alerts in the lookback window that don't
