@@ -257,6 +257,28 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 - **Commits:** Conventional Commits format (`feat:`, `fix:`, `chore:`, `docs:`). GoReleaser changelog groups by type.
 - **No ORM** — raw SQL with pgx. All SQL lives in `internal/store/queries.go` as constants.
 
+## Observability (DESIGN-0016 / IMPL-0019)
+
+The OTel + Clickhouse + Langfuse stack is **fully optional** — three independently disable-able config subtrees, all default off. With every flag false the binary's external behaviour is byte-identical to the pre-IMPL-0019 deployment shape.
+
+```yaml
+observability:
+  otel:       { enabled: false, endpoint: "", service_name: "", insecure: true,  timeout: 10s }
+  langfuse:   { enabled: false, endpoint: "", public_key: "", secret_key: "", buffer_size: 1000, model_costs: {} }
+  judge:      { enabled: false, backend: "", model: "", interval: 15m, lookback: 6h, batch_size: 50, daily_budget_usd: 10 }
+```
+
+Phase-by-phase scaffolding:
+
+- **Phase 1-2** (OTel SDK + pipeline spans): `internal/observability/otel.go` boots OTLP/gRPC exporters; `pkg/extract/extractor.go` and `internal/engine/scheduler.go` start root + child spans tagged with `spt.backend`, `spt.component.type`, `spt.llm.tokens.*`, etc. Trace IDs propagate via `extraction_queue.trace_id` and `alerts.trace_id` (migration 012, NULLIF coercion in store layer).
+- **Phase 3** (Langfuse): `pkg/observability/langfuse` — in-house HTTP client + buffered client (drops oldest on overflow), `pkg/extract/langfuse_backend.go` decorates LLMBackend per Generate call. `extraction_self_confidence` Langfuse score is auto-pushed on every successful Extract. Per-model rate table (`langfuse.ModelCost`) feeds CostUSD when configured; empty map → Langfuse server-side rates apply.
+- **Phase 4** (Alert review UI): `GET /api/v1/alerts/{id}/trace` returns `{trace_url}`; `AlertRow` + `AlertDetailPage` render Trace ↗ deep-links via the shared `TableOptions{LangfuseEndpoint, JudgeEnabled}` struct. Dismiss actions emit `langfuse.Score(traceID, "operator_dismissed", 1.0, "")` — operator dismissals become labelled training data for the judge.
+- **Phase 5** (Judge): `pkg/judge` — `Judge` interface, `LLMJudge` (prompt + few-shot in `judge_prompt.tmpl` + `examples.json`), `Worker` with daily-budget enforcement (mid-batch rechecks, `ErrJudgeBudgetExhausted` exit). Migration 013 owns `judge_scores`. Cron entry registered via `Scheduler.AddJudge`; `POST /api/v1/judge/run` + `spt judge run` for on-demand backfill. Verdicts persist to Postgres (durable) and Langfuse (best-effort).
+
+Adding a new judge metric, span attribute, or pre-classification hook: keep all three optional flags in mind — code paths must remain free of behaviour changes when each is disabled. The disabled-mode guarantee is enforced by the `make test` suite running with all three off (the production default).
+
+`docs/OPERATIONS.md §8` is the operator-facing runbook for OTel/Langfuse/judge config; this CLAUDE.md note is the intent + entry-points view.
+
 ## Deployment
 
 - **Target:** Talos Linux Kubernetes cluster

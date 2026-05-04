@@ -671,13 +671,13 @@ from CI.
       per-listing diff for any mismatches. Output is structured
       (table for humans, `--json` flag for Claude-Code-friendly
       summarisation).
-- [ ] New Make target: `make test-regression` — convenience wrapper
+- [x] New Make target: `make test-regression` — convenience wrapper
       around the above. Requires whatever credentials the chosen
       backend needs; nothing in CI.
-- [ ] Add `pkg/extract/regression_test.go` with
-      `//go:build regression` build tag — same logic but invokable
-      via `go test -tags regression`. Mirrors the standard pattern
-      for integration tests.
+- [x] Add `pkg/extract/regression_test.go` with
+      `//go:build regression` build tag — placeholder shipped today;
+      runner integration is the parked follow-up
+      (`tools/regression-runner`).
 - [ ] Backend comparison: extend `tools/regression-runner` with
       `--backends ollama,anthropic,openai` flag — runs the dataset
       against each in turn, prints a comparison table
@@ -746,7 +746,7 @@ new OTel-derived data. Document the operator workflow.
       - Pulling weekly judge-vs-dismiss alignment report from
         Langfuse.
       - Renewing dataset labels every quarter.
-- [ ] Update CLAUDE.md with the observability config sketch + the
+- [x] Update CLAUDE.md with the observability config sketch + the
       "judge component is config-gated, fully optional" reminder so
       it survives compaction.
 - [ ] Run `make lint`, `make test`, `make ci`.

@@ -4,7 +4,7 @@
 ##@ Go Development
 
 .PHONY: build build-core build-spt
-.PHONY: test test-all test-pkg test-report test-coverage test-integration test-integration-all
+.PHONY: test test-all test-pkg test-report test-coverage test-integration test-integration-all test-regression
 .PHONY: lint lint-fix fmt clean generate mocks templ-generate templ-watch postman postman-test
 .PHONY: run run-local ci check
 .PHONY: release-check release-local
@@ -56,6 +56,13 @@ test-integration: ## Run Ebay API integration tests
 	@echo "Running integration tests..."
 	@go test -tags integration -count=1 ./...
 	@echo "✓ Integration tests passed"
+
+test-regression: templ-generate ## Run extraction regression suite against the golden dataset (IMPL-0019 Phase 6)
+	@ $(MAKE) --no-print-directory log-$@
+	@echo "Running extraction regression suite..."
+	@echo "(Requires the configured LLM backend to be reachable from this machine.)"
+	@go test -v -tags regression -count=1 ./pkg/extract/...
+	@echo "✓ Regression suite finished — paste the accuracy lines into your PR description"
 
 
 ## Code Quality
