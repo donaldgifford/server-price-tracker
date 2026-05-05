@@ -23,7 +23,7 @@ re_extraction). Each job records status, duration, and any errors.
 
 ### SEE ALSO
 
-* [spt](spt.md)	 - CLI client for Server Price Tracker
-* [spt jobs history](spt_jobs_history.md)	 - Show run history for a job
-* [spt jobs list](spt_jobs_list.md)	 - List latest run per job
+* [spt](spt.md)  - CLI client for Server Price Tracker
+* [spt jobs history](spt_jobs_history.md)  - Show run history for a job
+* [spt jobs list](spt_jobs_list.md)  - List latest run per job
 

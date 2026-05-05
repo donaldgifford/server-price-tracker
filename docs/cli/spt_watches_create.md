@@ -45,5 +45,5 @@ spt watches create [flags]
 
 ### SEE ALSO
 
-* [spt watches](spt_watches.md)	 - Manage watches
+* [spt watches](spt_watches.md)  - Manage watches
 

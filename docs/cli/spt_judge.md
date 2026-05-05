@@ -22,6 +22,6 @@ Manual triggers and inspection helpers for the LLM-as-judge worker (DESIGN-0016 
 
 ### SEE ALSO
 
-* [spt](spt.md)	 - CLI client for Server Price Tracker
-* [spt judge run](spt_judge_run.md)	 - Run one tick of the LLM-as-judge worker
+* [spt](spt.md)  - CLI client for Server Price Tracker
+* [spt judge run](spt_judge_run.md)  - Run one tick of the LLM-as-judge worker
 

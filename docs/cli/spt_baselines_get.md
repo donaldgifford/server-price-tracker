@@ -28,5 +28,5 @@ spt baselines get <product-key> [flags]
 
 ### SEE ALSO
 
-* [spt baselines](spt_baselines.md)	 - Manage price baselines
+* [spt baselines](spt_baselines.md)  - Manage price baselines
 

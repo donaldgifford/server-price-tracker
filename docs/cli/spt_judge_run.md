@@ -32,5 +32,5 @@ spt judge run [flags]
 
 ### SEE ALSO
 
-* [spt judge](spt_judge.md)	 - LLM-as-judge worker controls
+* [spt judge](spt_judge.md)  - LLM-as-judge worker controls
 

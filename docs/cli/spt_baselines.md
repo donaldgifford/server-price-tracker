@@ -24,8 +24,8 @@ determine whether a listing is priced above or below market.
 
 ### SEE ALSO
 
-* [spt](spt.md)	 - CLI client for Server Price Tracker
-* [spt baselines get](spt_baselines_get.md)	 - Show baseline details
-* [spt baselines list](spt_baselines_list.md)	 - List all baselines
-* [spt baselines refresh](spt_baselines_refresh.md)	 - Trigger baseline refresh
+* [spt](spt.md)  - CLI client for Server Price Tracker
+* [spt baselines get](spt_baselines_get.md)  - Show baseline details
+* [spt baselines list](spt_baselines_list.md)  - List all baselines
+* [spt baselines refresh](spt_baselines_refresh.md)  - Trigger baseline refresh
 

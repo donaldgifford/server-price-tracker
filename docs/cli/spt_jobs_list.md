@@ -29,5 +29,5 @@ spt jobs list [flags]
 
 ### SEE ALSO
 
-* [spt jobs](spt_jobs.md)	 - View scheduler job history
+* [spt jobs](spt_jobs.md)  - View scheduler job history
 
