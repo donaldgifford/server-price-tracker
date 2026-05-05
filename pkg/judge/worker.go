@@ -160,18 +160,17 @@ func (w *Worker) Run(ctx context.Context) (int, error) {
 	judged := 0
 	var firstErr error
 	for i := range candidates {
-		// In-loop budget recheck: a long-running batch could cross the
-		// cap mid-flight. Cheap query (indexed scan over today's slice)
-		// versus an expensive LLM call.
-		if w.dailyBudgetUSD > 0 {
-			spent, sumErr := w.store.SumJudgeCostSince(ctx, todayUTCMidnight())
-			if sumErr == nil && spent >= w.dailyBudgetUSD {
-				w.metrics.RecordBudgetExhausted()
-				w.logger.Warn("judge daily budget exhausted mid-batch",
-					"spent_usd", spent, "budget_usd", w.dailyBudgetUSD,
-					"remaining_in_batch", len(candidates)-i)
-				return judged, ErrJudgeBudgetExhausted
+		// In-loop budget recheck: a long-running batch could cross
+		// the cap mid-flight. checkBudget halts the tick on either
+		// a DB error or budget exhaustion — see INV-0001 MEDIUM-8.
+		if haltErr := w.checkBudget(ctx, judged, len(candidates)-i); haltErr != nil {
+			if errors.Is(haltErr, ErrJudgeBudgetExhausted) {
+				return judged, haltErr
 			}
+			if firstErr == nil {
+				firstErr = haltErr
+			}
+			return judged, firstErr
 		}
 		if err := w.judgeOne(ctx, &candidates[i]); err != nil {
 			w.logger.Warn("judge evaluate failed (continuing)",
@@ -184,6 +183,35 @@ func (w *Worker) Run(ctx context.Context) (int, error) {
 		judged++
 	}
 	return judged, firstErr
+}
+
+// checkBudget runs the in-loop budget recheck. Returns:
+//   - nil → still under budget, continue judging.
+//   - ErrJudgeBudgetExhausted → cap met or exceeded; caller halts.
+//   - any other error → DB recheck failed; caller halts (don't
+//     silently continue spending — see INV-0001 MEDIUM-8).
+//
+// dailyBudgetUSD ≤ 0 disables the cap entirely.
+func (w *Worker) checkBudget(ctx context.Context, judgedSoFar, remainingInBatch int) error {
+	if w.dailyBudgetUSD <= 0 {
+		return nil
+	}
+	spent, err := w.store.SumJudgeCostSince(ctx, todayUTCMidnight())
+	if err != nil {
+		w.logger.Warn("judge budget recheck failed; halting tick",
+			"error", err,
+			"judged_so_far", judgedSoFar,
+			"remaining_in_batch", remainingInBatch)
+		return fmt.Errorf("judge budget recheck: %w", err)
+	}
+	if spent >= w.dailyBudgetUSD {
+		w.metrics.RecordBudgetExhausted()
+		w.logger.Warn("judge daily budget exhausted mid-batch",
+			"spent_usd", spent, "budget_usd", w.dailyBudgetUSD,
+			"remaining_in_batch", remainingInBatch)
+		return ErrJudgeBudgetExhausted
+	}
+	return nil
 }
 
 // judgeOne is one alert's path through the worker — extracted so the

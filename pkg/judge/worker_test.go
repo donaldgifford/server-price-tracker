@@ -38,6 +38,11 @@ type fakeStore struct {
 	candidates []domain.JudgeCandidate
 	persisted  []*domain.JudgeScore
 	preSpent   float64
+	// sumErrAfter, when > 0, makes SumJudgeCostSince return an error
+	// after the Nth call (1-indexed). Lets a test simulate the DB
+	// dying mid-batch on the in-loop budget recheck.
+	sumErrAfter int
+	sumCalls    int
 }
 
 func (s *fakeStore) ListAlertsForJudging(_ context.Context, q *judge.JudgeStoreQuery) ([]domain.JudgeCandidate, error) {
@@ -55,6 +60,10 @@ func (s *fakeStore) InsertJudgeScore(_ context.Context, sc *domain.JudgeScore) e
 }
 
 func (s *fakeStore) SumJudgeCostSince(_ context.Context, _ time.Time) (float64, error) {
+	s.sumCalls++
+	if s.sumErrAfter > 0 && s.sumCalls > s.sumErrAfter {
+		return 0, errors.New("simulated DB error on judge_scores SUM")
+	}
 	return s.preSpent, nil
 }
 
@@ -234,6 +243,40 @@ func TestWorker_Run_BudgetCrossedMidBatch(t *testing.T) {
 	require.ErrorIs(t, err, judge.ErrJudgeBudgetExhausted)
 	assert.Equal(t, 2, n, "should judge 2 alerts before mid-batch recheck cuts off the 3rd")
 	assert.Equal(t, 1, m.budgetExhausted)
+}
+
+// TestWorker_Run_HaltsOnBudgetRecheckDBError: the in-loop budget
+// recheck must halt the tick on a DB error. Silently continuing
+// would defeat the budget guarantee — see INV-0001 MEDIUM-8.
+func TestWorker_Run_HaltsOnBudgetRecheckDBError(t *testing.T) {
+	t.Parallel()
+
+	// 3 candidates; first SumJudgeCostSince call (Run preflight) is
+	// fine; the in-loop recheck is the *second* call → it errors.
+	s := &fakeStore{
+		candidates:  []domain.JudgeCandidate{candidate("a"), candidate("b"), candidate("c")},
+		sumErrAfter: 1,
+	}
+	j := &fakeJudge{verdict: judge.Verdict{Score: 0.5, Model: "m", CostUSD: 5.0}}
+	m := newFakeMetrics()
+
+	w, err := judge.NewWorker(&judge.WorkerConfig{
+		Judge:          j,
+		Store:          s,
+		Metrics:        m,
+		DailyBudgetUSD: 100.0, // well above what 3 candidates would spend
+	})
+	require.NoError(t, err)
+
+	n, err := w.Run(context.Background())
+	require.Error(t, err)
+	require.NotErrorIs(t, err, judge.ErrJudgeBudgetExhausted,
+		"halt on DB error must NOT masquerade as budget exhaustion")
+	assert.Contains(t, err.Error(), "judge budget recheck")
+	assert.Equal(t, 0, n,
+		"in-loop recheck fires before the first judgement → 0 alerts judged")
+	assert.Equal(t, 0, m.budgetExhausted,
+		"budget metric must not increment for DB-error halts")
 }
 
 // TestWorker_Run_JudgeErrorContinues: one alert blows up; the worker

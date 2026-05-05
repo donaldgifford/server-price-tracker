@@ -489,7 +489,7 @@ current PR.
   before spawn.
 - [x] **MEDIUM-7** — thread `shutdownCtx` from `Stop` into
   `flushRemaining`; add a shutdown integration test.
-- [ ] **MEDIUM-8** — halt judge tick on budget-recheck DB error.
+- [x] **MEDIUM-8** — halt judge tick on budget-recheck DB error.
 - [ ] **MEDIUM-9** — flip OTel `insecure` default to `false`; explicit
   `true` in `config.dev.yaml`.
 - [ ] **MEDIUM-10** — truncate raw LLM response in error string.
