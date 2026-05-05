@@ -478,7 +478,7 @@ current PR.
 
 **Land on PR #51 before merge:**
 
-- [ ] **HIGH-1** — `BufferMetrics` interface, drop `internal/metrics` import.
+- [x] **HIGH-1** — `BufferMetrics` interface, drop `internal/metrics` import.
 - [ ] **HIGH-2** — rename `judge.WithModelCosts` → `judge.WithJudgeCosts`.
 - [ ] **HIGH-3** — switch `BufferedClient.enqueue` to **drop-newest** semantics
   (Option A); delete the eviction dance.

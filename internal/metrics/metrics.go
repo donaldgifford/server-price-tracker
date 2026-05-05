@@ -2,6 +2,8 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -408,6 +410,36 @@ var (
 		Buckets:   prometheus.DefBuckets,
 	})
 )
+
+// LangfuseBufferAdapter wires the global Prometheus collectors above
+// into the langfuse.BufferMetrics interface so pkg/observability/langfuse
+// stays free of internal/* imports (preserves the pkg/ → external-tools
+// boundary). Construct with a zero value: `LangfuseBufferAdapter{}`.
+type LangfuseBufferAdapter struct{}
+
+// SetDepth sets the current Langfuse buffer depth gauge.
+func (LangfuseBufferAdapter) SetDepth(depth int) {
+	LangfuseBufferDepth.Set(float64(depth))
+}
+
+// RecordDrop increments the buffer-drop counter.
+func (LangfuseBufferAdapter) RecordDrop() {
+	LangfuseBufferDropsTotal.Inc()
+}
+
+// RecordWrite increments the result-labelled write counter.
+func (LangfuseBufferAdapter) RecordWrite(success bool) {
+	result := "success"
+	if !success {
+		result = "error"
+	}
+	LangfuseWritesTotal.WithLabelValues(result).Inc()
+}
+
+// ObserveWriteDuration observes the write-latency histogram.
+func (LangfuseBufferAdapter) ObserveWriteDuration(d time.Duration) {
+	LangfuseWriteDuration.Observe(d.Seconds())
+}
 
 // LLM-as-judge worker metrics (IMPL-0019 Phase 5).
 //

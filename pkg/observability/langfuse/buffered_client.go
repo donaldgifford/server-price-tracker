@@ -6,9 +6,27 @@ import (
 	"log/slog"
 	"sync"
 	"time"
-
-	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 )
+
+// BufferMetrics is the metrics surface BufferedClient needs to emit
+// observability signals. The langfuse package can't import
+// internal/metrics directly (would break the pkg/ → internal/ boundary
+// for external tools), so callers inject an adapter that wraps the
+// global Prometheus collectors. Tests use the no-op default.
+type BufferMetrics interface {
+	SetDepth(depth int)
+	RecordDrop()
+	RecordWrite(success bool)
+	ObserveWriteDuration(d time.Duration)
+}
+
+// noopBufferMetrics is the default when no adapter is supplied.
+type noopBufferMetrics struct{}
+
+func (noopBufferMetrics) SetDepth(int)                       {}
+func (noopBufferMetrics) RecordDrop()                        {}
+func (noopBufferMetrics) RecordWrite(bool)                   {}
+func (noopBufferMetrics) ObserveWriteDuration(time.Duration) {}
 
 // BufferedClient wraps an upstream Client with a bounded async channel
 // + drain goroutine so transient Langfuse outages don't block the
@@ -27,6 +45,7 @@ import (
 type BufferedClient struct {
 	upstream Client
 	log      *slog.Logger
+	metrics  BufferMetrics
 	jobs     chan bufferJob
 
 	wg     sync.WaitGroup
@@ -53,6 +72,16 @@ func WithBufferLogger(l *slog.Logger) BufferedClientOption {
 	}
 }
 
+// WithBufferMetrics injects the metrics adapter. Required for the
+// production wiring; tests fall through to the no-op default.
+func WithBufferMetrics(m BufferMetrics) BufferedClientOption {
+	return func(b *BufferedClient) {
+		if m != nil {
+			b.metrics = m
+		}
+	}
+}
+
 // NewBufferedClient wraps upstream with an async buffer of the given
 // capacity. Capacity must be > 0; defaults to 1000 if 0 or negative
 // (matches observability.langfuse.buffer_size default).
@@ -70,6 +99,7 @@ func NewBufferedClient(upstream Client, capacity int, opts ...BufferedClientOpti
 	b := &BufferedClient{
 		upstream: upstream,
 		log:      slog.Default(),
+		metrics:  noopBufferMetrics{},
 		jobs:     make(chan bufferJob, capacity),
 		stopCh:   make(chan struct{}),
 	}
@@ -168,7 +198,7 @@ func (b *BufferedClient) CreateDatasetRun(ctx context.Context, run *DatasetRun) 
 func (b *BufferedClient) enqueue(job bufferJob) {
 	select {
 	case b.jobs <- job:
-		metrics.LangfuseBufferDepth.Set(float64(len(b.jobs)))
+		b.metrics.SetDepth(len(b.jobs))
 		return
 	default:
 	}
@@ -176,16 +206,16 @@ func (b *BufferedClient) enqueue(job bufferJob) {
 	// Buffer full — drop oldest, then try once more.
 	select {
 	case <-b.jobs:
-		metrics.LangfuseBufferDropsTotal.Inc()
+		b.metrics.RecordDrop()
 	default:
 	}
 
 	select {
 	case b.jobs <- job:
-		metrics.LangfuseBufferDepth.Set(float64(len(b.jobs)))
+		b.metrics.SetDepth(len(b.jobs))
 	default:
 		// Still full — racing senders. Drop this one too.
-		metrics.LangfuseBufferDropsTotal.Inc()
+		b.metrics.RecordDrop()
 	}
 }
 
@@ -204,7 +234,7 @@ func (b *BufferedClient) drain(ctx context.Context) {
 			return
 		case job := <-b.jobs:
 			b.runJob(ctx, job)
-			metrics.LangfuseBufferDepth.Set(float64(len(b.jobs)))
+			b.metrics.SetDepth(len(b.jobs))
 		}
 	}
 }
@@ -218,7 +248,7 @@ func (b *BufferedClient) flushRemaining(ctx context.Context) {
 		case job := <-b.jobs:
 			b.runJob(ctx, job)
 		default:
-			metrics.LangfuseBufferDepth.Set(0)
+			b.metrics.SetDepth(0)
 			return
 		}
 	}
@@ -227,11 +257,9 @@ func (b *BufferedClient) flushRemaining(ctx context.Context) {
 func (b *BufferedClient) runJob(ctx context.Context, job bufferJob) {
 	start := time.Now()
 	err := job.op(ctx, b.upstream)
-	metrics.LangfuseWriteDuration.Observe(time.Since(start).Seconds())
+	b.metrics.ObserveWriteDuration(time.Since(start))
 
-	result := "success"
 	if err != nil {
-		result = "error"
 		// Surface at debug — the metric is the actionable signal.
 		// We don't log every failure as warn to avoid log floods
 		// during sustained outages.
@@ -240,7 +268,7 @@ func (b *BufferedClient) runJob(ctx context.Context, job bufferJob) {
 			"queued_for", time.Since(job.enqueuedAt).String(),
 		)
 	}
-	metrics.LangfuseWritesTotal.WithLabelValues(result).Inc()
+	b.metrics.RecordWrite(err == nil)
 
 	if err != nil && errors.Is(err, context.Canceled) {
 		// Shutdown raced — no point reporting separately.

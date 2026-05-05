@@ -182,7 +182,11 @@ func initLangfuse(cfg *config.LangfuseConfig, logger *slog.Logger) (langfuse.Cli
 		return nil, nil, fmt.Errorf("building langfuse http client: %w", err)
 	}
 
-	buffered := langfuse.NewBufferedClient(httpClient, cfg.BufferSize, langfuse.WithBufferLogger(logger))
+	buffered := langfuse.NewBufferedClient(
+		httpClient, cfg.BufferSize,
+		langfuse.WithBufferLogger(logger),
+		langfuse.WithBufferMetrics(metrics.LangfuseBufferAdapter{}),
+	)
 	buffered.Start(context.Background())
 	logger.Info("langfuse enabled",
 		"endpoint", cfg.Endpoint,
