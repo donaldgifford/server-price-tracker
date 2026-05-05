@@ -410,9 +410,19 @@ func (s *PostgresStore) RecomputeAllBaselines(ctx context.Context, windowDays in
 }
 
 // CreateAlert inserts a new alert, silently ignoring duplicates.
+//
+// The trace_id is derived from a.TraceID; nil or empty string both
+// persist as NULL via the NULLIF in queryCreateAlert. This way the
+// alert review UI can deep-link back to the trace that produced the
+// listing for alerts created post-IMPL-0019, while pre-existing
+// alerts remain queryable without any backfill.
 func (s *PostgresStore) CreateAlert(ctx context.Context, a *domain.Alert) error {
+	traceID := ""
+	if a.TraceID != nil {
+		traceID = *a.TraceID
+	}
 	err := s.pool.QueryRow(ctx, queryCreateAlert,
-		a.WatchID, a.ListingID, a.Score,
+		a.WatchID, a.ListingID, a.Score, traceID,
 	).Scan(&a.ID, &a.CreatedAt)
 
 	// ON CONFLICT DO NOTHING returns no rows — treat as success.
@@ -654,7 +664,7 @@ func scanAlertWithListing(rows pgx.Rows) (domain.AlertWithListing, error) {
 	)
 	err := rows.Scan(
 		&a.ID, &a.WatchID, &a.ListingID, &a.Score,
-		&a.Notified, &a.NotifiedAt, &a.CreatedAt, &a.DismissedAt,
+		&a.Notified, &a.NotifiedAt, &a.CreatedAt, &a.DismissedAt, &a.TraceID,
 		&l.ID, &l.EbayID, &l.Title, &l.ItemURL, &l.ImageURL,
 		&l.Price, &l.Currency, &l.ShippingCost, &l.ListingType,
 		&l.SellerName, &l.SellerFeedback, &l.SellerFeedbackPct, &l.SellerTopRated,
@@ -742,54 +752,162 @@ func (s *PostgresStore) listNotificationAttempts(
 }
 
 // DismissAlerts marks the given alerts as dismissed, skipping any that are
-// already dismissed. Returns the number of rows actually transitioned, so
-// callers can distinguish "nothing to do" from "I dismissed N rows" for
-// UI feedback and metric counting.
-func (s *PostgresStore) DismissAlerts(ctx context.Context, ids []string) (int, error) {
+// already dismissed. Returns the number of rows actually transitioned plus
+// the trace IDs of those rows so the alert-review handler can post a
+// Langfuse dismissal score (IMPL-0019 Phase 4). Empty/NULL trace IDs are
+// filtered out — callers iterate the slice directly without a guard.
+func (s *PostgresStore) DismissAlerts(ctx context.Context, ids []string) (int, []string, error) {
 	defer observeQueryDuration("dismiss", time.Now())
 	if len(ids) == 0 {
-		return 0, nil
+		return 0, nil, nil
 	}
 	rows, err := s.pool.Query(ctx, queryDismissAlerts, ids)
 	if err != nil {
-		return 0, fmt.Errorf("dismissing alerts: %w", err)
+		return 0, nil, fmt.Errorf("dismissing alerts: %w", err)
 	}
 	defer rows.Close()
 
 	count := 0
+	traceIDs := make([]string, 0, len(ids))
 	for rows.Next() {
-		var ignored string
-		if err := rows.Scan(&ignored); err != nil {
-			return 0, fmt.Errorf("scanning dismissed alert id: %w", err)
+		var (
+			id      string
+			traceID string
+		)
+		if err := rows.Scan(&id, &traceID); err != nil {
+			return 0, nil, fmt.Errorf("scanning dismissed alert id: %w", err)
 		}
 		count++
+		if traceID != "" {
+			traceIDs = append(traceIDs, traceID)
+		}
 	}
-	return count, rows.Err()
+	return count, traceIDs, rows.Err()
 }
 
 // RestoreAlerts clears dismissed_at on the given alerts. Returns the number
-// of rows actually transitioned (alerts that were not previously dismissed
-// are skipped silently).
-func (s *PostgresStore) RestoreAlerts(ctx context.Context, ids []string) (int, error) {
+// of rows actually transitioned plus the trace IDs of those rows so the
+// alert-review handler can post a Langfuse `operator_dismissed = 0` score
+// (IMPL-0019 Phase 4 follow-up). Alerts that were not previously dismissed
+// are skipped silently. Empty/NULL trace IDs are filtered out — callers
+// iterate the slice directly without a guard.
+func (s *PostgresStore) RestoreAlerts(ctx context.Context, ids []string) (int, []string, error) {
 	defer observeQueryDuration("restore", time.Now())
 	if len(ids) == 0 {
-		return 0, nil
+		return 0, nil, nil
 	}
 	rows, err := s.pool.Query(ctx, queryRestoreAlerts, ids)
 	if err != nil {
-		return 0, fmt.Errorf("restoring alerts: %w", err)
+		return 0, nil, fmt.Errorf("restoring alerts: %w", err)
 	}
 	defer rows.Close()
 
 	count := 0
+	traceIDs := make([]string, 0, len(ids))
 	for rows.Next() {
-		var ignored string
-		if err := rows.Scan(&ignored); err != nil {
-			return 0, fmt.Errorf("scanning restored alert id: %w", err)
+		var (
+			id      string
+			traceID string
+		)
+		if err := rows.Scan(&id, &traceID); err != nil {
+			return 0, nil, fmt.Errorf("scanning restored alert id: %w", err)
 		}
 		count++
+		if traceID != "" {
+			traceIDs = append(traceIDs, traceID)
+		}
 	}
-	return count, rows.Err()
+	return count, traceIDs, rows.Err()
+}
+
+// ListAlertsForJudging returns alerts in the lookback window that don't
+// yet have a row in judge_scores. Joins to listings + watches +
+// price_baselines so the worker has everything it needs in one query.
+//
+// Limit defaults to 50 when the caller passes 0; the daily budget
+// caps wall-clock spend independently of batch size.
+func (s *PostgresStore) ListAlertsForJudging(ctx context.Context, q *JudgeCandidatesQuery) ([]domain.JudgeCandidate, error) {
+	defer observeQueryDuration("judge.list_candidates", time.Now())
+
+	lookback := q.Lookback
+	if lookback <= 0 {
+		lookback = 6 * time.Hour
+	}
+	limit := q.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	since := time.Now().Add(-lookback)
+
+	rows, err := s.pool.Query(ctx, queryListAlertsForJudging, since, limit)
+	if err != nil {
+		return nil, fmt.Errorf("listing alerts for judging: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]domain.JudgeCandidate, 0, limit)
+	for rows.Next() {
+		var c domain.JudgeCandidate
+		if err := rows.Scan(
+			&c.AlertID, &c.WatchID, &c.WatchName,
+			&c.ListingID, &c.ListingTitle, &c.ComponentType,
+			&c.Condition, &c.PriceUSD,
+			&c.BaselineP25, &c.BaselineP50, &c.BaselineP75, &c.SampleSize,
+			&c.Score, &c.Threshold, &c.TraceID, &c.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning judge candidate: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// InsertJudgeScore upserts a verdict; conflict on alert_id is a no-op
+// so the worker is idempotent. Re-judging an alert is a manual DELETE
+// + worker re-run, not an update path.
+func (s *PostgresStore) InsertJudgeScore(ctx context.Context, sc *domain.JudgeScore) error {
+	defer observeQueryDuration("judge.insert_score", time.Now())
+	_, err := s.pool.Exec(ctx, queryInsertJudgeScore,
+		sc.AlertID, sc.Score, sc.Reason, sc.Model,
+		sc.InputTokens, sc.OutputTokens, sc.CostUSD,
+	)
+	if err != nil {
+		return fmt.Errorf("inserting judge score: %w", err)
+	}
+	return nil
+}
+
+// SumJudgeCostSince returns the total cost_usd for verdicts judged at
+// or after `since`. The worker passes UTC midnight so the result is
+// today's spend; comparison against daily_budget_usd gates the next
+// batch.
+func (s *PostgresStore) SumJudgeCostSince(ctx context.Context, since time.Time) (float64, error) {
+	defer observeQueryDuration("judge.sum_cost", time.Now())
+	var sum float64
+	if err := s.pool.QueryRow(ctx, querySumJudgeCostSince, since).Scan(&sum); err != nil {
+		return 0, fmt.Errorf("summing judge cost: %w", err)
+	}
+	return sum, nil
+}
+
+// GetJudgeScore returns the verdict for one alert, or nil + nil error
+// when no row exists. Used by the alert review UI to populate the
+// judge_score column on the detail page.
+func (s *PostgresStore) GetJudgeScore(ctx context.Context, alertID string) (*domain.JudgeScore, error) {
+	defer observeQueryDuration("judge.get_score", time.Now())
+	var sc domain.JudgeScore
+	err := s.pool.QueryRow(ctx, queryGetJudgeScore, alertID).Scan(
+		&sc.AlertID, &sc.Score, &sc.Reason, &sc.Model,
+		&sc.InputTokens, &sc.OutputTokens, &sc.CostUSD, &sc.JudgedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			//nolint:nilnil // documented surface: nil + nil signals "no judge verdict yet" so the caller renders an empty cell
+			return nil, nil
+		}
+		return nil, fmt.Errorf("fetching judge score: %w", err)
+	}
+	return &sc, nil
 }
 
 // GetSystemState queries the system_state view for a single-row snapshot.
@@ -1061,6 +1179,7 @@ func (s *PostgresStore) queryAlerts(
 		if err := rows.Scan(
 			&a.ID, &a.WatchID, &a.ListingID, &a.Score,
 			&a.Notified, &a.NotifiedAt, &a.CreatedAt, &a.DismissedAt,
+			&a.TraceID,
 		); err != nil {
 			return nil, fmt.Errorf("scanning alert: %w", err)
 		}
@@ -1103,8 +1222,15 @@ func scanListingRow(rows pgx.Rows, l *domain.Listing) error {
 
 // EnqueueExtraction adds a listing to the extraction queue.
 // If a pending job already exists for the listing, the INSERT is silently ignored.
+//
+// When the calling context carries an active OTel span, its trace ID is
+// captured into extraction_queue.trace_id so the worker can resume the
+// trace at claim time instead of starting a disconnected one. Empty
+// when observability.otel.enabled was false at enqueue time —
+// queryEnqueueExtraction's NULLIF coerces "" to SQL NULL.
 func (s *PostgresStore) EnqueueExtraction(ctx context.Context, listingID string, priority int) error {
-	if _, err := s.pool.Exec(ctx, queryEnqueueExtraction, listingID, priority); err != nil {
+	traceID := traceIDFromContext(ctx)
+	if _, err := s.pool.Exec(ctx, queryEnqueueExtraction, listingID, priority, traceID); err != nil {
 		return fmt.Errorf("enqueuing extraction: %w", err)
 	}
 	return nil
@@ -1125,7 +1251,9 @@ func (s *PostgresStore) DequeueExtractions(
 	var jobs []domain.ExtractionJob
 	for rows.Next() {
 		var j domain.ExtractionJob
-		if err := rows.Scan(&j.ID, &j.ListingID, &j.Priority, &j.EnqueuedAt, &j.Attempts); err != nil {
+		if err := rows.Scan(
+			&j.ID, &j.ListingID, &j.Priority, &j.EnqueuedAt, &j.Attempts, &j.TraceID,
+		); err != nil {
 			return nil, fmt.Errorf("scanning extraction job: %w", err)
 		}
 		jobs = append(jobs, j)

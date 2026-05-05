@@ -120,3 +120,59 @@ web:
 logging:
   level: info
   format: text  # text or json
+
+# OpenTelemetry, Langfuse, and LLM-as-judge observability
+# (DESIGN-0016 / IMPL-0019). All three subtrees are independently
+# disable-able. Defaults below mirror today's behaviour: every
+# subtree off, the app emits Prometheus metrics + slog as before.
+observability:
+  # OTel SDK: traces + metrics over OTLP/gRPC to a Collector. App
+  # always emits 100% of spans; sampling decisions live in the
+  # Collector's tail_sampling processor (platform-side).
+  otel:
+    enabled: false
+    # OTLP/gRPC endpoint, e.g. "otel-collector.observability:4317".
+    endpoint: ""
+    service_name: "server-price-tracker"
+    # Skip TLS verification — set to true ONLY when targeting a local
+    # in-cluster Collector over plaintext gRPC (the typical sidecar
+    # pattern). For any remote/internet-facing OTLP endpoint leave at
+    # false so a misconfigured prod deploy fails loudly instead of
+    # silently shipping spans (listing titles, prices, trace IDs)
+    # over plaintext. See INV-0001 MEDIUM-9.
+    insecure: false
+    timeout: 10s
+  # In-house Langfuse HTTP client (no third-party SDK). Wraps every
+  # LLMBackend.Generate call as a Langfuse generation. Async +
+  # bounded buffer absorbs transient outages — see
+  # spt_langfuse_buffer_* metrics for buffer health.
+  langfuse:
+    enabled: false
+    endpoint: ""  # e.g. "https://langfuse.example.com"
+    public_key: "${LANGFUSE_PUBLIC_KEY}"
+    secret_key: "${LANGFUSE_SECRET_KEY}"
+    buffer_size: 1000
+    timeout: 10s
+    # Optional per-model rate table. Empty → CostUSD=0 on each
+    # generation and Langfuse falls back to its own server-side rate
+    # lookup (which already knows public Anthropic / OpenAI models).
+    # Add entries here only for in-house / private models that
+    # Langfuse can't price (e.g., Ollama). Rates are USD per million
+    # tokens. Example:
+    # model_costs:
+    #   "claude-haiku-4-5-20251001":
+    #     input_usd_per_million: 1.0
+    #     output_usd_per_million: 5.0
+    model_costs: {}
+  # LLM-as-judge worker: scores fired alerts retrospectively for
+  # alert-quality grading. Runs as a cron entry every 15m, looks
+  # back 6h, hard-cuts spending at $10/day to bound runaway cost.
+  # backend/model empty = inherit from llm.backend.
+  judge:
+    enabled: false
+    backend: ""  # "" -> inherit from llm.backend
+    model: ""  # "" -> inherit from selected backend
+    interval: 15m
+    lookback: 6h
+    batch_size: 50
+    daily_budget_usd: 10.0

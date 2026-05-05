@@ -37,6 +37,7 @@ created: 2026-05-02
     - [Success Criteria](#success-criteria-4)
   - [Phase 6: Production rollout](#phase-6-production-rollout)
     - [Tasks](#tasks-5)
+    - [Phase 5 → 6 iterative fixes](#phase-5--6-iterative-fixes)
     - [Success Criteria](#success-criteria-5)
   - [Phase 7 (optional): Backfill misclassified workstations and desktops](#phase-7-optional-backfill-misclassified-workstations-and-desktops)
     - [Tasks](#tasks-6)

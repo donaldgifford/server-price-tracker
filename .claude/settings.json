@@ -7,5 +7,43 @@
     "systems-programming@donaldgifford-claude-skills": true,
     "shell-scripting@donaldgifford-claude-skills": true,
     "docz@donaldgifford-claude-skills": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(gh pr *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -sS https://spt.fartlab.dev/metrics)",
+      "Bash(go test *)",
+      "Bash(make lint *)",
+      "Bash(make *)",
+      "Bash(make fmt *)",
+      "Bash(go tool *)",
+      "Bash(gh run *)",
+      "Bash(git checkout *)",
+      "Bash(docz list *)",
+      "Bash(docz create *)",
+      "Bash(git pull *)",
+      "Bash(docz --help)",
+      "Bash(docz update *)",
+      "Bash(go build *)",
+      "Bash(go run *)",
+      "Bash(golangci-lint *)",
+      "Bash(./build/bin/server-price-tracker *)",
+      "Bash(make lint-md *)",
+      "WebFetch(domain:www.ebay.com)",
+      "Bash(make test *)",
+      "Bash(gh api *)",
+      "Bash(yamlfmt configs/spt.example.yaml)",
+      "Bash(make lint-yaml-fmt *)",
+      "Bash(gh release *)",
+      "Bash(git fetch *)",
+      "Bash(gh label *)",
+      "Bash(go list *)",
+      "Bash(go get *)",
+      "Bash(go mod *)",
+      "Bash(git commit *)"
+    ]
   }
 }

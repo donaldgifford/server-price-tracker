@@ -535,7 +535,7 @@ func TestPostgresStore_AlertReview_StatusFilter(t *testing.T) {
 	assert.Equal(t, 3, res.Total)
 
 	require.NoError(t, s.MarkAlertNotified(ctx, ids[0]))
-	dismissed, err := s.DismissAlerts(ctx, []string{ids[1]})
+	dismissed, _, err := s.DismissAlerts(ctx, []string{ids[1]})
 	require.NoError(t, err)
 	assert.Equal(t, 1, dismissed)
 
@@ -590,11 +590,11 @@ func TestPostgresStore_DismissRestoreAlerts(t *testing.T) {
 
 	_, ids := alertReviewSetup(t, s, "dismiss-restore", []int{80, 85})
 
-	dismissed, err := s.DismissAlerts(ctx, ids)
+	dismissed, _, err := s.DismissAlerts(ctx, ids)
 	require.NoError(t, err)
 	assert.Equal(t, 2, dismissed)
 
-	again, err := s.DismissAlerts(ctx, ids)
+	again, _, err := s.DismissAlerts(ctx, ids)
 	require.NoError(t, err)
 	assert.Equal(t, 0, again, "second dismiss on the same IDs is a no-op")
 
@@ -606,7 +606,7 @@ func TestPostgresStore_DismissRestoreAlerts(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, noop)
 
-	zero, err := s.DismissAlerts(ctx, nil)
+	zero, _, err := s.DismissAlerts(ctx, nil)
 	require.NoError(t, err)
 	assert.Equal(t, 0, zero)
 }

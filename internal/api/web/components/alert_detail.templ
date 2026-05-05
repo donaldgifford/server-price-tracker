@@ -3,13 +3,31 @@ package components
 import (
 	"fmt"
 
+	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
+
+// AlertDetailData bundles AlertDetail with the optional Langfuse
+// endpoint so the trace deep-link button can be rendered when both
+// the endpoint is configured AND the alert carries a non-empty
+// trace_id. Empty endpoint → button suppressed across the page.
+//
+// JudgeScore is the optional Phase 5 verdict for this alert; nil
+// renders an empty cell ("not yet judged"). Set independent of the
+// JudgeEnabled feature flag — the detail page always shows it when
+// the data is available, since the operator drilled in here
+// explicitly.
+type AlertDetailData struct {
+	Detail           *domain.AlertDetail
+	LangfuseEndpoint string
+	JudgeScore       *domain.JudgeScore
+}
 
 // AlertDetailPage is the per-alert triage view at GET /alerts/{id}.
 // Shows the full listing card, score breakdown, watch info, action
 // buttons, and notification history.
-templ AlertDetailPage(d *domain.AlertDetail) {
+templ AlertDetailPage(data AlertDetailData) {
+	{{ d := data.Detail }}
 	@Layout("Alert " + d.Alert.ID) {
 		<p><a href="/alerts">← Back to alerts</a></p>
 
@@ -30,6 +48,15 @@ templ AlertDetailPage(d *domain.AlertDetail) {
 					<dt>Condition</dt><dd>{ string(d.Listing.ConditionNorm) }</dd>
 					<dt>Type</dt><dd>{ string(d.Listing.ComponentType) }</dd>
 					<dt>Created</dt><dd>{ d.Alert.CreatedAt.Format("2006-01-02 15:04:05 MST") }</dd>
+					if data.JudgeScore != nil {
+						<dt>Judge score</dt>
+						<dd title={ data.JudgeScore.Reason }>
+							{ fmt.Sprintf("%.2f", data.JudgeScore.Score) }
+							if data.JudgeScore.Reason != "" {
+								<span class="muted"> — { data.JudgeScore.Reason }</span>
+							}
+						</dd>
+					}
 				</dl>
 			</div>
 
@@ -71,10 +98,26 @@ templ AlertDetailPage(d *domain.AlertDetail) {
 							Restore
 						</button>
 					}
+					if traceURL := alertTraceURL(data, d.Alert); traceURL != "" {
+						<a class="btn-link" href={ templ.URL(traceURL) } target="_blank" rel="noreferrer">
+							View Trace ↗
+						</a>
+					}
 				</div>
 			</div>
 		</div>
 
 		@NotificationHistory(d.NotificationHistory)
 	}
+}
+
+// alertTraceURL composes the Langfuse trace URL for the View Trace
+// button, returning "" when either Langfuse is not configured or the
+// alert has no trace_id (pre-IMPL-0019). Returning "" suppresses the
+// button cleanly via the templ if-guard above.
+func alertTraceURL(data AlertDetailData, a domain.Alert) string {
+	if a.TraceID == nil {
+		return ""
+	}
+	return langfuse.BuildTraceURL(data.LangfuseEndpoint, *a.TraceID)
 }

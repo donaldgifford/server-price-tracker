@@ -61,6 +61,15 @@ type AlertReviewResult struct {
 	PerPage int
 }
 
+// JudgeCandidatesQuery scopes the LLM-as-judge worker's per-tick batch.
+// Lookback bounds the alerts.created_at window so we don't repeatedly
+// scan the full alert history when the worker is healthy. Limit caps
+// the batch — the worker enforces the daily budget separately.
+type JudgeCandidatesQuery struct {
+	Lookback time.Duration // alerts.created_at >= now() - Lookback
+	Limit    int           // 0 = use store default (50)
+}
+
 // Store defines all data access operations for server-price-tracker.
 type Store interface {
 	// Listings
@@ -109,8 +118,39 @@ type Store interface {
 	// Alert review (DESIGN-0010)
 	ListAlertsForReview(ctx context.Context, q *AlertReviewQuery) (AlertReviewResult, error)
 	GetAlertDetail(ctx context.Context, id string) (*domain.AlertDetail, error)
-	DismissAlerts(ctx context.Context, ids []string) (int, error)
-	RestoreAlerts(ctx context.Context, ids []string) (int, error)
+	// DismissAlerts marks the given alerts as dismissed (skipping any
+	// already dismissed). Returns the number of rows actually
+	// transitioned plus the slice of non-empty trace IDs for those rows
+	// — the IMPL-0019 alert-review-UI flow scores each dismissed trace
+	// in Langfuse so dismissals become labelled training data. NULL or
+	// empty trace_id values are filtered out, so callers can iterate
+	// the slice directly without a guard.
+	DismissAlerts(ctx context.Context, ids []string) (int, []string, error)
+	// RestoreAlerts clears dismissed_at on the given alerts (skipping
+	// any not currently dismissed). Returns the row count plus the
+	// non-empty trace IDs of restored alerts so the handler can post
+	// `operator_dismissed = 0` Langfuse scores — symmetric with
+	// DismissAlerts so the regression set sees explicit positive and
+	// negative labels rather than relying on absence of a dismissal.
+	RestoreAlerts(ctx context.Context, ids []string) (int, []string, error)
+
+	// Judge (IMPL-0019 Phase 5)
+	//
+	// ListAlertsForJudging returns the AlertContext slice the LLM-as-judge
+	// worker should evaluate this tick — alerts created in (now-lookback)
+	// that don't yet have a row in judge_scores. Limit caps the batch
+	// size; 0 means "use the worker's default."
+	ListAlertsForJudging(ctx context.Context, q *JudgeCandidatesQuery) ([]domain.JudgeCandidate, error)
+	// InsertJudgeScore persists the verdict. Conflict on alert_id is a
+	// no-op so the worker can be re-run without poisoning duplicates.
+	InsertJudgeScore(ctx context.Context, s *domain.JudgeScore) error
+	// SumJudgeCostSince is the daily-budget query. Returns the total
+	// cost_usd for verdicts judged on/after `since`; the worker
+	// multiplies UTC midnight in.
+	SumJudgeCostSince(ctx context.Context, since time.Time) (float64, error)
+	// GetJudgeScore returns the persisted verdict for a single alert,
+	// or nil + nil error when no row exists yet (pre-judge alerts).
+	GetJudgeScore(ctx context.Context, alertID string) (*domain.JudgeScore, error)
 
 	GetSystemState(ctx context.Context) (*domain.SystemState, error)
 

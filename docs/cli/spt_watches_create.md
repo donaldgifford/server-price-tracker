@@ -32,7 +32,7 @@ spt watches create [flags]
       --name string          watch name
       --query string         eBay search query
       --threshold int        score threshold for alerts (default 75)
-      --type string          component type (ram, drive, server, cpu, nic)
+      --type string          component type (ram, drive, server, cpu, nic, gpu, workstation, desktop, other)
 ```
 
 ### Options inherited from parent commands

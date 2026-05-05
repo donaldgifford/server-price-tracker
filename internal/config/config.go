@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 )
 
 // Config is the top-level application configuration.
@@ -23,6 +25,7 @@ type Config struct {
 	Notifications NotificationsConfig `yaml:"notifications"`
 	Web           WebConfig           `yaml:"web"`
 	Logging       LoggingConfig       `yaml:"logging"`
+	Observability ObservabilityConfig `yaml:"observability"`
 }
 
 // WebConfig controls the embedded alert review UI.
@@ -176,6 +179,62 @@ type LoggingConfig struct {
 	Format string `yaml:"format"` // text, json
 }
 
+// ObservabilityConfig groups the three independently disable-able
+// observability subtrees added by DESIGN-0016 / IMPL-0019. Each subtree
+// defaults to disabled so existing deployments are unaffected by the
+// upgrade until they explicitly opt in.
+type ObservabilityConfig struct {
+	Otel     OtelConfig     `yaml:"otel"`
+	Langfuse LangfuseConfig `yaml:"langfuse"`
+	Judge    JudgeConfig    `yaml:"judge"`
+}
+
+// OtelConfig controls OpenTelemetry trace and metric emission. App always
+// emits 100% of spans (AlwaysSample); sampling decisions live in the
+// Collector's tail_sampling processor (platform-side). ServiceName is
+// attached as a resource attribute alongside version + commit SHA.
+type OtelConfig struct {
+	Enabled     bool          `yaml:"enabled"`
+	Endpoint    string        `yaml:"endpoint"` // OTLP/gRPC, e.g., "otel-collector:4317"
+	ServiceName string        `yaml:"service_name"`
+	Insecure    bool          `yaml:"insecure"` // false (default): require TLS — opt in (true) for local plaintext Collector only. See INV-0001 MEDIUM-9.
+	Timeout     time.Duration `yaml:"timeout"`
+}
+
+// LangfuseConfig controls the in-house Langfuse HTTP client wired around
+// LLMBackend.Generate. The buffered client absorbs transient outages —
+// see DESIGN-0016 Open Question 4 / IMPL-0019 Phase 3 for buffer
+// semantics and the Prometheus metrics that expose buffer health.
+type LangfuseConfig struct {
+	Enabled    bool          `yaml:"enabled"`
+	Endpoint   string        `yaml:"endpoint"`    // e.g., "https://langfuse.example.com"
+	PublicKey  string        `yaml:"public_key"`  // pulled from env via os.ExpandEnv
+	SecretKey  string        `yaml:"secret_key"`  // pulled from env via os.ExpandEnv
+	BufferSize int           `yaml:"buffer_size"` // capacity of async write channel
+	Timeout    time.Duration `yaml:"timeout"`     // per-write HTTP timeout
+
+	// ModelCosts is an optional per-model rate table. Empty map → CostUSD
+	// on each GenerationRecord stays 0 and Langfuse falls back to its own
+	// server-side rate table. Operators only need entries for in-house
+	// or private models that Langfuse can't price (e.g., Ollama).
+	ModelCosts map[string]langfuse.ModelCost `yaml:"model_costs"`
+}
+
+// JudgeConfig controls the async LLM-as-judge worker (IMPL-0019 Phase 5).
+// When Enabled is false the worker isn't registered with the scheduler at
+// all — startup behaviour matches today's deployment. Backend is an
+// optional model override; empty falls through to the LLM extract
+// backend's configured model so a Haiku upgrade auto-applies.
+type JudgeConfig struct {
+	Enabled        bool          `yaml:"enabled"`
+	Backend        string        `yaml:"backend"` // "" means inherit from llm.backend
+	Model          string        `yaml:"model"`   // "" means inherit from selected backend
+	Interval       time.Duration `yaml:"interval"`
+	Lookback       time.Duration `yaml:"lookback"`
+	BatchSize      int           `yaml:"batch_size"`
+	DailyBudgetUSD float64       `yaml:"daily_budget_usd"`
+}
+
 // Load reads and parses a YAML config file, performing environment variable
 // substitution and validation.
 func Load(path string) (*Config, error) {
@@ -210,6 +269,7 @@ func applyDefaults(cfg *Config) {
 	applyScheduleDefaults(&cfg.Schedule)
 	applyAlertsDefaults(&cfg.Alerts)
 	applyLoggingDefaults(&cfg.Logging)
+	applyObservabilityDefaults(&cfg.Observability)
 }
 
 func applyEbayDefaults(e *EbayConfig) {
@@ -309,6 +369,45 @@ func applyLoggingDefaults(l *LoggingConfig) {
 	}
 	if l.Format == "" {
 		l.Format = "text"
+	}
+}
+
+func applyObservabilityDefaults(o *ObservabilityConfig) {
+	applyOtelDefaults(&o.Otel)
+	applyLangfuseDefaults(&o.Langfuse)
+	applyJudgeDefaults(&o.Judge)
+}
+
+func applyOtelDefaults(o *OtelConfig) {
+	if o.ServiceName == "" {
+		o.ServiceName = "server-price-tracker"
+	}
+	if o.Timeout == 0 {
+		o.Timeout = 10 * time.Second
+	}
+}
+
+func applyLangfuseDefaults(l *LangfuseConfig) {
+	if l.BufferSize == 0 {
+		l.BufferSize = 1000
+	}
+	if l.Timeout == 0 {
+		l.Timeout = 10 * time.Second
+	}
+}
+
+func applyJudgeDefaults(j *JudgeConfig) {
+	if j.Interval == 0 {
+		j.Interval = 15 * time.Minute
+	}
+	if j.Lookback == 0 {
+		j.Lookback = 6 * time.Hour
+	}
+	if j.BatchSize == 0 {
+		j.BatchSize = 50
+	}
+	if j.DailyBudgetUSD == 0 {
+		j.DailyBudgetUSD = 10.0
 	}
 }
 

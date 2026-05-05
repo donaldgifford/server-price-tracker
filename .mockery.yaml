@@ -19,3 +19,6 @@ packages:
     interfaces:
       LLMBackend:
       Extractor:
+  github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse:
+    interfaces:
+      Client:

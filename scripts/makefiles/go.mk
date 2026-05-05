@@ -4,7 +4,7 @@
 ##@ Go Development
 
 .PHONY: build build-core build-spt
-.PHONY: test test-all test-pkg test-report test-coverage test-integration test-integration-all
+.PHONY: test test-all test-pkg test-report test-coverage test-integration test-integration-all test-regression
 .PHONY: lint lint-fix fmt clean generate mocks templ-generate templ-watch postman postman-test
 .PHONY: run run-local ci check
 .PHONY: release-check release-local
@@ -16,7 +16,7 @@ build: build-core build-spt ## Build everything (server + CLI)
 build-core: templ-generate ## Build server binary
 	@ $(MAKE) --no-print-directory log-$@
 	@mkdir -p $(BIN_DIR)
-	@go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT_HASH)" -o $(BIN_DIR)/$(PROJECT_NAME) $(CMD)/$(PROJECT_NAME)
+	@go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(PROJECT_NAME) $(CMD)/$(PROJECT_NAME)
 	@echo "✓ Server binary built"
 
 build-spt: ## Build spt CLI client binary
@@ -56,6 +56,13 @@ test-integration: ## Run Ebay API integration tests
 	@echo "Running integration tests..."
 	@go test -tags integration -count=1 ./...
 	@echo "✓ Integration tests passed"
+
+test-regression: templ-generate ## Run extraction regression suite against the golden dataset (IMPL-0019 Phase 6)
+	@ $(MAKE) --no-print-directory log-$@
+	@echo "Running extraction regression suite..."
+	@echo "(Requires the configured LLM backend to be reachable from this machine.)"
+	@go run ./tools/regression-runner --config $(CONFIG)
+	@echo "✓ Regression suite finished — paste the accuracy lines into your PR description"
 
 
 ## Code Quality

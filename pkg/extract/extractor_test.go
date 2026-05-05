@@ -10,10 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	"github.com/donaldgifford/server-price-tracker/pkg/extract"
 	extractMocks "github.com/donaldgifford/server-price-tracker/pkg/extract/mocks"
+	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
@@ -996,4 +998,192 @@ func TestExtract_RAMNormalizesSpeed(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, attrs)
 	assert.Equal(t, 2666, attrs["speed_mhz"], "speed_mhz should be normalized from PC4-21300")
+}
+
+// scoreRecorderClient captures Score calls so the auto-score wiring can
+// be asserted without a running Langfuse. Other Client methods are inert
+// — only Score is exercised by autoScoreConfidence.
+type scoreRecorderClient struct {
+	scores []scoreCall
+}
+
+type scoreCall struct {
+	traceID string
+	name    string
+	value   float64
+	comment string
+}
+
+func (c *scoreRecorderClient) Score(_ context.Context, traceID, name string, value float64, comment string) error {
+	c.scores = append(c.scores, scoreCall{traceID: traceID, name: name, value: value, comment: comment})
+	return nil
+}
+
+func (*scoreRecorderClient) LogGeneration(_ context.Context, _ *langfuse.GenerationRecord) error {
+	return nil
+}
+
+func (*scoreRecorderClient) CreateTrace(_ context.Context, _ string, _ map[string]string) (langfuse.TraceHandle, error) {
+	return langfuse.TraceHandle{}, nil
+}
+
+func (*scoreRecorderClient) CreateDatasetItem(_ context.Context, _ string, _ *langfuse.DatasetItem) error {
+	return nil
+}
+
+func (*scoreRecorderClient) CreateDatasetRun(_ context.Context, _ *langfuse.DatasetRun) error {
+	return nil
+}
+
+// TestLLMExtractor_AutoScoreOnSuccessfulExtract covers the Phase 3
+// Langfuse auto-score wiring: a successful Extract pushes a
+// `extraction_self_confidence` score on the active extract trace.
+func TestLLMExtractor_AutoScoreOnSuccessfulExtract(t *testing.T) {
+	t.Parallel()
+
+	mockBackend := extractMocks.NewMockLLMBackend(t)
+	expectName(mockBackend, "test-backend")
+	mockBackend.EXPECT().
+		Generate(mock.Anything, mock.Anything).
+		Return(extract.GenerateResponse{
+			Content: `{
+				"manufacturer": "Samsung",
+				"capacity_gb": 32,
+				"generation": "DDR4",
+				"speed_mhz": 2666,
+				"ecc": true,
+				"registered": true,
+				"condition": "used_working",
+				"quantity": 1,
+				"confidence": 0.93
+			}`,
+		}, nil).
+		Once()
+
+	lf := &scoreRecorderClient{}
+
+	// Real OTel TracerProvider so traceIDFromContext returns a non-empty
+	// ID. Without an active span the auto-score helper is a no-op by
+	// design (no anchor to score against).
+	tp := sdktrace.NewTracerProvider()
+	t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
+
+	extractor := extract.NewLLMExtractor(
+		mockBackend,
+		extract.WithLangfuseClient(lf),
+		extract.WithTracer(tp.Tracer("test")),
+	)
+
+	_, err := extractor.Extract(
+		context.Background(),
+		domain.ComponentRAM,
+		"Samsung 32GB DDR4 ECC REG",
+		nil,
+	)
+	require.NoError(t, err)
+
+	require.Len(t, lf.scores, 1, "exactly one Score call expected on successful extract")
+	got := lf.scores[0]
+	assert.Equal(t, "extraction_self_confidence", got.name)
+	assert.InDelta(t, 0.93, got.value, 0.0001)
+	assert.NotEmpty(t, got.traceID, "score must anchor to the extract span's trace ID")
+}
+
+// TestLLMExtractor_NoAutoScoreWithoutTrace verifies the auto-score
+// helper is a no-op when there's no OTel trace to anchor to (observability
+// disabled). This is the common production path when OTel is off.
+func TestLLMExtractor_NoAutoScoreWithoutTrace(t *testing.T) {
+	t.Parallel()
+
+	mockBackend := extractMocks.NewMockLLMBackend(t)
+	expectName(mockBackend, "test-backend")
+	mockBackend.EXPECT().
+		Generate(mock.Anything, mock.Anything).
+		Return(extract.GenerateResponse{
+			Content: `{
+				"manufacturer": "Samsung",
+				"capacity_gb": 32,
+				"generation": "DDR4",
+				"speed_mhz": 2666,
+				"ecc": true,
+				"registered": true,
+				"condition": "used_working",
+				"quantity": 1,
+				"confidence": 0.93
+			}`,
+		}, nil).
+		Once()
+
+	lf := &scoreRecorderClient{}
+	// No WithTracer override → default no-op tracer → no trace ID.
+	extractor := extract.NewLLMExtractor(
+		mockBackend,
+		extract.WithLangfuseClient(lf),
+	)
+
+	_, err := extractor.Extract(
+		context.Background(),
+		domain.ComponentRAM,
+		"Samsung 32GB DDR4 ECC REG",
+		nil,
+	)
+	require.NoError(t, err)
+	assert.Empty(t, lf.scores,
+		"auto-score must skip the write when no trace ID is available")
+}
+
+// erroringScoreClient lets the auto-score Score call return an error
+// so the test asserts that telemetry failures never propagate into the
+// extraction outcome.
+type erroringScoreClient struct {
+	scoreRecorderClient
+}
+
+func (*erroringScoreClient) Score(_ context.Context, _, _ string, _ float64, _ string) error {
+	return errors.New("langfuse upstream unreachable")
+}
+
+// TestLLMExtractor_AutoScoreErrorDoesNotPropagate verifies the
+// best-effort contract: a failing Langfuse Score call must not turn a
+// successful extraction into an error.
+func TestLLMExtractor_AutoScoreErrorDoesNotPropagate(t *testing.T) {
+	t.Parallel()
+
+	mockBackend := extractMocks.NewMockLLMBackend(t)
+	expectName(mockBackend, "test-backend")
+	mockBackend.EXPECT().
+		Generate(mock.Anything, mock.Anything).
+		Return(extract.GenerateResponse{
+			Content: `{
+				"manufacturer": "Samsung",
+				"capacity_gb": 32,
+				"generation": "DDR4",
+				"speed_mhz": 2666,
+				"ecc": true,
+				"registered": true,
+				"condition": "used_working",
+				"quantity": 1,
+				"confidence": 0.93
+			}`,
+		}, nil).
+		Once()
+
+	tp := sdktrace.NewTracerProvider()
+	t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
+
+	extractor := extract.NewLLMExtractor(
+		mockBackend,
+		extract.WithLangfuseClient(&erroringScoreClient{}),
+		extract.WithTracer(tp.Tracer("test")),
+	)
+
+	attrs, err := extractor.Extract(
+		context.Background(),
+		domain.ComponentRAM,
+		"Samsung 32GB DDR4 ECC REG",
+		nil,
+	)
+	require.NoError(t, err, "telemetry failure must never fail the extract call")
+	require.NotNil(t, attrs)
+	assert.InDelta(t, 0.93, attrs["confidence"], 0.0001)
 }

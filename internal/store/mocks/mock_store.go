@@ -443,7 +443,7 @@ func (_c *MockStore_DequeueExtractions_Call) RunAndReturn(run func(context.Conte
 }
 
 // DismissAlerts provides a mock function with given fields: ctx, ids
-func (_m *MockStore) DismissAlerts(ctx context.Context, ids []string) (int, error) {
+func (_m *MockStore) DismissAlerts(ctx context.Context, ids []string) (int, []string, error) {
 	ret := _m.Called(ctx, ids)
 
 	if len(ret) == 0 {
@@ -451,8 +451,9 @@ func (_m *MockStore) DismissAlerts(ctx context.Context, ids []string) (int, erro
 	}
 
 	var r0 int
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []string) (int, error)); ok {
+	var r1 []string
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, []string) (int, []string, error)); ok {
 		return rf(ctx, ids)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, []string) int); ok {
@@ -461,13 +462,21 @@ func (_m *MockStore) DismissAlerts(ctx context.Context, ids []string) (int, erro
 		r0 = ret.Get(0).(int)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []string) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []string) []string); ok {
 		r1 = rf(ctx, ids)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]string)
+		}
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context, []string) error); ok {
+		r2 = rf(ctx, ids)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // MockStore_DismissAlerts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DismissAlerts'
@@ -489,12 +498,12 @@ func (_c *MockStore_DismissAlerts_Call) Run(run func(ctx context.Context, ids []
 	return _c
 }
 
-func (_c *MockStore_DismissAlerts_Call) Return(_a0 int, _a1 error) *MockStore_DismissAlerts_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *MockStore_DismissAlerts_Call) Return(_a0 int, _a1 []string, _a2 error) *MockStore_DismissAlerts_Call {
+	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *MockStore_DismissAlerts_Call) RunAndReturn(run func(context.Context, []string) (int, error)) *MockStore_DismissAlerts_Call {
+func (_c *MockStore_DismissAlerts_Call) RunAndReturn(run func(context.Context, []string) (int, []string, error)) *MockStore_DismissAlerts_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -661,6 +670,65 @@ func (_c *MockStore_GetBaseline_Call) Return(_a0 *domain.PriceBaseline, _a1 erro
 }
 
 func (_c *MockStore_GetBaseline_Call) RunAndReturn(run func(context.Context, string) (*domain.PriceBaseline, error)) *MockStore_GetBaseline_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetJudgeScore provides a mock function with given fields: ctx, alertID
+func (_m *MockStore) GetJudgeScore(ctx context.Context, alertID string) (*domain.JudgeScore, error) {
+	ret := _m.Called(ctx, alertID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetJudgeScore")
+	}
+
+	var r0 *domain.JudgeScore
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*domain.JudgeScore, error)); ok {
+		return rf(ctx, alertID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *domain.JudgeScore); ok {
+		r0 = rf(ctx, alertID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*domain.JudgeScore)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, alertID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_GetJudgeScore_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetJudgeScore'
+type MockStore_GetJudgeScore_Call struct {
+	*mock.Call
+}
+
+// GetJudgeScore is a helper method to define mock.On call
+//   - ctx context.Context
+//   - alertID string
+func (_e *MockStore_Expecter) GetJudgeScore(ctx interface{}, alertID interface{}) *MockStore_GetJudgeScore_Call {
+	return &MockStore_GetJudgeScore_Call{Call: _e.mock.On("GetJudgeScore", ctx, alertID)}
+}
+
+func (_c *MockStore_GetJudgeScore_Call) Run(run func(ctx context.Context, alertID string)) *MockStore_GetJudgeScore_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockStore_GetJudgeScore_Call) Return(_a0 *domain.JudgeScore, _a1 error) *MockStore_GetJudgeScore_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_GetJudgeScore_Call) RunAndReturn(run func(context.Context, string) (*domain.JudgeScore, error)) *MockStore_GetJudgeScore_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1073,6 +1141,53 @@ func (_c *MockStore_InsertJobRun_Call) RunAndReturn(run func(context.Context, st
 	return _c
 }
 
+// InsertJudgeScore provides a mock function with given fields: ctx, s
+func (_m *MockStore) InsertJudgeScore(ctx context.Context, s *domain.JudgeScore) error {
+	ret := _m.Called(ctx, s)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InsertJudgeScore")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *domain.JudgeScore) error); ok {
+		r0 = rf(ctx, s)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockStore_InsertJudgeScore_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InsertJudgeScore'
+type MockStore_InsertJudgeScore_Call struct {
+	*mock.Call
+}
+
+// InsertJudgeScore is a helper method to define mock.On call
+//   - ctx context.Context
+//   - s *domain.JudgeScore
+func (_e *MockStore_Expecter) InsertJudgeScore(ctx interface{}, s interface{}) *MockStore_InsertJudgeScore_Call {
+	return &MockStore_InsertJudgeScore_Call{Call: _e.mock.On("InsertJudgeScore", ctx, s)}
+}
+
+func (_c *MockStore_InsertJudgeScore_Call) Run(run func(ctx context.Context, s *domain.JudgeScore)) *MockStore_InsertJudgeScore_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*domain.JudgeScore))
+	})
+	return _c
+}
+
+func (_c *MockStore_InsertJudgeScore_Call) Return(_a0 error) *MockStore_InsertJudgeScore_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockStore_InsertJudgeScore_Call) RunAndReturn(run func(context.Context, *domain.JudgeScore) error) *MockStore_InsertJudgeScore_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // InsertNotificationAttempt provides a mock function with given fields: ctx, alertID, succeeded, httpStatus, errText
 func (_m *MockStore) InsertNotificationAttempt(ctx context.Context, alertID string, succeeded bool, httpStatus int, errText string) error {
 	ret := _m.Called(ctx, alertID, succeeded, httpStatus, errText)
@@ -1179,6 +1294,65 @@ func (_c *MockStore_ListAlertsByWatch_Call) Return(_a0 []domain.Alert, _a1 error
 }
 
 func (_c *MockStore_ListAlertsByWatch_Call) RunAndReturn(run func(context.Context, string, int) ([]domain.Alert, error)) *MockStore_ListAlertsByWatch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListAlertsForJudging provides a mock function with given fields: ctx, q
+func (_m *MockStore) ListAlertsForJudging(ctx context.Context, q *store.JudgeCandidatesQuery) ([]domain.JudgeCandidate, error) {
+	ret := _m.Called(ctx, q)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListAlertsForJudging")
+	}
+
+	var r0 []domain.JudgeCandidate
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *store.JudgeCandidatesQuery) ([]domain.JudgeCandidate, error)); ok {
+		return rf(ctx, q)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *store.JudgeCandidatesQuery) []domain.JudgeCandidate); ok {
+		r0 = rf(ctx, q)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.JudgeCandidate)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *store.JudgeCandidatesQuery) error); ok {
+		r1 = rf(ctx, q)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_ListAlertsForJudging_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListAlertsForJudging'
+type MockStore_ListAlertsForJudging_Call struct {
+	*mock.Call
+}
+
+// ListAlertsForJudging is a helper method to define mock.On call
+//   - ctx context.Context
+//   - q *store.JudgeCandidatesQuery
+func (_e *MockStore_Expecter) ListAlertsForJudging(ctx interface{}, q interface{}) *MockStore_ListAlertsForJudging_Call {
+	return &MockStore_ListAlertsForJudging_Call{Call: _e.mock.On("ListAlertsForJudging", ctx, q)}
+}
+
+func (_c *MockStore_ListAlertsForJudging_Call) Run(run func(ctx context.Context, q *store.JudgeCandidatesQuery)) *MockStore_ListAlertsForJudging_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*store.JudgeCandidatesQuery))
+	})
+	return _c
+}
+
+func (_c *MockStore_ListAlertsForJudging_Call) Return(_a0 []domain.JudgeCandidate, _a1 error) *MockStore_ListAlertsForJudging_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_ListAlertsForJudging_Call) RunAndReturn(run func(context.Context, *store.JudgeCandidatesQuery) ([]domain.JudgeCandidate, error)) *MockStore_ListAlertsForJudging_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2331,7 +2505,7 @@ func (_c *MockStore_ReleaseSchedulerLock_Call) RunAndReturn(run func(context.Con
 }
 
 // RestoreAlerts provides a mock function with given fields: ctx, ids
-func (_m *MockStore) RestoreAlerts(ctx context.Context, ids []string) (int, error) {
+func (_m *MockStore) RestoreAlerts(ctx context.Context, ids []string) (int, []string, error) {
 	ret := _m.Called(ctx, ids)
 
 	if len(ret) == 0 {
@@ -2339,8 +2513,9 @@ func (_m *MockStore) RestoreAlerts(ctx context.Context, ids []string) (int, erro
 	}
 
 	var r0 int
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []string) (int, error)); ok {
+	var r1 []string
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, []string) (int, []string, error)); ok {
 		return rf(ctx, ids)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, []string) int); ok {
@@ -2349,13 +2524,21 @@ func (_m *MockStore) RestoreAlerts(ctx context.Context, ids []string) (int, erro
 		r0 = ret.Get(0).(int)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []string) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []string) []string); ok {
 		r1 = rf(ctx, ids)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]string)
+		}
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context, []string) error); ok {
+		r2 = rf(ctx, ids)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // MockStore_RestoreAlerts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RestoreAlerts'
@@ -2377,12 +2560,12 @@ func (_c *MockStore_RestoreAlerts_Call) Run(run func(ctx context.Context, ids []
 	return _c
 }
 
-func (_c *MockStore_RestoreAlerts_Call) Return(_a0 int, _a1 error) *MockStore_RestoreAlerts_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *MockStore_RestoreAlerts_Call) Return(_a0 int, _a1 []string, _a2 error) *MockStore_RestoreAlerts_Call {
+	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *MockStore_RestoreAlerts_Call) RunAndReturn(run func(context.Context, []string) (int, error)) *MockStore_RestoreAlerts_Call {
+func (_c *MockStore_RestoreAlerts_Call) RunAndReturn(run func(context.Context, []string) (int, []string, error)) *MockStore_RestoreAlerts_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2431,6 +2614,63 @@ func (_c *MockStore_SetWatchEnabled_Call) Return(_a0 error) *MockStore_SetWatchE
 }
 
 func (_c *MockStore_SetWatchEnabled_Call) RunAndReturn(run func(context.Context, string, bool) error) *MockStore_SetWatchEnabled_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SumJudgeCostSince provides a mock function with given fields: ctx, since
+func (_m *MockStore) SumJudgeCostSince(ctx context.Context, since time.Time) (float64, error) {
+	ret := _m.Called(ctx, since)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SumJudgeCostSince")
+	}
+
+	var r0 float64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time) (float64, error)); ok {
+		return rf(ctx, since)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time) float64); ok {
+		r0 = rf(ctx, since)
+	} else {
+		r0 = ret.Get(0).(float64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
+		r1 = rf(ctx, since)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockStore_SumJudgeCostSince_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SumJudgeCostSince'
+type MockStore_SumJudgeCostSince_Call struct {
+	*mock.Call
+}
+
+// SumJudgeCostSince is a helper method to define mock.On call
+//   - ctx context.Context
+//   - since time.Time
+func (_e *MockStore_Expecter) SumJudgeCostSince(ctx interface{}, since interface{}) *MockStore_SumJudgeCostSince_Call {
+	return &MockStore_SumJudgeCostSince_Call{Call: _e.mock.On("SumJudgeCostSince", ctx, since)}
+}
+
+func (_c *MockStore_SumJudgeCostSince_Call) Run(run func(ctx context.Context, since time.Time)) *MockStore_SumJudgeCostSince_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(time.Time))
+	})
+	return _c
+}
+
+func (_c *MockStore_SumJudgeCostSince_Call) Return(_a0 float64, _a1 error) *MockStore_SumJudgeCostSince_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockStore_SumJudgeCostSince_Call) RunAndReturn(run func(context.Context, time.Time) (float64, error)) *MockStore_SumJudgeCostSince_Call {
 	_c.Call.Return(run)
 	return _c
 }

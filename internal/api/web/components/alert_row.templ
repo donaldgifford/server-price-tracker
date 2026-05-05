@@ -4,13 +4,24 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
+
+// TableOptions controls observability-aware UI elements in the alert
+// table. When LangfuseEndpoint is empty, View Trace links are
+// suppressed; when JudgeEnabled is false, the judge_score column is
+// hidden. Both flip on/off via cfg.Observability so users not opted
+// in see the original lean UI.
+type TableOptions struct {
+	LangfuseEndpoint string
+	JudgeEnabled     bool
+}
 
 // AlertRow renders one row of the alerts list. Used by both the full-page
 // render and HTMX swap responses, which is the whole reason we picked
 // templ — sharing the row markup at compile time.
-templ AlertRow(a domain.AlertWithListing) {
+templ AlertRow(a domain.AlertWithListing, opts TableOptions) {
 	<tr id={ "alert-" + a.Alert.ID }>
 		<td>
 			<input type="checkbox" name="ids" value={ a.Alert.ID } @click={ "selected[$event.target.checked ? 'push' : 'splice'](" + a.Alert.ID + ")" }/>
@@ -22,10 +33,28 @@ templ AlertRow(a domain.AlertWithListing) {
 		<td>{ a.WatchName }</td>
 		<td>{ string(a.Listing.ComponentType) }</td>
 		<td>{ formatRelative(a.Alert.CreatedAt) }</td>
+		if opts.JudgeEnabled {
+			<td class="judge-score">
+				{{ /* Phase 5 will populate this; today the column renders empty so the layout is stable. */ }}
+			</td>
+		}
 		<td>
 			<a class="btn" href={ templ.URL(a.Listing.ItemURL) } target="_blank" rel="noreferrer">eBay ↗</a>
+			if traceURL := rowTraceURL(opts, a.Alert); traceURL != "" {
+				<a class="btn" href={ templ.URL(traceURL) } target="_blank" rel="noreferrer">Trace ↗</a>
+			}
 		</td>
 	</tr>
+}
+
+// rowTraceURL composes the per-alert Langfuse trace URL for the
+// table row's View Trace button. Empty endpoint OR alert-without-
+// trace_id → "" suppresses the link via the templ if-guard.
+func rowTraceURL(opts TableOptions, a domain.Alert) string {
+	if a.TraceID == nil {
+		return ""
+	}
+	return langfuse.BuildTraceURL(opts.LangfuseEndpoint, *a.TraceID)
 }
 
 // formatRelative renders a coarse "Nh ago" / "Nd ago" string for table

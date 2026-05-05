@@ -567,6 +567,38 @@ config:
       summary_only: true
 ```
 
+#### Trace deep-links and dismissal scoring (IMPL-0019)
+
+When `observability.langfuse.enabled: true` and the alert has a
+`trace_id` (every alert created after migration 012 does), each row in
+the `/alerts` table renders a **Trace ↗** button alongside the existing
+**eBay ↗** link, deep-linking into the Langfuse trace viewer. The
+detail page at `/alerts/{id}` renders the same button next to
+Retry/Dismiss/Restore. Empty `observability.langfuse.endpoint`
+suppresses the button across the UI — no degraded experience for users
+with Langfuse off.
+
+A separate JSON endpoint, `GET /api/v1/alerts/{id}/trace`, returns
+`{"trace_url": "..."}` for programmatic consumers. Returns 404 when
+Langfuse is disabled, the alert doesn't exist, or the alert predates
+trace propagation.
+
+Dismissing an alert (single or bulk) also fires a best-effort Langfuse
+score:
+
+- `name = "operator_dismissed"`, `value = 1.0`, attached to the
+  alert's trace ID
+- score writes go through the buffered Langfuse client — failures
+  never fail a dismiss
+- the same dismissals also drive the Phase 5 LLM-as-judge regression
+  set when it ships, because operator-truth labels become the column
+  the judge prompt is graded against
+
+When `observability.judge.enabled: true` the alerts table renders an
+extra **Judge** column. Phase 5 fills the cell; today the column
+renders empty — the placeholder is here so the layout doesn't shift
+mid-rollout.
+
 #### Discord rate-limit observability
 
 The Discord notifier now parses `X-RateLimit-*` headers on every
@@ -716,3 +748,430 @@ Alerts require all of:
 Check listings have scores: `spt listings list --order-by score --limit 5`.
 If all scores are 50, baselines haven't activated yet — need more
 ingestion cycles.
+
+## 8. OpenTelemetry, Clickhouse, and Langfuse (DESIGN-0016)
+
+The application emits OTel traces and metrics over OTLP/gRPC to a
+Collector that **must** be deployed and configured separately.
+Clickhouse and Langfuse are also assumed to exist as platform
+infrastructure (separate Helm charts, separate ownership). This
+section describes the requirements `server-price-tracker` places
+on those upstream components.
+
+All three observability subtrees in `config.observability.*`
+default to disabled — existing deployments are unaffected by the
+upgrade until the operator opts in. See
+`configs/config.example.yaml` for the full schema.
+
+### Collector tail-sampling requirement
+
+The Go application emits **100% of spans** (`AlwaysSample`).
+Sampling decisions live entirely in the Collector. The `tail_sampling`
+processor must be configured with at minimum these policies:
+
+1. **Keep 100% of traces that produced an alert.** Match on the
+   presence of any span with `name == alert.evaluate` and a
+   `spt.alert.fired = true` attribute.
+2. **Keep 100% of error traces.** Match on `status.code == ERROR`
+   on any span in the trace.
+3. **Keep 100% of extract spans.** Match on `name == extract.extract`
+   or `name == extract.classify`. These carry the LLM-call
+   observability we cannot lose.
+4. **Sample N% of clean ingestion-only traces.** Operator-tunable;
+   suggested 10% to start. Without this gate, ingestion traces
+   (one per listing per cycle) dominate Clickhouse storage with
+   low information density.
+
+Example Collector snippet:
+
+```yaml
+processors:
+  tail_sampling:
+    decision_wait: 30s
+    num_traces: 50000
+    expected_new_traces_per_sec: 200
+    policies:
+      - name: keep-alerts
+        type: string_attribute
+        string_attribute:
+          key: spt.alert.fired
+          values: ["true"]
+      - name: keep-errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: keep-extracts
+        type: span_count
+        span_count:
+          min_spans: 1
+          # combined with a span-name pattern processor upstream
+      - name: sample-ingestion
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+```
+
+The exact config syntax depends on Collector version; the policy
+intents above are what matters. Coordinate with the platform side
+when standing up the Collector — IMPL-0019 Phase 7 reviews policy
+effectiveness after 7 days of production data.
+
+#### 7-day tail-sampling review checklist
+
+Run this checklist exactly once, 7 days after the Phase 1-2 OTel
+rollout reaches production. The output is the input to either
+"keep current policy" or "hand off tweak to platform".
+
+1. **Span-emission rate (sanity check).** The application is
+   emitting 100% of spans regardless of sampling. Confirm
+   ingestion is healthy:
+
+   ```promql
+   # Should be > 0 for every active stage.
+   sum by (job) (rate(spt_ingestion_duration_seconds_count[1h]))
+   sum by (job) (rate(spt_extraction_duration_seconds_count[1h]))
+   sum by (job) (rate(spt_alerts_query_duration_seconds_count[1h]))
+   ```
+
+   If any stage is at 0 for the full 7 days, the corresponding
+   span path isn't wired up — file a bug, don't tune sampling
+   yet.
+
+2. **Trace volume in Clickhouse.** Query the platform-side
+   storage. Exact query depends on the Clickhouse schema your
+   Collector exporter writes; the typical shape is:
+
+   ```sql
+   SELECT
+     toStartOfDay(Timestamp) AS day,
+     count() AS spans,
+     sum(length(SpanAttributes)) AS attr_bytes
+   FROM otel_traces
+   WHERE Timestamp >= now() - INTERVAL 7 DAY
+     AND ServiceName = 'server-price-tracker'
+   GROUP BY day
+   ORDER BY day;
+   ```
+
+   - **Healthy:** total spans/day stable or trending sideways.
+   - **Concerning:** spans/day growing >2× day-over-day with no
+     traffic increase — sampling policy is too permissive on
+     ingestion. Bump `sample-ingestion` from 10% → 5%.
+   - **Critical:** approaching Collector / Clickhouse storage
+     budget (operator's own threshold). Cut probabilistic
+     sampling further or raise `decision_wait` to coalesce more
+     traces.
+
+3. **Alert/error/extract retention (the high-value 100%
+   policies).** Confirm those buckets are not accidentally being
+   sampled out:
+
+   ```sql
+   -- Every alert in spt_alerts_created_total should have a trace.
+   SELECT count(DISTINCT TraceId) AS alert_traces
+   FROM otel_traces
+   WHERE Timestamp >= now() - INTERVAL 7 DAY
+     AND ServiceName = 'server-price-tracker'
+     AND has(SpanAttributes, 'spt.alert.fired')
+     AND SpanAttributes['spt.alert.fired'] = 'true';
+   ```
+
+   Compare against `sum(increase(spt_alerts_created_total[7d]))`
+   (Prometheus). The Clickhouse count should equal the
+   Prometheus counter. A gap means the `keep-alerts` policy is
+   misconfigured — the trace fired but didn't make it past
+   sampling.
+
+4. **Judge-score plausibility.** Pull the per-bucket judge
+   verdict counts:
+
+   ```promql
+   sum by (verdict) (increase(spt_judge_evaluations_total[7d]))
+   ```
+
+   Healthy: all three buckets (`deal`, `edge`, `noise`) have
+   non-zero counts, with a distribution that roughly matches
+   operator intuition — typically `noise` ≥ `edge` ≥ `deal`.
+   Pathological signals:
+   - All `noise` (judge thinks every alert is bad) → prompt
+     issue; refresh `pkg/judge/examples.json`.
+   - All `deal` (judge rubber-stamps everything) → prompt is
+     missing the rubric; same refresh.
+   - Zero `edge` for 7 days → judge isn't producing scores in
+     the middle band, which suggests prompt is too binary.
+
+5. **Manual judge validation.** Pick one alert flagged
+   `verdict.score < 0.3` (judge says noise) by the worker.
+   Compare against the operator's own intuition. If the judge
+   was right, the score is doing what it was built for. If the
+   judge was wrong, log it as an example to refresh.
+
+6. **Decision matrix.**
+   - All four checks green → policy is good; commit nothing.
+   - Step 2 yellow/red → hand off probabilistic-sample tweak
+     to platform side. Open a ticket against the Collector
+     repo, not this one.
+   - Step 3 gap → policy bug; same — open a Collector ticket
+     citing the Prometheus / Clickhouse mismatch.
+   - Steps 4-5 indicate prompt drift, not sampling — refresh
+     `pkg/judge/examples.json` per the cold-start workflow
+     above.
+
+After running the checklist, paste the four numbers (alerts
+traces, errors traces, extract spans, ingestion spans) into a
+follow-up comment on the IMPL-0019 PR (or the rollout-tracking
+issue) so future operators have a baseline to compare against.
+
+### Enabling OTel in `server-price-tracker`
+
+```yaml
+observability:
+  otel:
+    enabled: true
+    endpoint: "otel-collector.observability:4317"
+    service_name: "server-price-tracker"
+    insecure: false  # true ONLY for in-cluster plaintext Collector (sidecar pattern); spans carry listing titles + prices, so remote OTLP endpoints must keep TLS — see INV-0001 MEDIUM-9
+    timeout: 10s
+```
+
+When enabled, the binary attaches `service.name`, `service.version`,
+and `service.instance.id` (commit SHA) as resource attributes on
+every span. The commit SHA is injected at build time via
+`-ldflags "-X internal/version.CommitSHA=$(git rev-parse HEAD)"` —
+running via `go run` falls back to the literal string `dev`.
+
+### Disabled-mode guarantee
+
+With `observability.otel.enabled: false` (the default), the binary
+emits zero OTLP traffic and zero new log lines. The global OTel
+tracer/meter providers remain as their no-op defaults, so any
+future instrumentation calls (`otel.Tracer(...).Start(...)`)
+become free non-operations. This is the explicit guarantee that
+makes the IMPL-0019 phases shippable before Clickhouse or Langfuse
+exist.
+
+### LLM-as-judge worker (Phase 5)
+
+The judge worker grades fired alerts retrospectively against an
+operator-curated rubric so the operator can see, at a glance, which
+alerts the LLM thought were genuine deals versus noise. Output goes
+two places:
+
+- `judge_scores` Postgres table — durable; one row per alert, ever.
+  The alert detail page reads from here to render the score + reason
+  next to the existing breakdown.
+- Langfuse — best-effort; `Client.Score(traceID,
+  "judge_alert_quality", value, reason)` lands on the same trace as
+  the original extract generation, so a regression-set query in
+  Langfuse can plot judge score versus operator dismissal over time.
+
+Enable the worker:
+
+```yaml
+observability:
+  judge:
+    enabled: true
+    backend: ""           # "" = inherit from llm.backend
+    model: ""             # "" = inherit from selected backend
+    interval: 15m
+    lookback: 6h
+    batch_size: 50
+    daily_budget_usd: 10  # hard cap; tick exits early when reached
+```
+
+When enabled the binary registers a cron entry that runs every
+`interval`. Each tick:
+
+1. Looks at `SUM(cost_usd)` from `judge_scores` rows judged today
+   (UTC). If ≥ `daily_budget_usd`, log a warning, increment
+   `spt_judge_budget_exhausted_total`, and return.
+2. Pulls up to `batch_size` un-judged alerts created within
+   `lookback`. The query LEFT JOINs `price_baselines` so the prompt
+   has the same percentile context the scorer used.
+3. For each alert: calls the judge LLM, parses a strict
+   `{score, reason}` JSON verdict, persists to `judge_scores`, posts
+   a Langfuse score on the alert's trace.
+4. Re-checks budget between calls so a long batch can't accidentally
+   blow past the cap by one or two big-prompt verdicts.
+
+Manual trigger:
+
+```bash
+spt judge run
+# Judged 12 alerts.
+# (or "Daily budget exhausted — remaining alerts will be picked up
+# next run." when the cap was hit)
+```
+
+Or directly:
+
+```bash
+curl -X POST $SPT_API/api/v1/judge/run
+{"judged":12,"budget_exhausted":false}
+```
+
+The endpoint returns 503 when `judge.enabled = false`; the CLI
+surfaces that as a HTTP error.
+
+#### Cold-start few-shot examples
+
+The first run with an empty `pkg/judge/examples.json` works — the
+prompt template renders cleanly with zero few-shot examples — but
+verdict quality is materially lower until ~30 labelled examples are
+in place. Workflow when bootstrapping or refreshing after a
+ComponentType addition:
+
+1. Pull a stratified sample of recent alerts from production
+   (mix `dismissed` / `notified` / `active` so labels cover the
+   distribution).
+2. Manually label each as `deal` / `noise` / `edge` plus a short
+   reason (≤80 chars).
+3. Encode the set as JSON matching `pkg/judge.Example`:
+
+   ```json
+   [
+     {
+       "label": "deal",
+       "alert": { ... AlertContext fields ... },
+       "verdict": { "score": 0.92, "reason": "below P25 + full spec" }
+     }
+   ]
+   ```
+
+4. Save to `pkg/judge/examples.json`, commit, redeploy. The
+   embedded JSON ships in the binary so the regression set stays
+   versioned alongside the prompt.
+
+A `tools/judge-bootstrap` interactive labeller is parked as a
+follow-up — the manual workflow above gets the dataset built today
+without blocking on the tool.
+
+#### Budget knob
+
+`daily_budget_usd: 10` is a deliberate ceiling, not an estimate of
+spend. At Anthropic Haiku 4.5 rates (~$1/M input, $5/M output), a
+typical 1.2k-token prompt + 25-token verdict costs ~$0.002 per
+call; $10/day = 5,000 verdicts/day, comfortably above current
+volume. Raise the cap if `spt_judge_budget_exhausted_total` is
+incrementing during normal operation; lower it if a model upgrade
+unexpectedly inflates per-verdict cost.
+
+#### Disabled-mode guarantee
+
+With `observability.judge.enabled: false`, no cron entry is
+registered, the HTTP endpoint responds 503, and `judge_scores`
+stays empty. The alert review UI hides the judge_score column
+under the `JudgeEnabled` flag (Phase 4) so users not opted in see
+the original lean table.
+
+### Operator workflow (Phase 7)
+
+The day-to-day routines once OTel + Langfuse + judge are all on.
+
+#### Reading judge scores in the UI
+
+The alert detail page (`/alerts/{id}`) renders a `Judge score`
+row alongside the existing breakdown when `judge.enabled: true`.
+Score is a 0.0–1.0 float; the inline reason is the LLM's one-line
+rationale. Heuristic mapping:
+
+- ≥ 0.7 — judge calls it a deal. If `notified=false`, the operator
+  should reconsider their dismissal.
+- 0.3–0.7 — edge call. The judge is uncertain; review the
+  breakdown.
+- < 0.3 — judge calls it noise. If the alert fired *and*
+  `notified=true`, that's an alert-noise leak — the operator's
+  pre-classifier or score curve is too generous.
+
+The `Trace ↗` button on each alert deep-links to the Langfuse
+trace for the original extract + classify call so the operator
+can see exactly what the LLM saw.
+
+#### Refreshing `examples.json` after a ComponentType addition
+
+When a new ComponentType lands (e.g. workstation in IMPL-0018), the
+judge has zero few-shot examples covering it and verdict quality
+for that bucket craters until the operator backfills. Workflow:
+
+1. After ~50 alerts have fired against the new ComponentType,
+   manually classify a stratified sample of ~10–15 of them as
+   `deal` / `noise` / `edge` with one-line reasons.
+2. Append them to `pkg/judge/examples.json` (see "Cold-start
+   few-shot examples" above for the exact JSON shape).
+3. Commit, redeploy. The next judge tick uses the refreshed
+   examples; existing `judge_scores` rows are untouched (judging
+   is idempotent — no automatic re-judge of older alerts).
+4. If the operator needs a forced re-judge of older rows, the
+   manual SQL is `DELETE FROM judge_scores WHERE alert_id IN
+   (...)` followed by `spt judge run` (within budget).
+
+#### Weekly judge-vs-dismiss alignment report
+
+Each week, pull a Langfuse trace export filtered on the past 7
+days where both `operator_dismissed` and `judge_alert_quality`
+scores are present on the same trace. The agreement rate is the
+fraction of traces where one of:
+
+- `operator_dismissed = 1` AND `judge_alert_quality < 0.3`
+  (operator and judge both call it noise)
+- `operator_dismissed = 0` AND `judge_alert_quality ≥ 0.7`
+  (operator and judge both call it a deal)
+
+Below 75% agreement is the trigger for refreshing
+`pkg/judge/examples.json` or relabelling the dataset (next
+section). The Grafana panel `JudgeVsOperatorAgreement` is the
+near-real-time version of this report — the weekly export is the
+audit record.
+
+#### Quarterly dataset relabelling
+
+Operator-curated truth drifts. Once a quarter:
+
+1. Re-pull a stratified sample of the last quarter's alerts (~50
+   listings across all enabled ComponentTypes).
+2. Re-label using current operator intuition. If a label flipped
+   relative to the original, update both
+   `pkg/judge/examples.json` *and*
+   `testdata/golden_classifications.json` (the regression dataset
+   from Phase 6).
+3. Commit, redeploy, run `make test-regression` to confirm the
+   classifier accuracy didn't regress against the new truth set.
+4. If accuracy drops > 5%, that's a signal the prompt is drifting
+   away from operator intent — open a follow-up to retune
+   `pkg/extract/prompts.go` rather than papering over it with new
+   examples.
+
+The full Phase 6 toolchain is now shipped:
+
+- `tools/dataset-bootstrap` pulls a stratified sample from the
+  live DB and pre-fills `expected_component` /
+  `expected_product_key` from current LLM labels — operator
+  audits in place.
+- `tools/dataset-upload` POSTs one `DatasetItem` per row to
+  Langfuse with deterministic title-hash IDs, idempotent under
+  re-runs.
+- `tools/regression-runner` runs the dataset against the
+  configured backend (or `--backends` for side-by-side
+  comparison) and, with `--langfuse-dataset-id <id>`, posts one
+  `CreateDatasetRun` per backend tagged
+  `classify_prompt:<sha>:<backend>`. Same title-hash algorithm
+  as the upload tool, so runs and items align in the Langfuse
+  UI without out-of-band coordination.
+
+The first-time setup is a three-step operator pipeline:
+
+```bash
+# 1. Bootstrap candidates from the live DB.
+go run ./tools/dataset-bootstrap --config configs/config.dev.yaml \
+    --per-component 12 > testdata/golden_classifications.json
+# 2. Audit + correct the JSON, then upload.
+$EDITOR testdata/golden_classifications.json
+go run ./tools/dataset-upload --config configs/config.dev.yaml \
+    --langfuse-dataset-id <id-from-langfuse-ui>
+# 3. Regression-test prompt-affecting PRs, with annotation.
+go run ./tools/regression-runner --config configs/config.dev.yaml \
+    --langfuse-dataset-id <id-from-langfuse-ui>
+```
+
+Quarterly relabelling is the same workflow with the
+already-uploaded dataset ID.

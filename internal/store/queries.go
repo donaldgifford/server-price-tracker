@@ -275,8 +275,8 @@ const (
 // ExtractionQueue queries.
 const (
 	queryEnqueueExtraction = `
-		INSERT INTO extraction_queue (listing_id, priority)
-		VALUES ($1, $2)
+		INSERT INTO extraction_queue (listing_id, priority, trace_id)
+		VALUES ($1, $2, NULLIF($3, ''))
 		ON CONFLICT (listing_id) WHERE completed_at IS NULL DO NOTHING`
 
 	queryDequeueExtractions = `
@@ -293,7 +293,7 @@ const (
 		WHERE extraction_queue.id = claimed.id
 		RETURNING extraction_queue.id, extraction_queue.listing_id,
 		          extraction_queue.priority, extraction_queue.enqueued_at,
-		          extraction_queue.attempts`
+		          extraction_queue.attempts, extraction_queue.trace_id`
 
 	queryCompleteExtractionJob = `
 		UPDATE extraction_queue
@@ -334,19 +334,21 @@ const (
 // Alert queries.
 const (
 	queryCreateAlert = `
-		INSERT INTO alerts (watch_id, listing_id, score, created_at)
-		VALUES ($1, $2, $3, now())
+		INSERT INTO alerts (watch_id, listing_id, score, trace_id, created_at)
+		VALUES ($1, $2, $3, NULLIF($4, ''), now())
 		ON CONFLICT (watch_id, listing_id) WHERE notified = false DO NOTHING
 		RETURNING id, created_at`
 
 	queryListPendingAlerts = `
-		SELECT id, watch_id, listing_id, score, notified, notified_at, created_at, dismissed_at
+		SELECT id, watch_id, listing_id, score, notified, notified_at,
+		       created_at, dismissed_at, trace_id
 		FROM alerts
 		WHERE notified = false
 		ORDER BY created_at DESC`
 
 	queryListAlertsByWatch = `
-		SELECT id, watch_id, listing_id, score, notified, notified_at, created_at, dismissed_at
+		SELECT id, watch_id, listing_id, score, notified, notified_at,
+		       created_at, dismissed_at, trace_id
 		FROM alerts
 		WHERE watch_id = $1
 		ORDER BY created_at DESC
@@ -396,7 +398,7 @@ const (
 	// queryListPendingAlerts so the same scan helper handles both.
 	alertReviewSelectColumns = `
 		a.id, a.watch_id, a.listing_id, a.score, a.notified, a.notified_at,
-		a.created_at, a.dismissed_at,
+		a.created_at, a.dismissed_at, a.trace_id,
 		l.id, l.ebay_item_id, l.title, l.item_url, l.image_url, l.price,
 		l.currency, l.shipping_cost, l.listing_type, l.seller_name,
 		l.seller_feedback_score, l.seller_feedback_pct, l.seller_top_rated,
@@ -410,17 +412,58 @@ const (
 		UPDATE alerts SET dismissed_at = now()
 		WHERE id = ANY($1)
 		  AND dismissed_at IS NULL
-		RETURNING id`
+		RETURNING id, COALESCE(trace_id, '')`
 
 	queryRestoreAlerts = `
 		UPDATE alerts SET dismissed_at = NULL
 		WHERE id = ANY($1)
 		  AND dismissed_at IS NOT NULL
-		RETURNING id`
+		RETURNING id, COALESCE(trace_id, '')`
 
 	queryNotificationAttemptsByAlert = `
 		SELECT id, alert_id, attempted_at, succeeded, http_status, error_text
 		FROM notification_attempts
 		WHERE alert_id = $1
 		ORDER BY attempted_at DESC`
+
+	// queryListAlertsForJudging pulls the per-tick batch for the
+	// LLM-as-judge worker (IMPL-0019 Phase 5). LEFT JOIN price_baselines
+	// because cold-start product keys have no baseline yet — the worker
+	// inspects sample_size and skips zero-sample candidates rather than
+	// posting noise to the judge.
+	//
+	// `judge_scores js IS NULL` filter makes the worker idempotent —
+	// re-running the cron entry never re-judges an alert.
+	queryListAlertsForJudging = `
+		SELECT
+		    a.id, a.watch_id, w.name,
+		    a.listing_id, l.title, l.component_type,
+		    l.condition_norm, l.price,
+		    COALESCE(pb.p25, 0), COALESCE(pb.p50, 0), COALESCE(pb.p75, 0), COALESCE(pb.sample_size, 0),
+		    a.score, w.score_threshold, a.trace_id, a.created_at
+		FROM alerts a
+		JOIN listings l ON l.id = a.listing_id
+		JOIN watches w ON w.id = a.watch_id
+		LEFT JOIN price_baselines pb ON pb.product_key = l.product_key
+		LEFT JOIN judge_scores js ON js.alert_id = a.id
+		WHERE a.created_at >= $1
+		  AND js.alert_id IS NULL
+		ORDER BY a.created_at DESC
+		LIMIT $2`
+
+	queryInsertJudgeScore = `
+		INSERT INTO judge_scores
+		    (alert_id, score, reason, model, input_tokens, output_tokens, cost_usd)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (alert_id) DO NOTHING`
+
+	querySumJudgeCostSince = `
+		SELECT COALESCE(SUM(cost_usd), 0)
+		FROM judge_scores
+		WHERE judged_at >= $1`
+
+	queryGetJudgeScore = `
+		SELECT alert_id, score, reason, model, input_tokens, output_tokens, cost_usd, judged_at
+		FROM judge_scores
+		WHERE alert_id = $1`
 )

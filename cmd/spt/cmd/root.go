@@ -56,6 +56,7 @@ func init() {
 	rootCmd.AddCommand(rescoreCmd())
 	rootCmd.AddCommand(reextractCmd())
 	rootCmd.AddCommand(jobsCmd())
+	rootCmd.AddCommand(judgeCmd())
 }
 
 func initConfig() {

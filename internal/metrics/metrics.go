@@ -2,6 +2,8 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -372,5 +374,104 @@ var (
 		Namespace: namespace,
 		Name:      "discord_chunks_sent_total",
 		Help:      "Total chunks (one HTTP POST each) sent to Discord webhooks.",
+	})
+)
+
+// Langfuse buffered-client metrics (DESIGN-0016 / IMPL-0019 Phase 3).
+//
+// The buffered Langfuse client wraps an HTTP client with a bounded
+// async channel + drain goroutine so transient Langfuse outages don't
+// block the extract path. These four series let operators alert on
+// buffer pressure (depth approaching capacity) and write loss
+// (drops > 0 means we lost telemetry).
+var (
+	LangfuseBufferDepth = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "langfuse_buffer_depth",
+		Help:      "Current depth of the Langfuse async write buffer.",
+	})
+
+	LangfuseBufferDropsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "langfuse_buffer_drops_total",
+		Help:      "Records dropped because the Langfuse async buffer was full at enqueue time.",
+	})
+
+	LangfuseWritesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "langfuse_writes_total",
+		Help:      "Langfuse drain-goroutine write outcomes by result (success or error).",
+	}, []string{"result"})
+
+	LangfuseWriteDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Name:      "langfuse_write_duration_seconds",
+		Help:      "End-to-end latency of a single Langfuse write from drain queue to HTTP response.",
+		Buckets:   prometheus.DefBuckets,
+	})
+)
+
+// LangfuseBufferAdapter wires the global Prometheus collectors above
+// into the langfuse.BufferMetrics interface so pkg/observability/langfuse
+// stays free of internal/* imports (preserves the pkg/ → external-tools
+// boundary). Construct with a zero value: `LangfuseBufferAdapter{}`.
+type LangfuseBufferAdapter struct{}
+
+// SetDepth sets the current Langfuse buffer depth gauge.
+func (LangfuseBufferAdapter) SetDepth(depth int) {
+	LangfuseBufferDepth.Set(float64(depth))
+}
+
+// RecordDrop increments the buffer-drop counter.
+func (LangfuseBufferAdapter) RecordDrop() {
+	LangfuseBufferDropsTotal.Inc()
+}
+
+// RecordWrite increments the result-labelled write counter.
+func (LangfuseBufferAdapter) RecordWrite(success bool) {
+	result := "success"
+	if !success {
+		result = "error"
+	}
+	LangfuseWritesTotal.WithLabelValues(result).Inc()
+}
+
+// ObserveWriteDuration observes the write-latency histogram.
+func (LangfuseBufferAdapter) ObserveWriteDuration(d time.Duration) {
+	LangfuseWriteDuration.Observe(d.Seconds())
+}
+
+// LLM-as-judge worker metrics (IMPL-0019 Phase 5).
+//
+// `verdict` label buckets the score into deal/edge/noise so a Grafana
+// panel can show distribution drift over time. `component_type` on the
+// score histogram lets the operator see if the judge weights certain
+// component types more aggressively. Cost counter feeds the daily-
+// budget dashboards alongside the budget_exhausted counter that
+// increments whenever the worker cuts a tick short.
+var (
+	JudgeEvaluationsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "judge_evaluations_total",
+		Help:      "Number of alerts evaluated by the LLM-as-judge worker, bucketed by verdict (deal/edge/noise).",
+	}, []string{"verdict"})
+
+	JudgeScore = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Name:      "judge_score",
+		Help:      "Distribution of LLM-as-judge quality scores, partitioned by component type.",
+		Buckets:   []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0},
+	}, []string{"component_type"})
+
+	JudgeCostUSDTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "judge_cost_usd_total",
+		Help:      "Cumulative USD cost of LLM-as-judge calls, per model.",
+	}, []string{"model"})
+
+	JudgeBudgetExhaustedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "judge_budget_exhausted_total",
+		Help:      "Number of judge ticks that hit the configured daily USD budget cap.",
 	})
 )

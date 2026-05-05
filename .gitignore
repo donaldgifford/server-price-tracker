@@ -37,8 +37,16 @@ bin/
 build/
 dist/
 /server-price-tracker
+/regression-runner
+/dataset-bootstrap
+/dataset-upload
+/judge-bootstrap
 tools/dashgen/dashgen
 tools/docgen/docgen
+tools/regression-runner/regression-runner
+tools/dataset-bootstrap/dataset-bootstrap
+tools/dataset-upload/dataset-upload
+tools/judge-bootstrap/judge-bootstrap
 *.log
 *.log.*
 .log.meta

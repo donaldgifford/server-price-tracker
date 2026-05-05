@@ -42,6 +42,14 @@ CUR_VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || git desc
 
 COVERAGE_OUT := coverage.out
 
+# LDFLAGS injects build-time identifiers into internal/version. Used by
+# OTel resource attributes (DESIGN-0016 / IMPL-0019) so traces are
+# pinned to the commit + semver they were emitted from. Both vars
+# default to "dev" inside the binary when ldflags are not supplied
+# (e.g., `go run`).
+VERSION_PKG := github.com/donaldgifford/server-price-tracker/internal/version
+LDFLAGS     := -X $(VERSION_PKG).CommitSHA=$(COMMIT_HASH) -X $(VERSION_PKG).Semver=$(VERSION)
+
 ########################################################################
 ## Self-Documenting Makefile Help                                     ##
 ## https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html ##

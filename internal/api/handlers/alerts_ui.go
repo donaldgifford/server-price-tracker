@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	"github.com/donaldgifford/server-price-tracker/internal/notify"
 	"github.com/donaldgifford/server-price-tracker/internal/store"
+	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 	domain "github.com/donaldgifford/server-price-tracker/pkg/types"
 )
 
@@ -43,10 +45,24 @@ func isHTMX(c echo.Context) bool {
 // AlertsUIDeps bundles the collaborators an AlertsUIHandler needs. Pass
 // the store and notifier as interfaces so handler tests can swap them
 // for mocks.
+//
+// Langfuse is the optional Langfuse client used to record dismissals
+// as `operator_dismissed` scores (IMPL-0019 Phase 4). NoopClient is
+// the safe default; a real client is wired in serve.go when
+// observability.langfuse.enabled is true. Failures from Score writes
+// never fail a dismiss — telemetry is best-effort.
+//
+// LangfuseEndpoint is the bare base URL ("https://langfuse.example.com")
+// used to render trace deep-links in templ. Empty → the View Trace
+// button is suppressed across the UI.
 type AlertsUIDeps struct {
-	Store         store.Store
-	Notifier      notify.Notifier
-	AlertsURLBase string // unused today; threaded through for the summary embed in Phase 6
+	Store            store.Store
+	Notifier         notify.Notifier
+	Langfuse         langfuse.Client
+	LangfuseEndpoint string
+	JudgeEnabled     bool
+	AlertsURLBase    string // unused today; threaded through for the summary embed in Phase 6
+	Logger           *slog.Logger
 }
 
 // AlertsUIHandler serves the /alerts route group.
@@ -54,10 +70,71 @@ type AlertsUIHandler struct {
 	deps AlertsUIDeps
 }
 
+// tableOpts derives the per-render TableOptions struct from deps so the
+// Langfuse/Judge feature flags propagate uniformly to every component
+// that renders alert rows.
+func (h *AlertsUIHandler) tableOpts() components.TableOptions {
+	return components.TableOptions{
+		LangfuseEndpoint: h.deps.LangfuseEndpoint,
+		JudgeEnabled:     h.deps.JudgeEnabled,
+	}
+}
+
 // NewAlertsUIHandler returns a handler ready to register against an Echo
-// route group.
-func NewAlertsUIHandler(deps AlertsUIDeps) *AlertsUIHandler {
-	return &AlertsUIHandler{deps: deps}
+// route group. Optional dependencies (Langfuse client, slog logger)
+// fall back to no-op defaults when omitted so callers don't have to
+// branch on "is observability enabled".
+//
+// Takes deps by pointer so the (now larger, ~88-byte) struct stays off
+// the call stack — gocritic's hugeParam threshold flags pass-by-value
+// at this size. The deref makes a copy for the handler so caller
+// mutations after construction don't leak in.
+func NewAlertsUIHandler(deps *AlertsUIDeps) *AlertsUIHandler {
+	d := *deps
+	if d.Langfuse == nil {
+		d.Langfuse = langfuse.NoopClient{}
+	}
+	if d.Logger == nil {
+		d.Logger = slog.Default()
+	}
+	return &AlertsUIHandler{deps: d}
+}
+
+// scoreOperatorDismissed posts the operator_dismissed score on every
+// trace ID returned from Store.DismissAlerts. Best-effort: failures
+// are logged at debug only and never fail the dismiss.
+//
+// Score value is 1.0 — the alert was dismissed, full stop. The Phase 5
+// judge worker will produce its own quality score against the same
+// trace, and the dismissed flag becomes the operator-truth label that
+// the regression set is graded against.
+func (h *AlertsUIHandler) scoreOperatorDismissed(ctx context.Context, traceIDs []string) {
+	h.scoreOperatorDismissValue(ctx, traceIDs, 1.0)
+}
+
+// scoreOperatorRestored posts `operator_dismissed = 0` on every trace
+// ID returned from Store.RestoreAlerts. Best-effort, same posture as
+// the dismiss-side score. Symmetric with scoreOperatorDismissed: when
+// the operator clicks "Restore" they're explicitly retracting the
+// negative label, and the Phase 5 judge regression set should see a
+// positive (0.0) score rather than relying on absence to mean "not
+// dismissed".
+func (h *AlertsUIHandler) scoreOperatorRestored(ctx context.Context, traceIDs []string) {
+	h.scoreOperatorDismissValue(ctx, traceIDs, 0.0)
+}
+
+// scoreOperatorDismissValue is the shared implementation behind the
+// dismiss / restore score posts.
+func (h *AlertsUIHandler) scoreOperatorDismissValue(ctx context.Context, traceIDs []string, value float64) {
+	if len(traceIDs) == 0 {
+		return
+	}
+	for _, traceID := range traceIDs {
+		if err := h.deps.Langfuse.Score(ctx, traceID, "operator_dismissed", value, ""); err != nil {
+			h.deps.Logger.Debug("langfuse Score (operator_dismissed) failed",
+				"error", err, "trace_id", traceID, "value", value)
+		}
+	}
 }
 
 // RegisterAlertsUIRoutes wires every handler method onto e under the
@@ -85,13 +162,15 @@ func (h *AlertsUIHandler) ListPage(c echo.Context) error {
 
 	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
 	w := c.Response().Writer
+	opts := h.tableOpts()
 	if isHTMX(c) {
-		return components.AlertsTable(result, c.Request().URL.RawQuery).Render(c.Request().Context(), w)
+		return components.AlertsTable(result, c.Request().URL.RawQuery, opts).Render(c.Request().Context(), w)
 	}
 	return components.AlertsPage(components.AlertsPageData{
-		Result:   result,
-		Query:    q,
-		RawQuery: c.Request().URL.RawQuery,
+		Result:    result,
+		Query:     q,
+		RawQuery:  c.Request().URL.RawQuery,
+		TableOpts: opts,
 	}).Render(c.Request().Context(), w)
 }
 
@@ -109,15 +188,29 @@ func (h *AlertsUIHandler) ListJSON(c echo.Context) error {
 // DetailPage renders the full per-alert detail view.
 func (h *AlertsUIHandler) DetailPage(c echo.Context) error {
 	id := c.Param("id")
-	d, err := h.deps.Store.GetAlertDetail(c.Request().Context(), id)
+	ctx := c.Request().Context()
+	d, err := h.deps.Store.GetAlertDetail(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "alert not found")
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "fetching alert detail: "+err.Error())
 	}
+	// Best-effort judge score lookup. Failures here log and render an
+	// empty score cell rather than blocking the detail page — the
+	// score is supplemental, not authoritative.
+	judgeScore, scoreErr := h.deps.Store.GetJudgeScore(ctx, id)
+	if scoreErr != nil {
+		h.deps.Logger.Warn("failed to fetch judge score for detail page",
+			"alert_id", id, "error", scoreErr)
+	}
+
 	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
-	return components.AlertDetailPage(d).Render(c.Request().Context(), c.Response().Writer)
+	return components.AlertDetailPage(components.AlertDetailData{
+		Detail:           d,
+		LangfuseEndpoint: h.deps.LangfuseEndpoint,
+		JudgeScore:       judgeScore,
+	}).Render(ctx, c.Response().Writer)
 }
 
 // DismissOne dismisses a single alert by path-param id. Returns the
@@ -125,13 +218,14 @@ func (h *AlertsUIHandler) DetailPage(c echo.Context) error {
 // a no-JS plain form submit.
 func (h *AlertsUIHandler) DismissOne(c echo.Context) error {
 	id := c.Param("id")
-	n, err := h.deps.Store.DismissAlerts(c.Request().Context(), []string{id})
+	n, traceIDs, err := h.deps.Store.DismissAlerts(c.Request().Context(), []string{id})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "dismissing alert: "+err.Error())
 	}
 	for range n {
 		metrics.AlertsDismissedTotal.Inc()
 	}
+	h.scoreOperatorDismissed(c.Request().Context(), traceIDs)
 	if isHTMX(c) {
 		return c.NoContent(http.StatusOK)
 	}
@@ -149,13 +243,14 @@ func (h *AlertsUIHandler) DismissBulk(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "no alert ids provided")
 	}
 
-	n, err := h.deps.Store.DismissAlerts(c.Request().Context(), ids)
+	n, traceIDs, err := h.deps.Store.DismissAlerts(c.Request().Context(), ids)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "dismissing alerts: "+err.Error())
 	}
 	for range n {
 		metrics.AlertsDismissedTotal.Inc()
 	}
+	h.scoreOperatorDismissed(c.Request().Context(), traceIDs)
 
 	if isHTMX(c) {
 		// Return the refreshed table for swap-in-place.
@@ -165,18 +260,22 @@ func (h *AlertsUIHandler) DismissBulk(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusInternalServerError, "refreshing alerts: "+err.Error())
 		}
 		c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
-		return components.AlertsTable(result, c.Request().URL.RawQuery).
+		return components.AlertsTable(result, c.Request().URL.RawQuery, h.tableOpts()).
 			Render(c.Request().Context(), c.Response().Writer)
 	}
 	return c.Redirect(http.StatusSeeOther, "/alerts")
 }
 
-// Restore clears dismissed_at on a single alert.
+// Restore clears dismissed_at on a single alert and posts a Langfuse
+// `operator_dismissed = 0` score on the alert's trace so the judge
+// regression set sees the explicit retraction.
 func (h *AlertsUIHandler) Restore(c echo.Context) error {
 	id := c.Param("id")
-	if _, err := h.deps.Store.RestoreAlerts(c.Request().Context(), []string{id}); err != nil {
+	_, traceIDs, err := h.deps.Store.RestoreAlerts(c.Request().Context(), []string{id})
+	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "restoring alert: "+err.Error())
 	}
+	h.scoreOperatorRestored(c.Request().Context(), traceIDs)
 	if isHTMX(c) {
 		return c.NoContent(http.StatusOK)
 	}

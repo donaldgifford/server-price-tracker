@@ -174,6 +174,11 @@ migrations/                   PostgreSQL schema migrations (source of truth)
 internal/store/migrations/    Embedded copy for Go embed.FS
 scripts/makefiles/            Modular Makefile includes (common, go, docker, db, helm, docs)
 tools/mock-server/            Mock eBay API server for local dev (JSON fixtures)
+tools/dashgen/                Grafana dashboard + Prometheus rules generator (Go-defined panels)
+tools/regression-runner/      Classifier accuracy gate (`make test-regression`)
+tools/dataset-bootstrap/      Stratified live-DB sample → editable golden dataset
+tools/dataset-upload/         Upload golden dataset to Langfuse (idempotent, title-hash IDs)
+tools/judge-bootstrap/        Cold-start CLI for labelling judge few-shot examples
 test/                         Top-level test directories
   e2e/                        End-to-end tests (//go:build e2e)
   integration/                Cross-cutting integration tests (//go:build integration)
@@ -198,6 +203,8 @@ docs/                         Design and implementation documentation (managed v
 - `pkg/types/` (package `domain`) — Core domain types: `Listing`, `Watch`, `WatchFilters`, `PriceBaseline`, `Alert`, `ScoreBreakdown`. Enums: `ComponentType`, `Condition`, `ListingType`. Contains `WatchFilters.Match()`.
 - `pkg/scorer/` (package `score`) — Composite scoring with `Score(ListingData, *Baseline, Weights) Breakdown`. Decoupled from DB models via `ListingData` input struct.
 - `pkg/extract/` — `LLMBackend` and `Extractor` interfaces, implementations (Ollama, Anthropic, OpenAI-compatible), extraction orchestrator, prompt templates, response validation.
+- `pkg/observability/langfuse/` — In-house Langfuse HTTP client (traces/generations/scores/dataset items+runs), buffered async client, MockClient. Optional `DatasetItem.ID` enables idempotent upserts so `tools/dataset-upload` is safe to re-run.
+- `pkg/judge/` — `Judge` interface + `LLMJudge` (prompt template + few-shot `examples.json`), `Worker` with daily-budget enforcement, `Score` ↔ `Verdict` plumbing. Persists to Postgres (`judge_scores`, migration 013) and Langfuse (best-effort).
 
 **Internal (`internal/`)** — application-specific, not importable:
 - `internal/api/` — Echo HTTP server with Huma v2 typed handlers, middleware (Prometheus metrics, request logging, panic recovery), API client for CLI. Also hosts the alert review UI at `/alerts` (DESIGN-0010): server-rendered HTML via [templ](https://templ.guide) components in `internal/api/web/components/`, [HTMX](https://htmx.org) 1.9 for swap-in-place interactions, [Alpine.js](https://alpinejs.dev) 3.14 for small reactive bits. Generated `*_templ.go` files are gitignored — `make build` runs `templ generate` first. Static assets (htmx.min.js, alpine.min.js, spt.css) ship via `go:embed` in `internal/api/web/embed.go`.
@@ -206,6 +213,8 @@ docs/                         Design and implementation documentation (managed v
 - `internal/ebay/` — `EbayClient` and `TokenProvider` interfaces + implementations
 - `internal/notify/` — `Notifier` interface + `DiscordNotifier` implementation
 - `internal/config/` — YAML config loader with `os.ExpandEnv()` for secrets
+- `internal/observability/` — OTel SDK bootstrap (OTLP/gRPC trace + metric exporters), tracer/meter providers, propagators. No-op when `observability.otel.enabled=false`.
+- `internal/regression/` — Shared types (`Item`, `TitleHash`, `LoadDataset`) used by all four Phase 6 operator CLIs. `sha256-trunc-8(title)` ID convention is defined here once so `tools/dataset-upload` (DatasetItem.ID) and `tools/regression-runner` (DatasetRunItem.DatasetItemID) align in Langfuse without out-of-band coordination.
 
 ### Configuration
 
@@ -233,6 +242,8 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 - `GET /api/v1/system/state` — system health metrics (listing/baseline/alert counts)
 - `GET /api/v1/jobs` — scheduler job run history
 - `GET /api/v1/jobs/{job_name}` — job runs for a specific job
+- `GET /api/v1/alerts/{id}/trace` — Langfuse trace deep-link for an alert (returns `{trace_url}`); off when `observability.langfuse.enabled=false`
+- `POST /api/v1/judge/run` — manually trigger a judge worker pass over recent un-scored alerts (operator backfill)
 
 ## Testing Strategy
 
@@ -256,6 +267,47 @@ eBay API URLs default to production (`api.ebay.com`) when `EBAY_TOKEN_URL`/`EBAY
 - **Interfaces:** Every external boundary has an interface. Business logic depends on interfaces, never concrete implementations.
 - **Commits:** Conventional Commits format (`feat:`, `fix:`, `chore:`, `docs:`). GoReleaser changelog groups by type.
 - **No ORM** — raw SQL with pgx. All SQL lives in `internal/store/queries.go` as constants.
+
+## Observability (DESIGN-0016 / IMPL-0019)
+
+The OTel + Clickhouse + Langfuse stack is **fully optional** — three independently disable-able config subtrees, all default off. With every flag false the binary's external behaviour is byte-identical to the pre-IMPL-0019 deployment shape.
+
+```yaml
+observability:
+  otel:       { enabled: false, endpoint: "", service_name: "", insecure: false, timeout: 10s }
+  langfuse:   { enabled: false, endpoint: "", public_key: "", secret_key: "", buffer_size: 1000, model_costs: {} }
+  judge:      { enabled: false, backend: "", model: "", interval: 15m, lookback: 6h, batch_size: 50, daily_budget_usd: 10 }
+```
+
+Phase-by-phase scaffolding:
+
+- **Phase 1-2** (OTel SDK + pipeline spans): `internal/observability/otel.go` boots OTLP/gRPC exporters; `pkg/extract/extractor.go` and `internal/engine/scheduler.go` start root + child spans tagged with `spt.backend`, `spt.component.type`, `spt.llm.tokens.*`, etc. Trace IDs propagate via `extraction_queue.trace_id` and `alerts.trace_id` (migration 012, NULLIF coercion in store layer). Two OTel histograms (`spt.extraction.duration`, `spt.alert.eval.duration`) live in `pkg/extract/meter.go` and `internal/engine/meter.go` — lazily registered via `sync.OnceValue` so the global MeterProvider can be set by `observability.Init` after package import.
+- **Phase 3** (Langfuse): `pkg/observability/langfuse` — in-house HTTP client + buffered client (drops oldest on overflow), `pkg/extract/langfuse_backend.go` decorates LLMBackend per Generate call. `extraction_self_confidence` Langfuse score is auto-pushed on every successful Extract. Per-model rate table (`langfuse.ModelCost`) feeds CostUSD when configured; empty map → Langfuse server-side rates apply.
+- **Phase 4** (Alert review UI): `GET /api/v1/alerts/{id}/trace` returns `{trace_url}`; `AlertRow` + `AlertDetailPage` render Trace ↗ deep-links via the shared `TableOptions{LangfuseEndpoint, JudgeEnabled}` struct. Dismiss actions emit `langfuse.Score(traceID, "operator_dismissed", 1.0, "")`; restore actions emit `0.0` symmetrically (`Store.RestoreAlerts` returns trace IDs alongside the row count, just like `DismissAlerts`) so the judge regression set sees explicit positive labels on retraction rather than relying on absence.
+- **Phase 5** (Judge): `pkg/judge` — `Judge` interface, `LLMJudge` (prompt + few-shot in `judge_prompt.tmpl` + `examples.json`), `Worker` with daily-budget enforcement (mid-batch rechecks, `ErrJudgeBudgetExhausted` exit). Migration 013 owns `judge_scores`. Cron entry registered via `Scheduler.AddJudge`; `POST /api/v1/judge/run` + `spt judge run` for on-demand backfill. Verdicts persist to Postgres (durable) and Langfuse (best-effort). Cold-start labelling: `go run ./tools/judge-bootstrap --config <path>` emits a stratified, interleaved JSON queue of recent alerts (empty `label` + `verdict`); operator fills in `deal`/`edge`/`noise` labels with score+reason, then `--apply labelled.json` validates and writes `pkg/judge/examples.json`.
+- **Phase 7** (Grafana): `tools/dashgen/panels/observability.go` adds the Observability row — `JudgeScoreDistribution` (heatmap of `spt_judge_score_bucket`), `JudgeVsOperatorAgreement` (judge "noise" verdict rate vs `spt_alerts_dismissed_total`), `JudgeCostByModel` (per-model `spt_judge_cost_usd_total`), and `PipelineStageVolume` (proxy for OTel span volume from histogram `_count` rates across ingestion / extraction / alerts query / notification). Spec'd `LangfuseGenerationCost` and `TraceVolumeByPipelineStage` panels are deferred — both depend on Langfuse-side polling or OTel-derived span counters that don't have Prometheus surfaces yet. Dashgen test asserts 8 rows and 38 inner panels; new metric names registered in `tools/dashgen/config.go::KnownMetrics`.
+
+**Regression test workflow (Phase 6):** Any PR that touches `pkg/extract/prompts.go`, `pkg/extract/preclassify.go`, `pkg/extract/normalize.go`, or any classifier/normaliser logic must run `make test-regression` against the configured backend and paste the per-component accuracy lines into the PR description. The PR template (`.github/PULL_REQUEST_TEMPLATE.md`) includes a checkbox for this. Three operator CLIs make up the Phase 6 toolchain — all share `internal/regression` (`Item` struct, `TitleHash`, `LoadDataset`) so the dataset shape and ID derivation are defined once. The `sha256-trunc-8(title)` convention means runs and items align in Langfuse without out-of-band coordination:
+
+- `tools/dataset-bootstrap` — pulls stratified live-DB sample, pre-fills `expected_component` / `expected_product_key` from current LLM labels for in-place audit (not label-from-scratch).
+- `tools/dataset-upload` — POSTs one `DatasetItem` per row to Langfuse with explicit title-hash IDs, idempotent under re-runs (Langfuse upserts on `id`). Requires `--langfuse-dataset-id <id>`.
+- `tools/regression-runner` (= `make test-regression`) — runs the dataset against the configured backend, prints accuracy table or JSON, supports `--backends` for side-by-side comparison (`$/1k extractions` is `—` until per-extraction token usage is surfaced through `LLMExtractor`'s return path). With `--langfuse-dataset-id <id>` and Langfuse enabled, posts one `CreateDatasetRun` per backend named `classify_prompt:<sha>:<backend>`; SHA defaults to `git rev-parse HEAD`.
+
+Build-tagged `pkg/extract/regression_test.go` lives alongside as a documentation stub for the JSON shape. The full first-time operator pipeline is documented in `docs/OPERATIONS.md` §8 ("Quarterly dataset relabelling").
+
+Adding a new judge metric, span attribute, or pre-classification hook: keep all three optional flags in mind — code paths must remain free of behaviour changes when each is disabled. The disabled-mode guarantee is enforced by the `make test` suite running with all three off (the production default).
+
+**Post-merge hardening (INV-0001):** A code-review pass on the IMPL-0019 branch surfaced 10 issues fixed before deploy — `docs/investigation/0001-impl-0019-post-merge-code-review-findings.md` is the canonical record. Load-bearing precedents that future contributors must respect:
+
+- **`pkg/observability/langfuse` keeps zero `internal/*` imports.** `BufferedClient` accepts a `BufferMetrics` interface (`SetDepth/RecordDrop/RecordWrite/ObserveWriteDuration`) with a no-op default; the production wiring in `serve.go` injects `metrics.LangfuseBufferAdapter{}` via `WithBufferMetrics(...)`. This is the canonical pattern for any future `pkg/` ↔ `internal/metrics` plumbing — mirror the `MetricsRecorder` shape `pkg/judge/worker.go` already uses.
+- **Buffer overflow is drop-newest, not drop-oldest.** The original tri-select eviction dance was not race-safe under concurrent senders; current contract is "try send; on full, increment drops". Operators read `spt_langfuse_buffer_drops_total` as "records lost"; semantics match every other Go observability library.
+- **`BufferedClient` lifecycle is `stopCh`-driven, not ctx-driven.** `drain` no longer exits on parent ctx.Done — only `Stop()`. Parent ctx is used for individual upstream HTTP calls during steady state. K8s SIGTERM path: signal handler cancels root ctx → process calls `buf.Stop(freshShutdownCtx)`; `Stop` writes `shutdownCtx` into a mutex-guarded field before closing `stopCh`, and `drain` reads it back to give `flushRemaining` a working deadline. Without this, every queued record's HTTP call would return `context.Canceled` instantly during shutdown — the exact moment the flush matters most. `Start` is gated by `sync.Once` and refuses to spawn after `Stop` has closed `stopCh` (otherwise the next `Stop` would hang on `wg.Wait` forever).
+- **Untrusted prompt content is delimited and sanitised.** `pkg/judge/prompts.go::sanitizeUntrusted` strips control chars + truncates to 200 runes for `ListingTitle` and score `Reasons`; the alert block is wrapped in `<<<UNTRUSTED>>> ... <<<END_UNTRUSTED>>>` with explicit "treat as DATA only" prompt language. Same pattern should apply to any future prompt that interpolates seller-controlled text.
+- **Judge daily-budget guarantee is hard.** `(*Worker).checkBudget` halts the tick on either budget exhaustion (`ErrJudgeBudgetExhausted`) *or* a DB recheck error (returns the wrapped error verbatim, not the sentinel — so metrics + dashboards don't conflate "Postgres is down" with "spend cap met"). The previous `if sumErr == nil && spent >= budget` silently regressed the guarantee under DB pressure, which is the exact failure mode the recheck exists to prevent.
+- **`pkg/judge.WithJudgeCosts` (not `WithModelCosts`)** to avoid name collision with `pkg/extract.WithModelCosts`. When adding a new functional option that takes the same kind of payload across multiple packages, prefix with the package's domain (`Judge`, `Backend`) to keep import-time wiring readable.
+- **Don't embed full LLM responses in error strings.** They surface at WARN level and cluster log retention captures multi-KB prompt-echoing payloads. `pkg/judge/llm_judge.go::truncate` caps at 512 runes + ellipsis. Same applies anywhere `resp.Content` lands in a logged error.
+
+`docs/OPERATIONS.md §8` is the operator-facing runbook for OTel/Langfuse/judge config; this CLAUDE.md note is the intent + entry-points view.
 
 ## Deployment
 

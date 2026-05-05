@@ -74,6 +74,19 @@ llm:
 				assert.Equal(t, 5.0, cfg.Ebay.RateLimit.PerSecond)
 				assert.Equal(t, 10, cfg.Ebay.RateLimit.Burst)
 				assert.Equal(t, int64(5000), cfg.Ebay.RateLimit.DailyLimit)
+				// Observability defaults: all subtrees disabled,
+				// safe values populated for when operator opts in.
+				assert.False(t, cfg.Observability.Otel.Enabled)
+				assert.Equal(t, "server-price-tracker", cfg.Observability.Otel.ServiceName)
+				assert.Equal(t, 10*time.Second, cfg.Observability.Otel.Timeout)
+				assert.False(t, cfg.Observability.Langfuse.Enabled)
+				assert.Equal(t, 1000, cfg.Observability.Langfuse.BufferSize)
+				assert.Equal(t, 10*time.Second, cfg.Observability.Langfuse.Timeout)
+				assert.False(t, cfg.Observability.Judge.Enabled)
+				assert.Equal(t, 15*time.Minute, cfg.Observability.Judge.Interval)
+				assert.Equal(t, 6*time.Hour, cfg.Observability.Judge.Lookback)
+				assert.Equal(t, 50, cfg.Observability.Judge.BatchSize)
+				assert.InDelta(t, 10.0, cfg.Observability.Judge.DailyBudgetUSD, 0.0001)
 			},
 		},
 		{

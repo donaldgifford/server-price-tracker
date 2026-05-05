@@ -104,3 +104,30 @@ web:
 logging:
   level: info
   format: text  # text or json
+
+# Observability subtrees default off — enable for local dev once
+# a Collector / Langfuse instance is reachable. See configs/config.example.yaml
+# for the full schema and field-level commentary.
+observability:
+  otel:
+    enabled: false
+    endpoint: ""
+    service_name: "server-price-tracker-dev"
+    insecure: true
+    timeout: 10s
+  langfuse:
+    enabled: false
+    endpoint: ""
+    public_key: "${LANGFUSE_PUBLIC_KEY}"
+    secret_key: "${LANGFUSE_SECRET_KEY}"
+    buffer_size: 1000
+    timeout: 10s
+    model_costs: {}  # see config.example.yaml for shape
+  judge:
+    enabled: false
+    backend: ""
+    model: ""
+    interval: 15m
+    lookback: 6h
+    batch_size: 50
+    daily_budget_usd: 10.0

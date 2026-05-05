@@ -23,6 +23,7 @@ and run extractions from the terminal.
 * [spt extract](spt_extract.md)  - Extract structured attributes from a listing title
 * [spt ingest](spt_ingest.md)  - Trigger manual ingestion
 * [spt jobs](spt_jobs.md)  - View scheduler job history
+* [spt judge](spt_judge.md)  - LLM-as-judge worker controls
 * [spt listings](spt_listings.md)  - Query listings
 * [spt reextract](spt_reextract.md)  - Re-extract listings with incomplete data
 * [spt rescore](spt_rescore.md)  - Rescore all listings
