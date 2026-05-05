@@ -93,7 +93,13 @@ func (j *LLMJudge) EvaluateAlert(ctx context.Context, ac *AlertContext) (Verdict
 
 	parsed, err := parseVerdict(resp.Content)
 	if err != nil {
-		return Verdict{}, fmt.Errorf("parsing judge response: %w (raw=%q)", err, resp.Content)
+		// Truncate the raw response before embedding in the error —
+		// it surfaces via worker.go's logger.Warn at WARN level so
+		// cluster log retention captures it. The full LLM response
+		// can echo prompt content (baselines, listing titles) on
+		// parse failure; 512 chars is enough to diagnose the JSON
+		// shape mistake. See INV-0001 MEDIUM-10.
+		return Verdict{}, fmt.Errorf("parsing judge response: %w (raw=%q)", err, truncate(resp.Content, 512))
 	}
 
 	v := Verdict{
@@ -151,4 +157,16 @@ func stripJSONFences(s string) string {
 	s = strings.TrimPrefix(s, "```")
 	s = strings.TrimSuffix(s, "```")
 	return strings.TrimSpace(s)
+}
+
+// truncate caps s to maxLen runes and appends "…" when truncated. Used
+// to bound LLM response content in error strings — the worker logs
+// these at WARN, so unbounded inclusion would push prompt-echoing
+// model output (baselines, listing titles) into long-term log storage.
+func truncate(s string, maxLen int) string {
+	r := []rune(s)
+	if len(r) <= maxLen {
+		return s
+	}
+	return string(r[:maxLen]) + "…"
 }

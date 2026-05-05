@@ -3,6 +3,7 @@ package judge_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -172,6 +173,38 @@ func TestLLMJudge_EvaluateAlert_ComputesCostFromModelTable(t *testing.T) {
 	require.NoError(t, err)
 	// 1M input @ $1 = $1; 200k output @ $5/M = $1; total $2.
 	assert.InDelta(t, 2.0, v.CostUSD, 0.0001)
+}
+
+// TestLLMJudge_EvaluateAlert_TruncatesLongRawInParseError: when the
+// LLM returns an unparseable response, the error embeds the raw
+// content for diagnosis. We cap that at 512 chars + ellipsis so
+// cluster log retention doesn't capture multi-KB prompt-echoing
+// model output. See INV-0001 MEDIUM-10.
+func TestLLMJudge_EvaluateAlert_TruncatesLongRawInParseError(t *testing.T) {
+	t.Parallel()
+
+	backend := extractmocks.NewMockLLMBackend(t)
+	// 4 KB of garbage that won't parse as JSON.
+	garbage := strings.Repeat("x", 4096)
+	backend.EXPECT().
+		Generate(mock.Anything, mock.Anything).
+		Return(extract.GenerateResponse{Content: garbage}, nil).
+		Once()
+
+	j, err := judge.NewLLMJudge(backend)
+	require.NoError(t, err)
+
+	_, err = j.EvaluateAlert(context.Background(), sampleAlertContext())
+	require.Error(t, err)
+	// The truncated marker (single ellipsis rune from `truncate`) must
+	// appear; the un-truncated 4KB tail must NOT.
+	msg := err.Error()
+	assert.Contains(t, msg, "…")
+	// 512 truncate cap + ellipsis + the wrapping format string is far
+	// less than the 4KB raw payload — strict upper bound on the error
+	// length protects log retention.
+	assert.Less(t, len(msg), 1024,
+		"truncated error must be < 1KiB so cluster logs don't capture multi-KB raw responses")
 }
 
 // TestLLMJudge_EvaluateAlert_RendersPrompt: a quick smoke test that

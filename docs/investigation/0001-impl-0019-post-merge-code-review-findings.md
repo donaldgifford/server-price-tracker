@@ -1,7 +1,7 @@
 ---
 id: INV-0001
 title: "IMPL-0019 post-merge code review findings"
-status: Open
+status: Resolved
 author: Donald Gifford
 created: 2026-05-04
 ---
@@ -495,7 +495,7 @@ current PR.
   default + `config.example.yaml` showed `false`; CLAUDE.md was the
   outlier. Fixed CLAUDE.md, tightened the example-config comment, and
   documented the security rationale on the config struct field.)
-- [ ] **MEDIUM-10** — truncate raw LLM response in error string.
+- [x] **MEDIUM-10** — truncate raw LLM response in error string.
 
 **Defer to a follow-up cleanup PR:** all LOW items.
 
