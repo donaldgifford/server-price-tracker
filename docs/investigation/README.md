@@ -13,6 +13,7 @@ Design docs, plans, and implementation docs can reference investigations by ID
 
 | ID | Title | Status | Date | Author | Link |
 |----|-------|--------|------|--------|------|
+| INV-0001 | IMPL-0019 post-merge code review findings | Open | 2026-05-04 | Donald Gifford | [0001-impl-0019-post-merge-code-review-findings.md](0001-impl-0019-post-merge-code-review-findings.md) |
 <!-- END DOCZ AUTO-GENERATED -->
 <!-- BEGIN DOCZ AUTO-GENERATED -->
 <!-- END DOCZ AUTO-GENERATED -->
