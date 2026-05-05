@@ -480,7 +480,7 @@ current PR.
 
 - [x] **HIGH-1** — `BufferMetrics` interface, drop `internal/metrics` import.
 - [x] **HIGH-2** — rename `judge.WithModelCosts` → `judge.WithJudgeCosts`.
-- [ ] **HIGH-3** — switch `BufferedClient.enqueue` to **drop-newest** semantics
+- [x] **HIGH-3** — switch `BufferedClient.enqueue` to **drop-newest** semantics
   (Option A); delete the eviction dance.
 - [ ] **MEDIUM-4** — `io.LimitReader` on Langfuse 2xx response decode.
 - [ ] **MEDIUM-5** — wrap untrusted alert content in `<<<UNTRUSTED>>>`

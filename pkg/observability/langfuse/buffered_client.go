@@ -30,9 +30,12 @@ func (noopBufferMetrics) ObserveWriteDuration(time.Duration) {}
 
 // BufferedClient wraps an upstream Client with a bounded async channel
 // + drain goroutine so transient Langfuse outages don't block the
-// extract path. When the buffer fills, the oldest queued record is
-// dropped to make room for the new one and spt_langfuse_buffer_drops_total
-// increments — visibility over silent loss is the design intent.
+// extract path. When the buffer fills, the new record is dropped
+// (drop-newest) and spt_langfuse_buffer_drops_total increments —
+// visibility over silent loss is the design intent. Drop-newest is
+// what every Go observability library converges on (otel-go,
+// prometheus client, …) because it's race-free under concurrent
+// senders without needing a mutex on the hot path.
 //
 // Only LogGeneration and Score writes flow through the buffer (those
 // are the high-volume hot-path calls). CreateTrace / CreateDatasetItem
@@ -191,30 +194,16 @@ func (b *BufferedClient) CreateDatasetRun(ctx context.Context, run *DatasetRun) 
 	return b.upstream.CreateDatasetRun(ctx, run)
 }
 
-// enqueue is the buffer overflow policy. The pattern is "try to send;
-// if full, evict the oldest queued job (a non-blocking drain) and try
-// once more". If the second attempt still fails (drain raced with
-// another sender), increment the drop counter and move on.
+// enqueue is the buffer overflow policy. Drop-newest: try to send;
+// if the buffer is full, drop the new record and increment the drop
+// counter. Race-free under concurrent senders (no mutex needed) and
+// matches the standard contract operators expect from "buffered" —
+// see INV-0001 HIGH-3 for why we moved away from drop-oldest.
 func (b *BufferedClient) enqueue(job bufferJob) {
 	select {
 	case b.jobs <- job:
 		b.metrics.SetDepth(len(b.jobs))
-		return
 	default:
-	}
-
-	// Buffer full — drop oldest, then try once more.
-	select {
-	case <-b.jobs:
-		b.metrics.RecordDrop()
-	default:
-	}
-
-	select {
-	case b.jobs <- job:
-		b.metrics.SetDepth(len(b.jobs))
-	default:
-		// Still full — racing senders. Drop this one too.
 		b.metrics.RecordDrop()
 	}
 }

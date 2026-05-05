@@ -157,6 +157,53 @@ func TestBufferedClient_StopIsIdempotent(t *testing.T) {
 	require.NoError(t, buf.Stop(stopCtx))
 }
 
+// countingMetrics is a BufferMetrics that counts drops + tracks the
+// last-set depth. Used by the drop-newest regression test below; we
+// intentionally don't introduce a sync.Mutex here because the tests
+// are sequential w.r.t. the goroutine that updates the counters.
+type countingMetrics struct {
+	drops     atomic.Int64
+	depth     atomic.Int64
+	successes atomic.Int64
+	errors    atomic.Int64
+}
+
+func (m *countingMetrics) SetDepth(d int)                   { m.depth.Store(int64(d)) }
+func (m *countingMetrics) RecordDrop()                      { m.drops.Add(1) }
+func (*countingMetrics) ObserveWriteDuration(time.Duration) {}
+
+func (m *countingMetrics) RecordWrite(success bool) {
+	if success {
+		m.successes.Add(1)
+		return
+	}
+	m.errors.Add(1)
+}
+
+func TestBufferedClient_DropNewestOnOverflow(t *testing.T) {
+	t.Parallel()
+
+	// Buffer of 4 with drain never started — every send beyond the
+	// 4th must increment drops. Drop-newest contract: the *first* 4
+	// records win, the rest fall on the floor. Drop count ≥ N-cap
+	// (we don't assert exact count because nothing about RecordDrop
+	// pretends to be exact under racing senders, but with a single
+	// sender goroutine here the count is deterministic).
+	upstream := &recordingClient{}
+	cm := &countingMetrics{}
+	buf := NewBufferedClient(upstream, 4, WithBufferMetrics(cm))
+
+	const sends = 20
+	for range sends {
+		require.NoError(t, buf.LogGeneration(context.Background(), &GenerationRecord{TraceID: "t"}))
+	}
+
+	assert.EqualValues(t, sends-4, cm.drops.Load(),
+		"with cap=4 and drain stopped, every send past the 4th must drop")
+	assert.EqualValues(t, 4, cm.depth.Load(),
+		"depth gauge should pin at capacity once the buffer fills")
+}
+
 func TestBufferedClient_DefaultsCapacityWhenZero(t *testing.T) {
 	t.Parallel()
 
