@@ -487,7 +487,7 @@ current PR.
   delimiters; truncate `ListingTitle` to 200 chars.
 - [x] **MEDIUM-6** — `sync.Once` on `BufferedClient.Start`, stopCh check
   before spawn.
-- [ ] **MEDIUM-7** — thread `shutdownCtx` from `Stop` into
+- [x] **MEDIUM-7** — thread `shutdownCtx` from `Stop` into
   `flushRemaining`; add a shutdown integration test.
 - [ ] **MEDIUM-8** — halt judge tick on budget-recheck DB error.
 - [ ] **MEDIUM-9** — flip OTel `insecure` default to `false`; explicit

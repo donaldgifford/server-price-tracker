@@ -180,6 +180,46 @@ func (m *countingMetrics) RecordWrite(success bool) {
 	m.errors.Add(1)
 }
 
+func TestBufferedClient_FlushUsesShutdownCtxNotParent(t *testing.T) {
+	t.Parallel()
+
+	// K8s SIGTERM sequence: signal handler cancels root ctx, then
+	// Stop(freshShutdownCtx) runs. The drain must flush under the
+	// fresh shutdownCtx — if it used the already-canceled parent,
+	// every queued record's HTTP call would return immediately and
+	// the records would be lost.
+
+	upstream := &recordingClient{}
+	buf := NewBufferedClient(upstream, 16)
+
+	parentCtx, cancelParent := context.WithCancel(context.Background())
+	buf.Start(parentCtx)
+
+	for range 5 {
+		require.NoError(t, buf.LogGeneration(context.Background(), &GenerationRecord{TraceID: "t"}))
+	}
+
+	// Cancel the parent first — before Stop runs.
+	cancelParent()
+
+	// Give the drain a moment to *not* exit on ctx.Done — it might
+	// race here, so this is best-effort. The real assertion is that
+	// the records get delivered under the fresh shutdownCtx.
+	time.Sleep(10 * time.Millisecond)
+
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), time.Second)
+	defer cancelShutdown()
+	require.NoError(t, buf.Stop(shutdownCtx))
+
+	// Some records may have been delivered before parentCtx
+	// cancellation; some may have been flushed under shutdownCtx.
+	// The combined count is what matters — if the drain used the
+	// canceled parent for flushing, we'd see < 5.
+	assert.Equal(t, 5, upstream.generationCount(),
+		"all 5 records must be delivered between drain + flushRemaining; "+
+			"flushRemaining must use shutdownCtx, not the canceled parent")
+}
+
 func TestBufferedClient_StartIsIdempotent(t *testing.T) {
 	t.Parallel()
 

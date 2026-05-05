@@ -55,6 +55,13 @@ type BufferedClient struct {
 	wg        sync.WaitGroup
 	stopMu    sync.Mutex
 	stopCh    chan struct{} // closed by Stop to signal the drain goroutine
+
+	// shutdownCtx is the context Stop hands to the drain so
+	// flushRemaining can issue HTTP calls under the shutdown deadline
+	// even if the parent ctx (passed to Start) is already canceled.
+	// Guarded by stopMu — written by Stop, read by drain after stopCh
+	// fires.
+	shutdownCtx context.Context //nolint:containedctx // Stop deadline must reach drain
 }
 
 // bufferJob is one queued write the drain goroutine handles. The
@@ -136,8 +143,16 @@ func (b *BufferedClient) Start(ctx context.Context) {
 // Stop signals the drain goroutine to exit and blocks until it does
 // (or shutdownCtx expires). Returns ctx.Err on timeout. Safe to call
 // concurrently / multiple times.
+//
+// shutdownCtx is also handed to the drain so flushRemaining issues
+// HTTP calls under this deadline. The typical K8s SIGTERM path
+// cancels the parent ctx (the one passed to Start) before calling
+// Stop — without this thread-through, every flush would return
+// context.Canceled immediately and the "give every queued record a
+// chance" promise would break exactly when it matters.
 func (b *BufferedClient) Stop(shutdownCtx context.Context) error {
 	b.stopMu.Lock()
+	b.shutdownCtx = shutdownCtx
 	select {
 	case <-b.stopCh:
 		// Already closed.
@@ -223,17 +238,31 @@ func (b *BufferedClient) enqueue(job bufferJob) {
 }
 
 // drain is the background goroutine that ships queued jobs to the
-// upstream client. Exits cleanly when stopCh closes; on parent ctx
-// cancellation it stops too (so K8s pod shutdown doesn't hang).
+// upstream client. Lifecycle is driven exclusively by stopCh — the
+// parent ctx (passed at Start) is used for individual upstream
+// calls but not for drain exit. Tying drain exit to parent ctx
+// cancellation was a footgun: a K8s SIGTERM that cancels root ctx
+// before Stop runs would skip flushRemaining and lose records.
+//
+// On stopCh-fired shutdown we flush under the Stop-supplied
+// shutdownCtx (set by Stop before close(stopCh)) so HTTP calls
+// have a working deadline even if the parent ctx is already canceled.
 func (b *BufferedClient) drain(ctx context.Context) {
 	defer b.wg.Done()
 
 	for {
 		select {
 		case <-b.stopCh:
-			b.flushRemaining(ctx)
-			return
-		case <-ctx.Done():
+			b.stopMu.Lock()
+			fctx := b.shutdownCtx //nolint:contextcheck // shutdownCtx intentionally separate from drain's parent ctx (see Stop)
+			b.stopMu.Unlock()
+			if fctx == nil {
+				// Stop closed stopCh without taking the mutex path
+				// (shouldn't happen, but defensive). Fall back to
+				// parent ctx — at worst flush no-ops on canceled.
+				fctx = ctx
+			}
+			b.flushRemaining(fctx)
 			return
 		case job := <-b.jobs:
 			b.runJob(ctx, job)
