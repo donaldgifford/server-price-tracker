@@ -39,11 +39,14 @@ func WithExamples(examples []Example) LLMJudgeOption {
 	}
 }
 
-// WithModelCosts wires a per-model rate table so Verdict.CostUSD is
+// WithJudgeCosts wires a per-model rate table so Verdict.CostUSD is
 // computed locally. Empty map → CostUSD stays 0 and the worker's
 // daily-budget query treats this judge as free (operators only need
 // rates for non-Anthropic / non-OpenAI backends).
-func WithModelCosts(costs map[string]langfuse.ModelCost) LLMJudgeOption {
+//
+// Renamed from WithModelCosts in INV-0001 HIGH-2 to avoid collision
+// with extract.WithModelCosts when both packages are imported.
+func WithJudgeCosts(costs map[string]langfuse.ModelCost) LLMJudgeOption {
 	return func(j *LLMJudge) {
 		j.costs = costs
 	}

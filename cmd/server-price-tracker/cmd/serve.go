@@ -611,7 +611,7 @@ func registerJudgeWorker(
 		backend = extract.NewLangfuseBackend(backend, lf, decoratorOpts...)
 	}
 	llmJudge, err := judge.NewLLMJudge(backend,
-		judge.WithModelCosts(cfg.Observability.Langfuse.ModelCosts),
+		judge.WithJudgeCosts(cfg.Observability.Langfuse.ModelCosts),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("constructing LLM judge: %w", err)

@@ -165,7 +165,7 @@ func TestLLMJudge_EvaluateAlert_ComputesCostFromModelTable(t *testing.T) {
 	costs := map[string]langfuse.ModelCost{
 		"claude-haiku-4-5": {InputUSDPerMillion: 1.0, OutputUSDPerMillion: 5.0},
 	}
-	j, err := judge.NewLLMJudge(backend, judge.WithModelCosts(costs))
+	j, err := judge.NewLLMJudge(backend, judge.WithJudgeCosts(costs))
 	require.NoError(t, err)
 
 	v, err := j.EvaluateAlert(context.Background(), sampleAlertContext())
