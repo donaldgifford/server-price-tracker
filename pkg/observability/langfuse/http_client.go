@@ -17,6 +17,11 @@ const (
 	// retryBaseDelay is the first backoff between attempts. Subsequent
 	// attempts double the delay (50ms -> 100ms -> 200ms by default).
 	retryBaseDelay = 50 * time.Millisecond
+	// maxResponseBytes caps a 2xx response body before JSON decode so a
+	// misbehaving Langfuse endpoint can't OOM the process with a multi-
+	// GB body. The expected payloads (TraceHandle.id, etc.) are <1KB;
+	// 1MiB is generous defense in depth. See INV-0001 MEDIUM-4.
+	maxResponseBytes = 1 << 20
 )
 
 // HTTPClient talks to a Langfuse instance via the public REST API.
@@ -231,7 +236,7 @@ func (c *HTTPClient) attemptOnce(ctx context.Context, url string, payload []byte
 		drain(resp.Body)
 		return nil
 	}
-	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponseBytes)).Decode(out); err != nil {
 		return fmt.Errorf("decoding langfuse response: %w", err)
 	}
 	return nil

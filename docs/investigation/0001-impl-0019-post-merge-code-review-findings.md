@@ -482,7 +482,7 @@ current PR.
 - [x] **HIGH-2** — rename `judge.WithModelCosts` → `judge.WithJudgeCosts`.
 - [x] **HIGH-3** — switch `BufferedClient.enqueue` to **drop-newest** semantics
   (Option A); delete the eviction dance.
-- [ ] **MEDIUM-4** — `io.LimitReader` on Langfuse 2xx response decode.
+- [x] **MEDIUM-4** — `io.LimitReader` on Langfuse 2xx response decode.
 - [ ] **MEDIUM-5** — wrap untrusted alert content in `<<<UNTRUSTED>>>`
   delimiters; truncate `ListingTitle` to 200 chars.
 - [ ] **MEDIUM-6** — `sync.Once` on `BufferedClient.Start`, stopCh check
