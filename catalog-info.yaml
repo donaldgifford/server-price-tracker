@@ -2,20 +2,16 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: server-price-tracker
-  title: Server Price Tracker
-  description: "Agentic Server Price Tracker"
+  name: repo-guardian
+  title: Repo Guardian
+  description: "Github App to automate repo onboarding and settings"
   annotations:
     backstage.io/code-coverage: enabled
-    backstage.io/source-location: url:https://github.com/donaldgifford/server-price-tracker
+    backstage.io/source-location: url:https://github.com/donaldgifford/repo-guardian
     backstage.io/techdocs-ref: "dir:."
-    github.com/project-slug: "donaldgifford/server-price-tracker"
-    backstage.io/kubernetes-label-selector: app=server-price-tracker
-    backstage.io/kubernetes-namespace: spt
-    argocd/app-name: server-price-tracker
-    grafana/dashboard-selector: grafana
+    github.com/project-slug: "donaldgifford/repo-guardian"
     jira/project-key: "DON"
-    jira/label: "server-price-tracker"
+    jira/label: "repo-guardian"
   tags:
     - go
     - github
@@ -23,5 +19,5 @@ metadata:
 spec:
   lifecycle: production
   type: service
-  owner: homelab
-  system: monitoring
+  owner: donaldgifford
+  system: infrastructure
