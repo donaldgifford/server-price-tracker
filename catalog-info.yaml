@@ -1,0 +1,27 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: server-price-tracker
+  title: Server Price Tracker
+  description: "Agentic Server Price Tracker"
+  annotations:
+    backstage.io/code-coverage: enabled
+    backstage.io/source-location: url:https://github.com/donaldgifford/server-price-tracker
+    backstage.io/techdocs-ref: "dir:."
+    github.com/project-slug: "donaldgifford/server-price-tracker"
+    backstage.io/kubernetes-label-selector: app=server-price-tracker
+    backstage.io/kubernetes-namespace: spt
+    argocd/app-name: server-price-tracker
+    grafana/dashboard-selector: grafana
+    jira/project-key: "DON"
+    jira/label: "server-price-tracker"
+  tags:
+    - go
+    - github
+  namespace: default
+spec:
+  lifecycle: production
+  type: service
+  owner: homelab
+  system: monitoring
