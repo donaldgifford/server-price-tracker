@@ -930,7 +930,7 @@ observability:
     enabled: true
     endpoint: "otel-collector.observability:4317"
     service_name: "server-price-tracker"
-    insecure: false  # true only for local Collectors without TLS
+    insecure: false  # true ONLY for in-cluster plaintext Collector (sidecar pattern); spans carry listing titles + prices, so remote OTLP endpoints must keep TLS — see INV-0001 MEDIUM-9
     timeout: 10s
 ```
 
