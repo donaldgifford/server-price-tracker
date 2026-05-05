@@ -180,6 +180,52 @@ func (m *countingMetrics) RecordWrite(success bool) {
 	m.errors.Add(1)
 }
 
+func TestBufferedClient_StartIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	upstream := &recordingClient{}
+	buf := NewBufferedClient(upstream, 4)
+
+	// Multiple Starts must spawn exactly one drain goroutine. A
+	// second drain would consume from the same channel concurrently
+	// and double-deliver records.
+	buf.Start(context.Background())
+	buf.Start(context.Background())
+	buf.Start(context.Background())
+
+	for range 3 {
+		require.NoError(t, buf.LogGeneration(context.Background(), &GenerationRecord{TraceID: "t"}))
+	}
+
+	stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	require.NoError(t, buf.Stop(stopCtx))
+
+	assert.Equal(t, 3, upstream.generationCount(), "exactly one drain should have delivered exactly 3 records")
+}
+
+func TestBufferedClient_StartAfterStopIsNoop(t *testing.T) {
+	t.Parallel()
+
+	// If Stop ran before Start, Start must be a no-op — otherwise it
+	// would spawn a drain goroutine that holds wg forever and hangs
+	// the next Stop call.
+	upstream := &recordingClient{}
+	buf := NewBufferedClient(upstream, 4)
+
+	stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	require.NoError(t, buf.Stop(stopCtx))
+
+	buf.Start(context.Background())
+
+	// Second Stop must return promptly — drain was never spawned, so
+	// wg.Wait returns immediately.
+	stopCtx2, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel2()
+	require.NoError(t, buf.Stop(stopCtx2))
+}
+
 func TestBufferedClient_DropNewestOnOverflow(t *testing.T) {
 	t.Parallel()
 

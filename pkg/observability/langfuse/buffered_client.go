@@ -51,9 +51,10 @@ type BufferedClient struct {
 	metrics  BufferMetrics
 	jobs     chan bufferJob
 
-	wg     sync.WaitGroup
-	stopMu sync.Mutex
-	stopCh chan struct{} // closed by Stop to signal the drain goroutine
+	startOnce sync.Once
+	wg        sync.WaitGroup
+	stopMu    sync.Mutex
+	stopCh    chan struct{} // closed by Stop to signal the drain goroutine
 }
 
 // bufferJob is one queued write the drain goroutine handles. The
@@ -112,11 +113,24 @@ func NewBufferedClient(upstream Client, capacity int, opts ...BufferedClientOpti
 	return b
 }
 
-// Start spawns the drain goroutine. Safe to call once; subsequent
-// calls are no-ops.
+// Start spawns the drain goroutine. Safe to call concurrently and to
+// call multiple times — startOnce ensures exactly one drain. If Stop
+// already ran, Start is a no-op (we never spawn a goroutine that
+// would hold wg past a completed Wait).
 func (b *BufferedClient) Start(ctx context.Context) {
-	b.wg.Add(1)
-	go b.drain(ctx)
+	b.startOnce.Do(func() {
+		select {
+		case <-b.stopCh:
+			// Stop already ran — never spawn the drain. Otherwise
+			// the next Stop call would hang on wg.Wait forever
+			// because this goroutine would hold wg with no signal
+			// to exit.
+			return
+		default:
+		}
+		b.wg.Add(1)
+		go b.drain(ctx)
+	})
 }
 
 // Stop signals the drain goroutine to exit and blocks until it does

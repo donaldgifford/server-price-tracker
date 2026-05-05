@@ -485,7 +485,7 @@ current PR.
 - [x] **MEDIUM-4** — `io.LimitReader` on Langfuse 2xx response decode.
 - [x] **MEDIUM-5** — wrap untrusted alert content in `<<<UNTRUSTED>>>`
   delimiters; truncate `ListingTitle` to 200 chars.
-- [ ] **MEDIUM-6** — `sync.Once` on `BufferedClient.Start`, stopCh check
+- [x] **MEDIUM-6** — `sync.Once` on `BufferedClient.Start`, stopCh check
   before spawn.
 - [ ] **MEDIUM-7** — thread `shutdownCtx` from `Stop` into
   `flushRemaining`; add a shutdown integration test.
