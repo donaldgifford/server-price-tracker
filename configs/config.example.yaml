@@ -134,7 +134,12 @@ observability:
     # OTLP/gRPC endpoint, e.g. "otel-collector.observability:4317".
     endpoint: ""
     service_name: "server-price-tracker"
-    # Skip TLS for local/dev collectors.
+    # Skip TLS verification — set to true ONLY when targeting a local
+    # in-cluster Collector over plaintext gRPC (the typical sidecar
+    # pattern). For any remote/internet-facing OTLP endpoint leave at
+    # false so a misconfigured prod deploy fails loudly instead of
+    # silently shipping spans (listing titles, prices, trace IDs)
+    # over plaintext. See INV-0001 MEDIUM-9.
     insecure: false
     timeout: 10s
   # In-house Langfuse HTTP client (no third-party SDK). Wraps every

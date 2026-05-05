@@ -197,7 +197,7 @@ type OtelConfig struct {
 	Enabled     bool          `yaml:"enabled"`
 	Endpoint    string        `yaml:"endpoint"` // OTLP/gRPC, e.g., "otel-collector:4317"
 	ServiceName string        `yaml:"service_name"`
-	Insecure    bool          `yaml:"insecure"` // skip TLS for local/dev collectors
+	Insecure    bool          `yaml:"insecure"` // false (default): require TLS — opt in (true) for local plaintext Collector only. See INV-0001 MEDIUM-9.
 	Timeout     time.Duration `yaml:"timeout"`
 }
 

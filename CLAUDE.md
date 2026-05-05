@@ -274,7 +274,7 @@ The OTel + Clickhouse + Langfuse stack is **fully optional** — three independe
 
 ```yaml
 observability:
-  otel:       { enabled: false, endpoint: "", service_name: "", insecure: true,  timeout: 10s }
+  otel:       { enabled: false, endpoint: "", service_name: "", insecure: false, timeout: 10s }
   langfuse:   { enabled: false, endpoint: "", public_key: "", secret_key: "", buffer_size: 1000, model_costs: {} }
   judge:      { enabled: false, backend: "", model: "", interval: 15m, lookback: 6h, batch_size: 50, daily_budget_usd: 10 }
 ```

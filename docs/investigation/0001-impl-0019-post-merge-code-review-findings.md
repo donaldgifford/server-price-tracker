@@ -490,8 +490,11 @@ current PR.
 - [x] **MEDIUM-7** — thread `shutdownCtx` from `Stop` into
   `flushRemaining`; add a shutdown integration test.
 - [x] **MEDIUM-8** — halt judge tick on budget-recheck DB error.
-- [ ] **MEDIUM-9** — flip OTel `insecure` default to `false`; explicit
-  `true` in `config.dev.yaml`.
+- [x] **MEDIUM-9** — flip OTel `insecure` default to `false`; explicit
+  `true` in `config.dev.yaml`. (Code already had `false` as zero-value
+  default + `config.example.yaml` showed `false`; CLAUDE.md was the
+  outlier. Fixed CLAUDE.md, tightened the example-config comment, and
+  documented the security rationale on the config struct field.)
 - [ ] **MEDIUM-10** — truncate raw LLM response in error string.
 
 **Defer to a follow-up cleanup PR:** all LOW items.
