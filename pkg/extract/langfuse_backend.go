@@ -109,19 +109,13 @@ func (b *LangfuseBackend) Generate(ctx context.Context, req GenerateRequest) (Ge
 	// Buffered client returns nil for non-blocking enqueue; HTTP
 	// client errors are not fatal — the inner Generate already
 	// succeeded or failed and we never want to mask its outcome.
-	if logErr := b.lf.LogGeneration(ctx, gen); logErr != nil {
-		// Drop on the floor: telemetry write failures are not the
-		// caller's problem. The buffered drain goroutine emits the
-		// metric counter that operators alert on.
-		_ = logErr
-	}
+	_ = b.lf.LogGeneration(ctx, gen) //nolint:errcheck // best-effort telemetry; buffered drain emits the operator-facing failure metric
 
 	return resp, err
 }
 
 // buildGenerationRecord assembles the Langfuse payload from the
-// extract request + response + outcome. Pulled out as a free function
-// so it's table-test-able without setting up a backend.
+// extract request + response + outcome.
 func buildGenerationRecord(
 	traceID, name string,
 	req GenerateRequest,

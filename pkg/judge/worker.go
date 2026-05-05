@@ -13,7 +13,7 @@ import (
 
 // Store is the subset of internal/store.Store the judge worker needs.
 // Defined here so pkg/judge stays free of internal/* imports — any
-// implementation that satisfies these four methods can drive the
+// implementation that satisfies these three methods can drive the
 // worker, including in-memory test fakes.
 type Store interface {
 	ListAlertsForJudging(ctx context.Context, q *JudgeStoreQuery) ([]domain.JudgeCandidate, error)
@@ -254,8 +254,7 @@ func (w *Worker) judgeOne(ctx context.Context, c *domain.JudgeCandidate) error {
 }
 
 // candidateToContext converts a store-side row into the prompt-side
-// AlertContext shape. Single-purpose adapter; lives next to the worker
-// so changes to either surface stay co-located.
+// AlertContext shape.
 func candidateToContext(c *domain.JudgeCandidate) AlertContext {
 	traceID := ""
 	if c.TraceID != nil {

@@ -450,15 +450,19 @@ a small `internal/strutil` helper or inline.
 
 ### LOW: Cosmetic / nit-level findings
 
-These are not blockers and do not need to land on this branch. Captured
-for future cleanup PRs.
+Four landed as a single cleanup commit; two genuinely deferred.
 
-- `pkg/extract/langfuse_backend.go:112-117` — `if logErr := ...; logErr != nil { _ = logErr }` is cargo-culty; prefer `_ = b.lf.LogGeneration(...) //nolint:errcheck // best-effort telemetry`.
-- `pkg/observability/langfuse/buffered_client.go:245-248` — dead branch; `errors.Is(err, context.Canceled)` is checked after the metric increment.
-- `pkg/judge/worker.go:14-22` — Store interface doc says "four methods"; there are three.
-- `pkg/judge/llm_judge.go:138-151` — `stripJSONFences` duplicated from `pkg/extract`; could be promoted to shared.
-- `tools/regression-runner/main.go:570-573` — `fatal()` is used for recoverable IO errors (tabwriter EPIPE on `| head`); soft-error preferred.
-- WHAT-comments to delete: `worker.go:228` "Single-purpose adapter"; `langfuse_backend.go:122-124` "Pulled out as a free function so it's table-test-able".
+**Landed:**
+
+- [x] `pkg/extract/langfuse_backend.go:112-117` — replaced cargo-cult `if logErr := ...; logErr != nil { _ = logErr }` with a single-line `//nolint:errcheck` swallow.
+- [x] `pkg/observability/langfuse/buffered_client.go:runJob` — deleted dead `errors.Is(err, context.Canceled)` branch (now reachable only after `RecordWrite` already counted the result).
+- [x] `pkg/judge/worker.go:14-22` — Store interface doc fixed: "four methods" → "three".
+- [x] WHAT-comments deleted: `worker.go::candidateToContext` "Single-purpose adapter"; `langfuse_backend.go::buildGenerationRecord` "Pulled out as a free function so it's table-test-able".
+
+**Deferred (justified):**
+
+- `pkg/judge/llm_judge.go:138-151` — `stripJSONFences` duplicated from `pkg/extract`. Doc comment already justifies the choice (don't depend on extract's privates); fix would be a public rename, not a real improvement.
+- `tools/regression-runner/main.go:570-573` — `fatal()` used for recoverable IO errors (tabwriter EPIPE on `| head`). Real fix needs error-handling restructuring, not a nit.
 
 ## Conclusion
 

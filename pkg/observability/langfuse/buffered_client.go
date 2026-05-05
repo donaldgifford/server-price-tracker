@@ -2,7 +2,6 @@ package langfuse
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"sync"
 	"time"
@@ -301,11 +300,6 @@ func (b *BufferedClient) runJob(ctx context.Context, job bufferJob) {
 		)
 	}
 	b.metrics.RecordWrite(err == nil)
-
-	if err != nil && errors.Is(err, context.Canceled) {
-		// Shutdown raced — no point reporting separately.
-		return
-	}
 }
 
 // Compile-time assertion that BufferedClient satisfies Client.
