@@ -1,0 +1,8 @@
+---
+config:
+  observability:
+    langfuse:
+      model_costs:
+        claude-haiku-4-5:
+          input_usd_per_million: 1.0
+          output_usd_per_million: 5.0

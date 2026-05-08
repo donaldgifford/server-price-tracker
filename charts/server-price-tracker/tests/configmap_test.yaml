@@ -72,3 +72,87 @@ tests:
       - matchRegex:
           path: data["config.yaml"]
           pattern: 'inter_chunk_delay: "100ms"'
+
+  # Observability block (DESIGN-0016 / IMPL-0019). All three subtrees
+  # default to enabled=false so a fresh chart install is byte-identical
+  # to pre-IMPL-0019 behaviour. The Go config loader treats an absent
+  # observability subtree the same as enabled=false on each subtree, so
+  # operators who clear .Values.config.observability entirely still get
+  # a correct config.
+
+  - it: observability block renders by default with all subtrees disabled
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "observability:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "otel:\\s*\\n\\s*enabled: false"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "langfuse:\\s*\\n\\s*enabled: false"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "judge:\\s*\\n\\s*enabled: false"
+
+  - it: observability block omitted when operator nulls .config.observability
+    set:
+      config.observability: null
+    asserts:
+      - notMatchRegex:
+          path: data["config.yaml"]
+          pattern: "observability:"
+
+  - it: otel.enabled override round-trips with endpoint
+    set:
+      config.observability.otel.enabled: true
+      config.observability.otel.endpoint: "otel-collector.observability:4317"
+      config.observability.otel.insecure: true
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "otel:\\s*\\n\\s*enabled: true"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'endpoint: "otel-collector.observability:4317"'
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "insecure: true"
+
+  - it: langfuse keys quote-render and respect overrides
+    set:
+      config.observability.langfuse.enabled: true
+      config.observability.langfuse.endpoint: "https://langfuse.example.com"
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'endpoint: "https://langfuse.example.com"'
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'public_key: "\$\{LANGFUSE_PUBLIC_KEY\}"'
+
+  - it: judge daily_budget_usd round-trips
+    set:
+      config.observability.judge.enabled: true
+      config.observability.judge.daily_budget_usd: 25.0
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "judge:\\s*\\n\\s*enabled: true"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "daily_budget_usd: 25"
+
+  - it: model_costs map renders entries when populated
+    values:
+      - ./values/observability-model-costs.yaml
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "model_costs:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "claude-haiku-4-5:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "input_usd_per_million: 1"
