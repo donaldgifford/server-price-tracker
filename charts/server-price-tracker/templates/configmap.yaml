@@ -94,3 +94,40 @@ data:
     logging:
       level: {{ .Values.config.logging.level }}
       format: {{ .Values.config.logging.format }}
+    {{- with .Values.config.observability }}
+
+    observability:
+      {{- with .otel }}
+      otel:
+        enabled: {{ .enabled }}
+        endpoint: {{ .endpoint | quote }}
+        service_name: {{ .service_name | quote }}
+        insecure: {{ .insecure }}
+        timeout: {{ .timeout }}
+      {{- end }}
+      {{- with .langfuse }}
+      langfuse:
+        enabled: {{ .enabled }}
+        endpoint: {{ .endpoint | quote }}
+        public_key: {{ .public_key | quote }}
+        secret_key: {{ .secret_key | quote }}
+        buffer_size: {{ .buffer_size }}
+        timeout: {{ .timeout }}
+        {{- with .model_costs }}
+        model_costs:
+          {{- toYaml . | nindent 10 }}
+        {{- else }}
+        model_costs: {}
+        {{- end }}
+      {{- end }}
+      {{- with .judge }}
+      judge:
+        enabled: {{ .enabled }}
+        backend: {{ .backend | quote }}
+        model: {{ .model | quote }}
+        interval: {{ .interval }}
+        lookback: {{ .lookback }}
+        batch_size: {{ .batch_size }}
+        daily_budget_usd: {{ .daily_budget_usd }}
+      {{- end }}
+    {{- end }}

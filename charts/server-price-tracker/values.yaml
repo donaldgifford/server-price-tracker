@@ -124,6 +124,59 @@ config:
     level: info
     format: json
 
+  # OpenTelemetry, Langfuse, and LLM-as-judge observability
+  # (DESIGN-0016 / IMPL-0019). All three subtrees are independently
+  # disable-able and default off. With every flag false the running app
+  # is byte-identical to a deploy that omits this block entirely — the
+  # configmap template renders the keys but the Go loader sees the
+  # default-false values and skips all instrumentation. Enable per
+  # subtree as the backing infra (Collector, Langfuse, judge LLM) comes
+  # online. See `UPGRADE-IMPL-0019.md` for the staged rollout runbook.
+  observability:
+    # OTel SDK: traces + metrics over OTLP/gRPC to a Collector. The app
+    # always emits 100% of spans; sampling decisions live in the
+    # Collector's tail_sampling processor (platform-side).
+    otel:
+      enabled: false
+      # OTLP/gRPC endpoint, e.g. "otel-collector.observability:4317".
+      endpoint: ""
+      service_name: "server-price-tracker"
+      # Skip TLS verification — set to true ONLY when targeting an
+      # in-cluster Collector over plaintext gRPC. Remote/internet-facing
+      # OTLP endpoints leave at false so misconfigs fail loud rather
+      # than silently shipping spans (listing titles, prices, trace
+      # IDs) over plaintext. See INV-0001 MEDIUM-9.
+      insecure: false
+      timeout: 10s
+    # In-house Langfuse HTTP client (no third-party SDK). Wraps every
+    # LLMBackend.Generate call as a Langfuse generation. Async +
+    # bounded buffer absorbs transient outages — see
+    # spt_langfuse_buffer_* metrics for buffer health.
+    langfuse:
+      enabled: false
+      endpoint: ""
+      public_key: "${LANGFUSE_PUBLIC_KEY}"
+      secret_key: "${LANGFUSE_SECRET_KEY}"
+      buffer_size: 1000
+      timeout: 10s
+      # Optional per-model rate table for in-house models Langfuse can't
+      # price (e.g. local Ollama). Empty → CostUSD=0 and Langfuse falls
+      # back to its server-side rate lookup. Keys are model names; values
+      # have input_usd_per_million / output_usd_per_million floats.
+      model_costs: {}
+    # LLM-as-judge worker: scores fired alerts retrospectively for
+    # alert-quality grading. Cron entry every `interval`, reviews the
+    # last `lookback`, hard-cuts spending at `daily_budget_usd`.
+    # backend/model empty → inherit from llm.backend / llm.<backend>.model.
+    judge:
+      enabled: false
+      backend: ""
+      model: ""
+      interval: 15m
+      lookback: 6h
+      batch_size: 50
+      daily_budget_usd: 10.0
+
 # -- Secret management. Set create=true to render a Secret from values below.
 # Set create=false and existingSecret to reference a user-managed Secret.
 secret:
