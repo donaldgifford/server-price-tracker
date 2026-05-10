@@ -8,7 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	"github.com/donaldgifford/server-price-tracker/pkg/extract"
 	extractMocks "github.com/donaldgifford/server-price-tracker/pkg/extract/mocks"
@@ -91,6 +94,55 @@ func TestLangfuseBackend_RecordsGenerationOnSuccess(t *testing.T) {
 	assert.Equal(t, "100", gen.Metadata["max_tokens"])
 	assert.Equal(t, "0.5", gen.Metadata["temperature"])
 	assert.NotEmpty(t, gen.Metadata["commit_sha"])
+}
+
+// TestClassifyAndExtract_StampsSessionAttributeOnRootSpan verifies the
+// fix for the API handler path: when ctx carries a Langfuse session ID
+// but no OTel span is active upstream (no HTTP middleware), the
+// extractor's own classify_and_extract span — which becomes the trace
+// root — must carry the langfuse.session.id attribute so Langfuse's
+// OTel processor can promote it to trace.session_id at ingest.
+func TestClassifyAndExtract_StampsSessionAttributeOnRootSpan(t *testing.T) {
+	t.Parallel()
+
+	mockBackend := extractMocks.NewMockLLMBackend(t)
+	mockBackend.EXPECT().Name().Return("test-backend").Maybe()
+	// The classify call returns a valid component type so the
+	// extract step runs; stub it minimally — we only care about
+	// the span attribute.
+	mockBackend.EXPECT().Generate(mock.Anything, mock.Anything).
+		Return(extract.GenerateResponse{Content: "ram", Model: "m"}, nil).Maybe()
+
+	exporter := tracetest.NewInMemoryExporter()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+	t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
+	otel.SetTracerProvider(tp)
+
+	ext := extract.NewLLMExtractor(mockBackend)
+	ctx := langfuse.WithSessionID(context.Background(), "tick-session-xyz")
+
+	// Don't care about the result — error is fine. We're testing
+	// the span attribute side effect.
+	_, _, _ = ext.ClassifyAndExtract(ctx, "Samsung 32GB DDR4", nil)
+
+	var rootAttrs []attribute.KeyValue
+	for _, span := range exporter.GetSpans() {
+		if span.Name == "extract.classify_and_extract" {
+			rootAttrs = span.Attributes
+			break
+		}
+	}
+	require.NotEmpty(t, rootAttrs, "extract.classify_and_extract span must be exported")
+
+	var got string
+	for _, kv := range rootAttrs {
+		if string(kv.Key) == "langfuse.session.id" {
+			got = kv.Value.AsString()
+			break
+		}
+	}
+	assert.Equal(t, "tick-session-xyz", got,
+		"langfuse.session.id must land on the extract.classify_and_extract span — that's the trace root in the API handler path")
 }
 
 // TestLangfuseBackend_PropagatesSessionIDFromContext verifies that when
