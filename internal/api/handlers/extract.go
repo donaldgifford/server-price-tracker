@@ -39,6 +39,7 @@ type ExtractOutput struct {
 
 // Extract classifies a listing title and extracts structured attributes via LLM.
 func (h *ExtractHandler) Extract(ctx context.Context, input *ExtractInput) (*ExtractOutput, error) {
+	ctx = withRequestSession(ctx)
 	ct, attrs, err := h.extractor.ClassifyAndExtract(
 		ctx,
 		input.Body.Title,

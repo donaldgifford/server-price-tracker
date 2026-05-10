@@ -14,6 +14,7 @@ import (
 	notifyMocks "github.com/donaldgifford/server-price-tracker/internal/notify/mocks"
 	storeMocks "github.com/donaldgifford/server-price-tracker/internal/store/mocks"
 	extractMocks "github.com/donaldgifford/server-price-tracker/pkg/extract/mocks"
+	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 )
 
 // newSchedulerTestEngine returns a test engine and a mock store for use in scheduler tests.
@@ -326,4 +327,20 @@ func TestScheduler_RunReExtraction_Success(t *testing.T) {
 		Return(nil, nil).Once()
 
 	sched.runReExtraction()
+}
+
+func TestWithSpan_SeedsLangfuseSessionIDPerTick(t *testing.T) {
+	t.Parallel()
+
+	ctx1, span1 := withSpan(context.Background(), "engine.test_a")
+	defer span1.End()
+	ctx2, span2 := withSpan(context.Background(), "engine.test_b")
+	defer span2.End()
+
+	id1 := langfuse.SessionIDFromContext(ctx1)
+	id2 := langfuse.SessionIDFromContext(ctx2)
+
+	assert.NotEmpty(t, id1, "tick must seed a langfuse session id")
+	assert.NotEmpty(t, id2)
+	assert.NotEqual(t, id1, id2, "each tick must get a fresh session id")
 }

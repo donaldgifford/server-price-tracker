@@ -36,6 +36,7 @@ type IngestOutput struct {
 
 // Ingest triggers a full ingestion pipeline run.
 func (h *IngestHandler) Ingest(ctx context.Context, _ *struct{}) (*IngestOutput, error) {
+	ctx = withRequestSession(ctx)
 	if err := h.ingester.RunIngestion(ctx); err != nil {
 		return nil, huma.Error500InternalServerError("ingestion failed: " + err.Error())
 	}

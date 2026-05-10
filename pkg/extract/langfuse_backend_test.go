@@ -93,6 +93,35 @@ func TestLangfuseBackend_RecordsGenerationOnSuccess(t *testing.T) {
 	assert.NotEmpty(t, gen.Metadata["commit_sha"])
 }
 
+// TestLangfuseBackend_PropagatesSessionIDFromContext verifies that when
+// ctx carries a Langfuse session ID (set by the scheduler tick or an API
+// handler), the decorator copies it onto the GenerationRecord so all
+// generations within the run group under one session in the UI.
+func TestLangfuseBackend_PropagatesSessionIDFromContext(t *testing.T) {
+	t.Parallel()
+
+	mockBackend := extractMocks.NewMockLLMBackend(t)
+	mockBackend.EXPECT().Name().Return("test-backend")
+	mockBackend.EXPECT().Generate(mock.Anything, mock.Anything).
+		Return(extract.GenerateResponse{Content: "ram", Model: "m"}, nil).Once()
+
+	lf := &fakeLangfuseClient{}
+	dec := extract.NewLangfuseBackend(mockBackend, lf)
+
+	tp := sdktrace.NewTracerProvider()
+	t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
+	ctx, span := tp.Tracer("test").Start(context.Background(), "test-span")
+	defer span.End()
+
+	ctx = langfuse.WithSessionID(ctx, "tick-session-xyz")
+
+	_, err := dec.Generate(ctx, extract.GenerateRequest{Prompt: "p"})
+	require.NoError(t, err)
+
+	require.Len(t, lf.generations, 1)
+	assert.Equal(t, "tick-session-xyz", lf.generations[0].SessionID)
+}
+
 // TestLangfuseBackend_RecordsErrorOnFailedGenerate covers the error
 // branch: inner Generate fails, the decorator still records a
 // generation tagged ERROR with the error message in StatusMsg.

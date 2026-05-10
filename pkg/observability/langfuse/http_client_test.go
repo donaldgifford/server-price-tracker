@@ -104,6 +104,61 @@ func TestHTTPClient_LogGeneration_PostsIngestionEnvelope(t *testing.T) {
 	assert.Equal(t, "abc1234", meta["commit_sha"])
 }
 
+func TestHTTPClient_LogGeneration_PropagatesSessionID(t *testing.T) {
+	t.Parallel()
+
+	var gotReq ingestionRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&gotReq)
+		_ = json.NewEncoder(w).Encode(ingestionResponse{
+			Successes: []ingestionSuccess{{ID: "ok", Status: 201}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := NewHTTPClient(srv.URL, "pk", "sk", WithMaxRetries(0))
+	require.NoError(t, err)
+
+	require.NoError(t, c.LogGeneration(context.Background(), &GenerationRecord{
+		TraceID:   "t",
+		SessionID: "tick-abc-123",
+		Name:      "extract-llm",
+		Model:     "claude-haiku",
+	}))
+
+	require.Len(t, gotReq.Batch, 1)
+	bodyMap, ok := gotReq.Batch[0].Body.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "tick-abc-123", bodyMap["sessionId"],
+		"sessionId from GenerationRecord must reach the wire")
+}
+
+func TestHTTPClient_CreateTrace_PropagatesSessionIDFromContext(t *testing.T) {
+	t.Parallel()
+
+	var gotReq ingestionRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&gotReq)
+		_ = json.NewEncoder(w).Encode(ingestionResponse{
+			Successes: []ingestionSuccess{{ID: "ok", Status: 201}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := NewHTTPClient(srv.URL, "pk", "sk", WithMaxRetries(0))
+	require.NoError(t, err)
+
+	ctx := WithSessionID(context.Background(), "judge-tick-2026-05-09")
+	_, err = c.CreateTrace(ctx, "judge-call", nil)
+	require.NoError(t, err)
+
+	require.Len(t, gotReq.Batch, 1)
+	bodyMap, ok := gotReq.Batch[0].Body.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "judge-tick-2026-05-09", bodyMap["sessionId"],
+		"CreateTrace must thread the ctx session id onto the trace body")
+}
+
 func TestHTTPClient_LogGeneration_SurfacesPerEventErrors(t *testing.T) {
 	t.Parallel()
 

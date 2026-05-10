@@ -103,6 +103,7 @@ func (b *LangfuseBackend) Generate(ctx context.Context, req GenerateRequest) (Ge
 	}
 
 	gen := buildGenerationRecord(traceID, b.name, req, resp, start, end, err)
+	gen.SessionID = langfuse.SessionIDFromContext(ctx)
 	if cost, ok := b.costs[resp.Model]; ok {
 		gen.CostUSD = cost.ComputeCost(gen.Usage)
 	}

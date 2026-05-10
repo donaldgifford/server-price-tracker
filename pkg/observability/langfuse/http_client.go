@@ -96,6 +96,7 @@ func (c *HTTPClient) LogGeneration(ctx context.Context, gen *GenerationRecord) e
 	body := generationCreateBody{
 		ID:            uuid.NewString(),
 		TraceID:       gen.TraceID,
+		SessionID:     gen.SessionID,
 		Name:          gen.Name,
 		Model:         gen.Model,
 		Input:         gen.Prompt,
@@ -133,7 +134,10 @@ func (c *HTTPClient) Score(ctx context.Context, traceID, name string, value floa
 
 // CreateTrace creates a trace via a trace-create ingestion event. The
 // trace ID is generated client-side (the ingestion API doesn't return
-// server-assigned IDs) and surfaced via TraceHandle.
+// server-assigned IDs) and surfaced via TraceHandle. When ctx carries
+// a Langfuse session ID (set via WithSessionID), it's threaded through
+// onto the trace so downstream observations group under the same
+// session.
 func (c *HTTPClient) CreateTrace(
 	ctx context.Context,
 	name string,
@@ -141,9 +145,10 @@ func (c *HTTPClient) CreateTrace(
 ) (TraceHandle, error) {
 	traceID := uuid.NewString()
 	body := traceCreateBody{
-		ID:       traceID,
-		Name:     name,
-		Metadata: metadata,
+		ID:        traceID,
+		SessionID: SessionIDFromContext(ctx),
+		Name:      name,
+		Metadata:  metadata,
 	}
 	if err := c.ingest(ctx, ingestionEventTraceCreate, body); err != nil {
 		return TraceHandle{}, err
@@ -366,6 +371,7 @@ type ingestionError struct {
 type generationCreateBody struct {
 	ID            string            `json:"id"`
 	TraceID       string            `json:"traceId,omitempty"`
+	SessionID     string            `json:"sessionId,omitempty"`
 	Name          string            `json:"name,omitempty"`
 	Model         string            `json:"model,omitempty"`
 	Input         string            `json:"input,omitempty"`
@@ -396,9 +402,10 @@ type scoreCreateBody struct {
 }
 
 type traceCreateBody struct {
-	ID       string            `json:"id"`
-	Name     string            `json:"name,omitempty"`
-	Metadata map[string]string `json:"metadata,omitempty"`
+	ID        string            `json:"id"`
+	SessionID string            `json:"sessionId,omitempty"`
+	Name      string            `json:"name,omitempty"`
+	Metadata  map[string]string `json:"metadata,omitempty"`
 }
 
 // datasetItemAPIBody and datasetRunItemAPIBody are kept on their
