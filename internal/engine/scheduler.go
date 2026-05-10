@@ -6,13 +6,16 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/donaldgifford/server-price-tracker/internal/metrics"
 	"github.com/donaldgifford/server-price-tracker/internal/store"
+	"github.com/donaldgifford/server-price-tracker/pkg/observability/langfuse"
 )
 
 // schedulerTracerName is the name registered with otel.Tracer for spans
@@ -153,9 +156,21 @@ func (s *Scheduler) runJob(
 // withSpan starts a root span for a scheduler tick. Returns a no-op
 // span when OTel is disabled (otel.Tracer falls through to the global
 // no-op TracerProvider) so callers can defer span.End() unconditionally.
+//
+// Each tick gets a fresh Langfuse session ID, set on ctx and attached
+// as a span attribute (`langfuse.session.id`) so both transport paths
+// converge on the same session: in-house generation events read the
+// ID from ctx; OTel-derived traces carry it via the span attribute
+// that Langfuse maps to trace.session_id at ingest time. All children
+// spans + LLM calls within the tick group under one session in the
+// Langfuse UI without per-call boilerplate at the use site.
 func withSpan(ctx context.Context, name string) (context.Context, trace.Span) {
+	sessionID := uuid.NewString()
+	ctx = langfuse.WithSessionID(ctx, sessionID)
 	tracer := otel.Tracer(schedulerTracerName)
-	return tracer.Start(ctx, name, trace.WithSpanKind(trace.SpanKindInternal))
+	ctx, span := tracer.Start(ctx, name, trace.WithSpanKind(trace.SpanKindInternal))
+	span.SetAttributes(attribute.String("langfuse.session.id", sessionID))
+	return ctx, span
 }
 
 func recordRunErr(span trace.Span, err error) {

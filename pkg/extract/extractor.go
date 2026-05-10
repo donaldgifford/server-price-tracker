@@ -369,6 +369,18 @@ func (e *LLMExtractor) ClassifyAndExtract(
 	ctx, span := e.tracer.Start(ctx, "extract.classify_and_extract")
 	defer span.End()
 
+	// Apply Langfuse session id from ctx onto the span. In the API
+	// handler path this span IS the trace root (no OTel HTTP
+	// middleware upstream) — without this set, Langfuse's OTel
+	// processor never sees the attribute and trace.session_id stays
+	// null. In the scheduler path the root is engine.ingest (which
+	// already has the attribute via withSpan) — setting it here too
+	// is harmless and keeps the rule "every entry-point span carries
+	// session.id" uniform across paths.
+	if sessionID := langfuse.SessionIDFromContext(ctx); sessionID != "" {
+		span.SetAttributes(attribute.String("langfuse.session.id", sessionID))
+	}
+
 	start := time.Now()
 	defer func() {
 		recordExtractionDuration(ctx, time.Since(start).Seconds())

@@ -38,19 +38,21 @@ func TestNewHTTPClient_RejectsMissingFields(t *testing.T) {
 	}
 }
 
-func TestHTTPClient_LogGeneration_HappyPath(t *testing.T) {
+func TestHTTPClient_LogGeneration_PostsIngestionEnvelope(t *testing.T) {
 	t.Parallel()
 
 	var (
 		gotPath string
 		gotAuth string
-		gotBody generationsAPIBody
+		gotReq  ingestionRequest
 	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		gotAuth = r.Header.Get("Authorization")
-		_ = json.NewDecoder(r.Body).Decode(&gotBody)
-		w.WriteHeader(http.StatusCreated)
+		_ = json.NewDecoder(r.Body).Decode(&gotReq)
+		_ = json.NewEncoder(w).Encode(ingestionResponse{
+			Successes: []ingestionSuccess{{ID: "ok", Status: 201}},
+		})
 	}))
 	t.Cleanup(srv.Close)
 
@@ -72,13 +74,116 @@ func TestHTTPClient_LogGeneration_HappyPath(t *testing.T) {
 	}
 	require.NoError(t, c.LogGeneration(context.Background(), gen))
 
-	assert.Equal(t, "/api/public/generations", gotPath)
+	assert.Equal(t, "/api/public/ingestion", gotPath)
 	assert.True(t, strings.HasPrefix(gotAuth, "Basic "), "Authorization header should be Basic auth")
-	assert.Equal(t, "trace-1", gotBody.TraceID)
-	assert.Equal(t, "claude-haiku", gotBody.Model)
-	assert.Equal(t, 100, gotBody.PromptTokens)
-	assert.InDelta(t, 0.001, gotBody.TotalCost, 0.0001)
-	assert.Equal(t, "abc1234", gotBody.Metadata["commit_sha"])
+	require.Len(t, gotReq.Batch, 1)
+	evt := gotReq.Batch[0]
+	assert.Equal(t, ingestionEventGenerationCreate, evt.Type)
+	assert.NotEmpty(t, evt.ID, "event id must be populated for ingestion")
+
+	// evt.Body decodes as map[string]any — the test asserts on the wire
+	// shape (the operator-visible JSON), not on the struct round-trip.
+	bodyMap, ok := evt.Body.(map[string]any)
+	require.True(t, ok, "body should decode as JSON object")
+	assert.Equal(t, "trace-1", bodyMap["traceId"])
+	assert.Equal(t, "claude-haiku", bodyMap["model"])
+	assert.Equal(t, "p", bodyMap["input"], "input must populate — the bug this PR fixes")
+	assert.Equal(t, "c", bodyMap["output"], "output must populate — the bug this PR fixes")
+	assert.NotEmpty(t, bodyMap["id"], "observation id must be populated")
+
+	usage, ok := bodyMap["usage"].(map[string]any)
+	require.True(t, ok, "usage must be a nested object in v3 ingestion API")
+	assert.EqualValues(t, 100, usage["input"])
+	assert.EqualValues(t, 20, usage["output"])
+	assert.EqualValues(t, 120, usage["total"])
+	assert.Equal(t, "TOKENS", usage["unit"])
+	assert.InDelta(t, 0.001, usage["totalCost"], 0.0001)
+
+	meta, ok := bodyMap["metadata"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "abc1234", meta["commit_sha"])
+}
+
+func TestHTTPClient_LogGeneration_PropagatesSessionID(t *testing.T) {
+	t.Parallel()
+
+	var gotReq ingestionRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&gotReq)
+		_ = json.NewEncoder(w).Encode(ingestionResponse{
+			Successes: []ingestionSuccess{{ID: "ok", Status: 201}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := NewHTTPClient(srv.URL, "pk", "sk", WithMaxRetries(0))
+	require.NoError(t, err)
+
+	require.NoError(t, c.LogGeneration(context.Background(), &GenerationRecord{
+		TraceID:   "t",
+		SessionID: "tick-abc-123",
+		Name:      "extract-llm",
+		Model:     "claude-haiku",
+	}))
+
+	require.Len(t, gotReq.Batch, 1)
+	bodyMap, ok := gotReq.Batch[0].Body.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "tick-abc-123", bodyMap["sessionId"],
+		"sessionId from GenerationRecord must reach the wire")
+}
+
+func TestHTTPClient_CreateTrace_PropagatesSessionIDFromContext(t *testing.T) {
+	t.Parallel()
+
+	var gotReq ingestionRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&gotReq)
+		_ = json.NewEncoder(w).Encode(ingestionResponse{
+			Successes: []ingestionSuccess{{ID: "ok", Status: 201}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := NewHTTPClient(srv.URL, "pk", "sk", WithMaxRetries(0))
+	require.NoError(t, err)
+
+	ctx := WithSessionID(context.Background(), "judge-tick-2026-05-09")
+	_, err = c.CreateTrace(ctx, "judge-call", nil)
+	require.NoError(t, err)
+
+	require.Len(t, gotReq.Batch, 1)
+	bodyMap, ok := gotReq.Batch[0].Body.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "judge-tick-2026-05-09", bodyMap["sessionId"],
+		"CreateTrace must thread the ctx session id onto the trace body")
+}
+
+func TestHTTPClient_LogGeneration_SurfacesPerEventErrors(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// 200 OK with body-level rejection — the exact case Langfuse
+		// uses for malformed events. Without explicit error parsing the
+		// caller would think the write succeeded.
+		_ = json.NewEncoder(w).Encode(ingestionResponse{
+			Errors: []ingestionError{{
+				ID:      "evt-1",
+				Status:  400,
+				Message: "missing required field traceId",
+			}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := NewHTTPClient(srv.URL, "pk", "sk", WithMaxRetries(0))
+	require.NoError(t, err)
+
+	err = c.LogGeneration(context.Background(), &GenerationRecord{
+		TraceID: "t", Name: "n", Model: "m", Prompt: "p", Completion: "c",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing required field traceId")
 }
 
 func TestHTTPClient_RetriesOnServerError(t *testing.T) {
@@ -91,7 +196,9 @@ func TestHTTPClient_RetriesOnServerError(t *testing.T) {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(ingestionResponse{
+			Successes: []ingestionSuccess{{ID: "ok", Status: 201}},
+		})
 	}))
 	t.Cleanup(srv.Close)
 
@@ -146,11 +253,17 @@ func TestHTTPClient_DoesNotRetryClientErrors(t *testing.T) {
 		"4xx must not be retried — fail immediately")
 }
 
-func TestHTTPClient_CreateTraceReadsResponseID(t *testing.T) {
+func TestHTTPClient_CreateTraceReturnsClientGeneratedID(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(traceAPIResponse{ID: "trace-server-id"})
+	var gotPath string
+	var gotReq ingestionRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&gotReq)
+		_ = json.NewEncoder(w).Encode(ingestionResponse{
+			Successes: []ingestionSuccess{{ID: "ok", Status: 201}},
+		})
 	}))
 	t.Cleanup(srv.Close)
 
@@ -159,7 +272,15 @@ func TestHTTPClient_CreateTraceReadsResponseID(t *testing.T) {
 
 	handle, err := c.CreateTrace(context.Background(), "judge-call", map[string]string{"k": "v"})
 	require.NoError(t, err)
-	assert.Equal(t, "trace-server-id", handle.TraceID)
+	assert.NotEmpty(t, handle.TraceID, "trace id must be client-generated under ingestion API")
+
+	assert.Equal(t, "/api/public/ingestion", gotPath)
+	require.Len(t, gotReq.Batch, 1)
+	evt := gotReq.Batch[0]
+	assert.Equal(t, ingestionEventTraceCreate, evt.Type)
+	bodyMap, ok := evt.Body.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, handle.TraceID, bodyMap["id"], "trace body id must match the handle returned to the caller")
 }
 
 func TestHTTPClient_CreateDatasetRunPostsOnePerItem(t *testing.T) {

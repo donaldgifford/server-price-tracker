@@ -83,6 +83,7 @@ type TraceHandle struct {
 // produced it (DESIGN-0016 Open Question 10 — best of both).
 type GenerationRecord struct {
 	TraceID    string
+	SessionID  string // optional; groups all generations from one logical run under a Langfuse session
 	Name       string // e.g., "classify-llm" / "extract-llm" / "judge-llm"
 	Model      string
 	Prompt     string
