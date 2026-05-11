@@ -429,8 +429,10 @@ const (
 	// queryListAlertsForJudging pulls the per-tick batch for the
 	// LLM-as-judge worker (IMPL-0019 Phase 5). LEFT JOIN price_baselines
 	// because cold-start product keys have no baseline yet — the worker
-	// inspects sample_size and skips zero-sample candidates rather than
-	// posting noise to the judge.
+	// inspects sample_count and skips zero-sample candidates rather than
+	// posting noise to the judge. (Note: the column is `sample_count`,
+	// not `sample_size` — the latter shipped briefly in IMPL-0019 and
+	// caused SQLSTATE 42703 on every judge-bootstrap run.)
 	//
 	// `judge_scores js IS NULL` filter makes the worker idempotent —
 	// re-running the cron entry never re-judges an alert.
@@ -439,7 +441,7 @@ const (
 		    a.id, a.watch_id, w.name,
 		    a.listing_id, l.title, l.component_type,
 		    l.condition_norm, l.price,
-		    COALESCE(pb.p25, 0), COALESCE(pb.p50, 0), COALESCE(pb.p75, 0), COALESCE(pb.sample_size, 0),
+		    COALESCE(pb.p25, 0), COALESCE(pb.p50, 0), COALESCE(pb.p75, 0), COALESCE(pb.sample_count, 0),
 		    a.score, w.score_threshold, a.trace_id, a.created_at
 		FROM alerts a
 		JOIN listings l ON l.id = a.listing_id
