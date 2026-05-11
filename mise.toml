@@ -3,7 +3,7 @@
 "go:github.com/spf13/cobra-cli" = "latest"
 "go:golang.org/x/tools/cmd/goimports" = "latest"
 "go:github.com/vektra/mockery/v2" = "latest"
-"go:github.com/a-h/templ/cmd/templ" = "latest"
+"go:github.com/a-h/templ/cmd/templ" = "0.3.1001" # must match github.com/a-h/templ in go.mod — newer CLI emits code referencing APIs not in the older library
 
 # API testing tools
 "npm:@apideck/portman" = "latest" # Postman collection + contract tests from OpenAPI

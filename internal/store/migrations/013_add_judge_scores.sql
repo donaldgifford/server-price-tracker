@@ -14,8 +14,13 @@
 -- ever. Re-running the worker is idempotent because the worker
 -- pre-filters on `WHERE alert_id NOT IN (SELECT alert_id FROM
 -- judge_scores)`. Manual re-judge is a DELETE + worker re-run.
+-- alert_id is UUID to match alerts.id (gen_random_uuid()); previously
+-- declared TEXT, which Postgres rejects for the FK with SQLSTATE 42P01
+-- on fresh deploys ("Key columns are of incompatible types: text and
+-- uuid"). The Go-side domain.Alert.ID is `string`, but pgx auto-coerces
+-- string ↔ UUID at the driver layer so no application code changes.
 CREATE TABLE IF NOT EXISTS judge_scores (
-    alert_id        TEXT PRIMARY KEY REFERENCES alerts(id) ON DELETE CASCADE,
+    alert_id        UUID PRIMARY KEY REFERENCES alerts(id) ON DELETE CASCADE,
     score           DOUBLE PRECISION NOT NULL CHECK (score >= 0.0 AND score <= 1.0),
     reason          TEXT NOT NULL DEFAULT '',
     model           TEXT NOT NULL DEFAULT '',
@@ -25,5 +30,9 @@ CREATE TABLE IF NOT EXISTS judge_scores (
     judged_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Daily-budget query path: the worker SUMs cost_usd over the current
+-- UTC day before each call. Index makes the WHERE judged_at >= today
+-- bound a sequential scan on the prior 6h slice instead of the whole
+-- table.
 CREATE INDEX IF NOT EXISTS judge_scores_judged_at_idx
     ON judge_scores (judged_at DESC);

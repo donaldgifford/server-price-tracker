@@ -31,12 +31,15 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Set up mise
+        uses: jdx/mise-action@v2
+
       - name: Generate templ files
         # *_templ.go is gitignored (IMPL-0015 Phase 4); golangci-lint's
-        # typecheck pass needs the generated files on disk.
-        run: |
-          go install github.com/a-h/templ/cmd/templ@latest
-          templ generate
+        # typecheck pass needs the generated files on disk. templ CLI
+        # comes from mise.toml — must stay version-locked with the
+        # github.com/a-h/templ library in go.mod.
+        run: templ generate
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
@@ -54,10 +57,10 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Install templ
-        # make test-coverage depends on templ-generate, which calls
-        # the templ binary. Make's PATH inherits this step's PATH.
-        run: go install github.com/a-h/templ/cmd/templ@latest
+      - name: Set up mise
+        # mise.toml pins the templ CLI to match go.mod; make
+        # test-coverage depends on templ-generate which calls it.
+        uses: jdx/mise-action@v2
 
       - name: Run unit tests
         run: make test-coverage
@@ -84,13 +87,14 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Set up mise
+        uses: jdx/mise-action@v2
+
       - name: Generate templ files
         # govulncheck does a full build; needs *_templ.go on disk.
         # Inlined govulncheck install + run because the action wrapper
         # does its own checkout, wiping the generated files.
-        run: |
-          go install github.com/a-h/templ/cmd/templ@latest
-          templ generate
+        run: templ generate
 
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -110,10 +114,11 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Install templ
+      - name: Set up mise
         # The .goreleaser.yml `before` hook also installs templ, but
         # explicit pre-install keeps the goreleaser step deterministic.
-        run: go install github.com/a-h/templ/cmd/templ@latest
+        # mise.toml pins the templ CLI to match go.mod.
+        uses: jdx/mise-action@v2
 
       - name: Verify builds for all platforms
         uses: goreleaser/goreleaser-action@v6

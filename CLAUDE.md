@@ -22,6 +22,18 @@ Server Price Tracker is an API-first Go service that monitors eBay listings for 
 
 **Never commit directly to `main`.** Always create a feature branch for changes (e.g., `fix/condition-normalization`, `feat/new-endpoint`, `chore/update-deps`). Push the branch and open a PR for review.
 
+**PR descriptions: never pipe Markdown bodies through `gh pr create --body "..."`.** The shell pre-escapes backticks (and sometimes `$`), so triple-backtick code fences and inline `code` render as literal `` \` `` in the GitHub UI — the description shows up as a wall of escaped text instead of formatted Markdown. Write the body to a temp file first and pass `--body-file`:
+
+```bash
+cat > /tmp/pr-body.md <<'EOF'
+## Summary
+...body with `inline code` and ```code blocks``` renders correctly...
+EOF
+gh pr create --title "..." --body-file /tmp/pr-body.md
+```
+
+Same gotcha applies to `gh pr edit --body` and `gh issue create --body`. If a PR already shipped with escaped backticks, fix it with `gh pr edit <num> --body-file <path>`.
+
 ## Build & Development Commands
 
 Tool versions are managed via `mise.toml` — run `mise install` to set up the toolchain (Go 1.25.7, golangci-lint 2.8.0, Helm 3.19.0, helm-ct, helm-cr, helm-diff, helm-docs, yamllint, yamlfmt, markdownlint-cli2, actionlint, etc.). The `helm-unittest` plugin is installed separately via `helm plugin install https://github.com/helm-unittest/helm-unittest.git`.
