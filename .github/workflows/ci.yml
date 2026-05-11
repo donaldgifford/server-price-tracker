@@ -205,6 +205,11 @@ jobs:
         with:
           charts: charts/server-price-tracker
           flags: --color
+          # Action's default `unittest-version: ~1` gets passed literally
+          # to `helm plugin install --version "~1"`, which expects a
+          # concrete tag — not a SemVer range — and exits 1. Pin to a
+          # real release; bump when helm-unittest cuts a new version.
+          unittest-version: v1.1.0
 
   helm-test:
     name: Helm Chart Test
