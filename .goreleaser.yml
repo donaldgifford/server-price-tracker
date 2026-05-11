@@ -6,7 +6,10 @@ before:
     # Generate templ Go code before any build target compiles. The
     # *_templ.go files are gitignored (IMPL-0015 Phase 4); without
     # this hook goreleaser fails with `undefined: components.AlertsPage`.
-    - go install github.com/a-h/templ/cmd/templ@latest
+    # templ CLI version must match github.com/a-h/templ in go.mod —
+    # bump in lockstep with mise.toml (CI/local) and Dockerfile (image
+    # builds). Four places total.
+    - go install github.com/a-h/templ/cmd/templ@v0.3.1001
     - templ generate
 
 builds:
