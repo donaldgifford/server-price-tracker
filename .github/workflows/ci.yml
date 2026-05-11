@@ -210,6 +210,12 @@ jobs:
           # concrete tag — not a SemVer range — and exits 1. Pin to a
           # real release; bump when helm-unittest cuts a new version.
           unittest-version: v1.1.0
+          # Action's default `helm-version: latest` calls the GH API
+          # which requires GITHUB_TOKEN; without one it falls back to
+          # Helm v3.13.3 (Nov 2023), too old for helm-unittest v1.1.0
+          # to install. Pin to the same Helm version mise.toml uses
+          # everywhere else.
+          helm-version: v3.19.0
 
   helm-test:
     name: Helm Chart Test
