@@ -1,1 +1,1502 @@
-[]
+[
+  {
+    "label": "deal",
+    "alert": {
+      "AlertID": "e76093bc-f9e3-40e3-aaa7-b89ac5c51f41",
+      "WatchName": "Seagate Exos 10E2400 1.8TB",
+      "ComponentType": "drive",
+      "ListingTitle": "IBM 00RX908 1.8TB SAS 10K 2.5\" 12Gb Hard Drive HUC101818CS4200",
+      "Condition": "used_working",
+      "PriceUSD": 34.99,
+      "BaselineP25": 59.99,
+      "BaselineP50": 146,
+      "BaselineP75": 196.75,
+      "SampleSize": 22,
+      "Score": 79,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:05.08029-04:00"
+    },
+    "verdict": {
+      "Score": 0.9,
+      "Reason": "$34.99 vs P50 $146 on n=22 mature; 76% below median on watch-class 1.8TB SAS 10K. Clears strict deal bar (\u003e=55% below P50, n\u003e=20).",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "d1f48f48-fbd3-4455-999f-ef767a6ddc05",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Kingston Server ECC (32GB) 2x16GB DDR4-2400 PC4-19200 Server Memory Kit Used",
+      "Condition": "used_working",
+      "PriceUSD": 100,
+      "BaselineP25": 121.01,
+      "BaselineP50": 140,
+      "BaselineP75": 212.49,
+      "SampleSize": 10,
+      "Score": 75,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:05.566748-04:00"
+    },
+    "verdict": {
+      "Score": 0.55,
+      "Reason": "$100 vs P50 $140 on n=10 (borderline maturity); only 29% below P50 — under strict deal bar (\u003e=55% below P50). Mid-tier signal, not a 'sincerely contemplate' moment.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "7777ca00-67ff-417c-9e65-049e1c387761",
+      "WatchName": "Seagate Exos 10E300 1.2TB",
+      "ComponentType": "drive",
+      "ListingTitle": "IBM 00RX908 1.8TB SAS 10K 2.5\" 12Gb Hard Drive HUC101818CS4200",
+      "Condition": "used_working",
+      "PriceUSD": 34.99,
+      "BaselineP25": 59.99,
+      "BaselineP50": 146,
+      "BaselineP75": 196.75,
+      "SampleSize": 22,
+      "Score": 79,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:05.077203-04:00"
+    },
+    "verdict": {
+      "Score": 0.45,
+      "Reason": "Same listing as alert #1 (real deal) firing on 1.2TB watch (capacity mismatch). Duplicate ping from watch-overlap; dedup-spillover not a fresh signal.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "3fde41f7-819f-4dba-a3f0-30062f4ad26a",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Samsung 32gb PC4-2666V 2Rx4 DDR4 ECC RDIMM Reg Server Memory M393A4K40CB2-CTD",
+      "Condition": "used_working",
+      "PriceUSD": 154,
+      "BaselineP25": 159.8,
+      "BaselineP50": 200,
+      "BaselineP75": 290,
+      "SampleSize": 65,
+      "Score": 72,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:05.529944-04:00"
+    },
+    "verdict": {
+      "Score": 0.45,
+      "Reason": "$154 just below P25 ($159.80) on n=65 very-mature; 23% below P50 — well under strict deal bar (\u003e=55%). At-P25 is entry-floor for normal deals.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "noise",
+    "alert": {
+      "AlertID": "4c87a575-5eb4-4777-b178-9686ec9604d6",
+      "WatchName": "Seagate Exos 10E2400 1.8TB",
+      "ComponentType": "drive",
+      "ListingTitle": "Seagate EXOS 2.5\" SAS 2.4TB 10E2400 *Reading Heads Are Loud*  100% Health \u0026 Perf",
+      "Condition": "used_working",
+      "PriceUSD": 65.1,
+      "BaselineP25": 0,
+      "BaselineP50": 0,
+      "BaselineP75": 0,
+      "SampleSize": 0,
+      "Score": 61,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.511635-04:00"
+    },
+    "verdict": {
+      "Score": 0.1,
+      "Reason": "Title flags failing heads ('Reading Heads Are Loud'); not a homelab-usable drive. n=0 baseline let neutral price-factor fire alert just above threshold. Pure noise.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "db19c366-ffb4-4f20-aafe-6cad9e2f0a98",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "NEMIX Server RAM 32GB DDR4 2400MHz PC4-19200 2Rx4 1.2V 288-PIN ECC RDIMM Tested!",
+      "Condition": "used_working",
+      "PriceUSD": 149.99,
+      "BaselineP25": 148.74,
+      "BaselineP50": 194,
+      "BaselineP75": 240,
+      "SampleSize": 56,
+      "Score": 72,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:05.350848-04:00"
+    },
+    "verdict": {
+      "Score": 0.45,
+      "Reason": "$149.99 essentially at P25 ($148.74) on n=56 mature; only 23% below P50. Average market price; threshold pulled through on non-price factors. Not a deal.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "noise",
+    "alert": {
+      "AlertID": "0e42a846-be35-4cb9-bdeb-81eb13c8420d",
+      "WatchName": "Seagate Exos 10E300 1.2TB",
+      "ComponentType": "drive",
+      "ListingTitle": "Seagate EXOS 2.5\" SAS 2.4TB 10E2400 *Reading Heads Are Loud*  100% Health \u0026 Perf",
+      "Condition": "used_working",
+      "PriceUSD": 65.1,
+      "BaselineP25": 0,
+      "BaselineP50": 0,
+      "BaselineP75": 0,
+      "SampleSize": 0,
+      "Score": 61,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.508579-04:00"
+    },
+    "verdict": {
+      "Score": 0.1,
+      "Reason": "Duplicate of alert #5 firing on the 1.2TB watch (listing is 2.4TB). Same failing-heads drive; same n=0 cold-start; doubled-up noise.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "721b98bd-a217-46f0-831c-2e8a364ca803",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Samsung 32gb PC4-2400T 2Rx4 DDR4 ECC RDIMM Server Memory M393A4K40BB1-CRC HPE",
+      "Condition": "used_working",
+      "PriceUSD": 145,
+      "BaselineP25": 148.74,
+      "BaselineP50": 194,
+      "BaselineP75": 240,
+      "SampleSize": 56,
+      "Score": 70,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:05.235718-04:00"
+    },
+    "verdict": {
+      "Score": 0.5,
+      "Reason": "$145 just below P25 $148.74 on n=56 mature; 25% below P50 — well under strict deal bar. Mildly below-market on HPE-spec single DIMM; not 'sincerely contemplate'.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "d02813ee-029b-4257-a2ff-fd1dd720e7be",
+      "WatchName": "Seagate Exos 10E2400 1.8TB",
+      "ComponentType": "drive",
+      "ListingTitle": "Seagate EXOS 10E2400 ST1800MM0159 1.8 TB SAS 3 2.5 in Enterprise Drive",
+      "Condition": "used_working",
+      "PriceUSD": 44.99,
+      "BaselineP25": 0,
+      "BaselineP50": 0,
+      "BaselineP75": 0,
+      "SampleSize": 0,
+      "Score": 64,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.451787-04:00"
+    },
+    "verdict": {
+      "Score": 0.6,
+      "Reason": "Exact watch match (ST1800MM0159 IS Exos 10E2400) at $44.99 — likely a strong price by historical comparison, but n=0 baseline can't statistically confirm. Strict deal bar requires baseline maturity.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "deal",
+    "alert": {
+      "AlertID": "5e9a8b4d-3d72-498c-8588-63792d28309f",
+      "WatchName": "DDR4 ECC 128GB 2666 RDIMM",
+      "ComponentType": "ram",
+      "ListingTitle": "128GB Kit (64GB x 2 ) 4DRx4  DDR-4  2666V ECC REG. Micron MTA72ASS8G72LZ-2G6D2SG",
+      "Condition": "used_working",
+      "PriceUSD": 525,
+      "BaselineP25": 894.75,
+      "BaselineP50": 1579.99,
+      "BaselineP75": 1959.99,
+      "SampleSize": 310,
+      "Score": 81,
+      "Threshold": 70,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:05.228021-04:00"
+    },
+    "verdict": {
+      "Score": 0.95,
+      "Reason": "$525 vs P50 $1580 on n=310 massive baseline; 67% below median on watch-exact 128GB DDR4-2666 ECC RDIMM. Clears strict deal bar (\u003e=55% below P50, n\u003e=20) overwhelmingly.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "272098cd-17f9-48b9-93bf-ebf03800852d",
+      "WatchName": "Seagate Exos 10E300 1.2TB",
+      "ComponentType": "drive",
+      "ListingTitle": "Seagate EXOS 10E2400 ST1800MM0159 1.8 TB SAS 3 2.5 in Enterprise Drive",
+      "Condition": "used_working",
+      "PriceUSD": 44.99,
+      "BaselineP25": 0,
+      "BaselineP50": 0,
+      "BaselineP75": 0,
+      "SampleSize": 0,
+      "Score": 64,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.448725-04:00"
+    },
+    "verdict": {
+      "Score": 0.45,
+      "Reason": "Same listing as #9 — 1.8TB 10E2400 firing on 1.2TB watch (capacity mismatch). Likely good price but n=0 + wrong-capacity-watch fire makes it not a primary signal.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "681dd5e6-4196-4575-a3b5-ff0bcf595dcd",
+      "WatchName": "DDR4 ECC 64GB",
+      "ComponentType": "ram",
+      "ListingTitle": "SK hynix / HPE 64GB DDR4-2400T ECC LRDIMM Server Memory",
+      "Condition": "used_working",
+      "PriceUSD": 150,
+      "BaselineP25": 195.5,
+      "BaselineP50": 300,
+      "BaselineP75": 369.5,
+      "SampleSize": 23,
+      "Score": 78,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:05.059127-04:00"
+    },
+    "verdict": {
+      "Score": 0.65,
+      "Reason": "$150 vs P50 $300 on n=23 mature; 50% below P50 on 64GB DDR4-2400 LRDIMM — just shy of strict deal bar (\u003e=55%). Worth a look but not a sincerely-contemplate signal.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "deal",
+    "alert": {
+      "AlertID": "c2ac22f4-a50c-4df1-850d-11c91e973ecd",
+      "WatchName": "Seagate Exos 10E2400 1.8TB",
+      "ComponentType": "drive",
+      "ListingTitle": "UCS-HD18TB10KS4K HUC101818CS4200 CISCO 1.8TB 10K 12G SFF 2.5\" SAS, 58-100141-01",
+      "Condition": "used_working",
+      "PriceUSD": 29.99,
+      "BaselineP25": 59.44,
+      "BaselineP50": 93.37,
+      "BaselineP75": 183.63,
+      "SampleSize": 43,
+      "Score": 81,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.383346-04:00"
+    },
+    "verdict": {
+      "Score": 0.9,
+      "Reason": "$29.99 vs P50 $93.37 on n=43 mature; 68% below median on Cisco-rebrand of HUC101818CS4200 (same OEM HDD as watch target). Clears strict deal bar.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "noise",
+    "alert": {
+      "AlertID": "41dfd73e-6eb4-4a5c-bb58-28f6adbe0434",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "32GB Hynix HMA84GR7AFR4N 2Rx4 PC4-2400T DDR4 RDIMM Server Memory",
+      "Condition": "used_working",
+      "PriceUSD": 259.99,
+      "BaselineP25": 0,
+      "BaselineP50": 0,
+      "BaselineP75": 0,
+      "SampleSize": 0,
+      "Score": 61,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:05.055385-04:00"
+    },
+    "verdict": {
+      "Score": 0.1,
+      "Reason": "$260 for 32GB DDR4-2400 ECC is well above typical $100-150 market range. n=0 cold-start neutral price-factor scored 50 and threshold barely crossed. Classic cold-start false alert.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "2768f6c7-34e6-4465-907c-34824f906ad0",
+      "WatchName": "Seagate Exos 10E300 1.2TB",
+      "ComponentType": "drive",
+      "ListingTitle": "UCS-HD18TB10KS4K HUC101818CS4200 CISCO 1.8TB 10K 12G SFF 2.5\" SAS, 58-100141-01",
+      "Condition": "used_working",
+      "PriceUSD": 29.99,
+      "BaselineP25": 59.44,
+      "BaselineP50": 93.37,
+      "BaselineP75": 183.63,
+      "SampleSize": 43,
+      "Score": 81,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.380354-04:00"
+    },
+    "verdict": {
+      "Score": 0.45,
+      "Reason": "Same Cisco 1.8TB listing as #13 firing on 1.2TB watch (capacity mismatch). Listing is a strong deal but duplicate ping through watch overlap.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "8ea6a52a-55bf-46c2-9dd7-6bc9bc93b660",
+      "WatchName": "DDR4 ECC 64GB",
+      "ComponentType": "ram",
+      "ListingTitle": "64GB SK Hynix (8 x 8GB) DDR4 RDIMM ECC 2133MHz 2Rx8 PC4-17000 Server Memory RAM",
+      "Condition": "used_working",
+      "PriceUSD": 249.99,
+      "BaselineP25": 282.86,
+      "BaselineP50": 302.28,
+      "BaselineP75": 369,
+      "SampleSize": 15,
+      "Score": 77,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:05.013142-04:00"
+    },
+    "verdict": {
+      "Score": 0.5,
+      "Reason": "$250 vs P25 $283 on n=15 (under maturity floor for strict bar); 17% below P50 on older DDR4-2133 8x8GB kit. Mid-tier signal.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "noise",
+    "alert": {
+      "AlertID": "fc287915-b40f-4c4c-9996-f9487860f679",
+      "WatchName": "Seagate Exos 10E2400 1.8TB",
+      "ComponentType": "drive",
+      "ListingTitle": "Dell 400GB 12/24Gbps SAS WI TLC 2.5 SSD KPM6XMUG400G (VW3D6)",
+      "Condition": "unknown",
+      "PriceUSD": 699,
+      "BaselineP25": 0,
+      "BaselineP50": 0,
+      "BaselineP75": 0,
+      "SampleSize": 0,
+      "Score": 60,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.303629-04:00"
+    },
+    "verdict": {
+      "Score": 0.05,
+      "Reason": "SSD firing on HDD watch (wrong media type). $699 for 400GB write-intensive SAS SSD with unknown condition is also poor value. Exactly at threshold; n=0 cold-start.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "noise",
+    "alert": {
+      "AlertID": "9d032ab7-94a9-4695-931a-4e3faf7334a4",
+      "WatchName": "DDR4 ECC 64GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Sk Hynix 64GB 4DRX4 DDR4 PC4-2666v ECC LRDIMM Memory HMAA8GL7AMR4N-VK",
+      "Condition": "used_working",
+      "PriceUSD": 299.99,
+      "BaselineP25": 0,
+      "BaselineP50": 0,
+      "BaselineP75": 0,
+      "SampleSize": 0,
+      "Score": 61,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.754543-04:00"
+    },
+    "verdict": {
+      "Score": 0.2,
+      "Reason": "$300 for 64GB DDR4-2666 LRDIMM is around market median (mature DDR4-2933 64GB baseline elsewhere shows P50=$624 for newer spec, but 2666 sits lower). n=0 cold-start; no clear edge.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "noise",
+    "alert": {
+      "AlertID": "7733d728-6e7c-437a-bdac-e9eee54398d8",
+      "WatchName": "Seagate Exos 10E300 1.2TB",
+      "ComponentType": "drive",
+      "ListingTitle": "Dell 400GB 12/24Gbps SAS WI TLC 2.5 SSD KPM6XMUG400G (VW3D6)",
+      "Condition": "unknown",
+      "PriceUSD": 699,
+      "BaselineP25": 0,
+      "BaselineP50": 0,
+      "BaselineP75": 0,
+      "SampleSize": 0,
+      "Score": 60,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.300781-04:00"
+    },
+    "verdict": {
+      "Score": 0.05,
+      "Reason": "Duplicate of #17 firing on 1.2TB watch. SSD firing on HDD watch, unknown condition, n=0 cold-start. Compound noise.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "c1be2bf6-2fae-43b9-9661-d9a04d2813ed",
+      "WatchName": "DDR4 ECC 64GB",
+      "ComponentType": "ram",
+      "ListingTitle": "NEW sealed Samsung 64GB PC4-2933Y DDR4 SDRAM ECC RDIMM Server Memory ",
+      "Condition": "new",
+      "PriceUSD": 399,
+      "BaselineP25": 499,
+      "BaselineP50": 624,
+      "BaselineP75": 800,
+      "SampleSize": 21,
+      "Score": 83,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.746626-04:00"
+    },
+    "verdict": {
+      "Score": 0.65,
+      "Reason": "NEW sealed Samsung 64GB DDR4-2933 at $399 vs P50 $624 (used-baseline) on n=21; 36% below P50 — under strict deal bar (\u003e=55%). NEW-condition premium real but discount depth alone isn't enough.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "32c5c0a2-d0e2-4b4b-8ee4-f41c9c6b62e0",
+      "WatchName": "Seagate Exos 10E2400 1.8TB",
+      "ComponentType": "drive",
+      "ListingTitle": "Hitachi 0B27978 1.8TB 2.5\" 12Gbps 10K RPM 512e ISE SAS HDD",
+      "Condition": "unknown",
+      "PriceUSD": 59.99,
+      "BaselineP25": 59.99,
+      "BaselineP50": 146,
+      "BaselineP75": 196.75,
+      "SampleSize": 22,
+      "Score": 68,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.057335-04:00"
+    },
+    "verdict": {
+      "Score": 0.45,
+      "Reason": "$59.99 sits exactly at P25 on n=22; 59% below P50 numerically but at-P25 is the entry-floor for normal deals, not a steal. Unknown condition adds risk.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "58ffd01f-0857-4ca4-96ac-5c8b11346751",
+      "WatchName": "DDR4 ECC 64GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Hynix 64GB DDR4 3200MHz PC4-25600 2Rx4 ECC RDIMM Server Memory RAM HMAG94DXNRB",
+      "Condition": "used_working",
+      "PriceUSD": 549.99,
+      "BaselineP25": 549.99,
+      "BaselineP50": 719.95,
+      "BaselineP75": 804,
+      "SampleSize": 33,
+      "Score": 72,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.61051-04:00"
+    },
+    "verdict": {
+      "Score": 0.5,
+      "Reason": "Exactly at P25 on n=33 mature; 24% below P50. DDR4-3200 is premium spec — at-P25 is the price floor for that tier, not 'sincerely contemplate' territory.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "f6b171de-bcda-42ee-94fa-1e90f408d1d4",
+      "WatchName": "Seagate Exos 10E300 1.2TB",
+      "ComponentType": "drive",
+      "ListingTitle": "Hitachi 0B27978 1.8TB 2.5\" 12Gbps 10K RPM 512e ISE SAS HDD",
+      "Condition": "unknown",
+      "PriceUSD": 59.99,
+      "BaselineP25": 59.99,
+      "BaselineP50": 146,
+      "BaselineP75": 196.75,
+      "SampleSize": 22,
+      "Score": 68,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.054028-04:00"
+    },
+    "verdict": {
+      "Score": 0.45,
+      "Reason": "Duplicate of #21 firing on 1.2TB watch (listing is 1.8TB). At-P25 listing with wrong-capacity watch match — soft noise.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "noise",
+    "alert": {
+      "AlertID": "0bbad54a-eb48-43c3-8997-d8887fdc9381",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "SAMSUNG 32GB (1X32GB) 2RX4 PC4-2933Y DDR4 ECC Server Memory M393A4K40CB2-CVF",
+      "Condition": "used_working",
+      "PriceUSD": 429,
+      "BaselineP25": 0,
+      "BaselineP50": 0,
+      "BaselineP75": 0,
+      "SampleSize": 0,
+      "Score": 64,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.55423-04:00"
+    },
+    "verdict": {
+      "Score": 0.1,
+      "Reason": "$429 for 32GB DDR4-2933 is well above market (~$150-250 typical for used). n=0 cold-start neutral price-factor fire — classic noise.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "faf8423d-a3a7-40e0-8609-bd77d01bb2f9",
+      "WatchName": "Seagate Exos 10E2400 1.8TB",
+      "ComponentType": "drive",
+      "ListingTitle": "Dell G2G54 1.2TB 10k 12Gb/s 2.5\" SAS Hard Drive Seagate ST1200MM0099 w/ 14G Tray",
+      "Condition": "used_working",
+      "PriceUSD": 48.95,
+      "BaselineP25": 41.52,
+      "BaselineP50": 66.91,
+      "BaselineP75": 99.49,
+      "SampleSize": 34,
+      "Score": 67,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:03.744762-04:00"
+    },
+    "verdict": {
+      "Score": 0.4,
+      "Reason": "1.2TB drive firing on 1.8TB watch (capacity mismatch). Price $48.95 sits between P25 and P50 for the 1.2TB SKU — not even a deal for what it actually is.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "2fa066b4-c0a3-4d47-8a33-77c7983b9c34",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Samsung 32GB ECC Reg RDIMM Server Memory M393A4K40CB1-CRC DDR4 RAM 2400",
+      "Condition": "used_working",
+      "PriceUSD": 149.99,
+      "BaselineP25": 148.74,
+      "BaselineP50": 194,
+      "BaselineP75": 240,
+      "SampleSize": 56,
+      "Score": 69,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:04.528953-04:00"
+    },
+    "verdict": {
+      "Score": 0.5,
+      "Reason": "$149.99 essentially at P25 on n=56 mature. 23% below P50 — fine but not a steal. Threshold-bait.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "7ac02de6-282a-4739-9493-29edeb0e998e",
+      "WatchName": "Seagate Exos 10E300 1.2TB",
+      "ComponentType": "drive",
+      "ListingTitle": "Dell G2G54 1.2TB 10k 12Gb/s 2.5\" SAS Hard Drive Seagate ST1200MM0099 w/ 14G Tray",
+      "Condition": "used_working",
+      "PriceUSD": 48.95,
+      "BaselineP25": 41.52,
+      "BaselineP50": 66.91,
+      "BaselineP75": 99.49,
+      "SampleSize": 34,
+      "Score": 67,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:03.741587-04:00"
+    },
+    "verdict": {
+      "Score": 0.5,
+      "Reason": "$48.95 vs P50 $66.91 on n=34 mature; 27% below P50 — under strict deal bar (\u003e=55%). Watch-exact capacity match this fire; 14G tray adds a small Dell-rack-owner premium.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "fb302edf-179e-4f4b-9269-ddfe2636a13f",
+      "WatchName": "DDR4 ECC 64GB",
+      "ComponentType": "ram",
+      "ListingTitle": "64GB (2x32GB) SK hynix DDR4 2666 ECC RDIMM Server RAM",
+      "Condition": "used_working",
+      "PriceUSD": 249.95,
+      "BaselineP25": 285,
+      "BaselineP50": 369.5,
+      "BaselineP75": 399,
+      "SampleSize": 30,
+      "Score": 81,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:03.841904-04:00"
+    },
+    "verdict": {
+      "Score": 0.55,
+      "Reason": "$249.95 vs P50 $369.50 on n=30 mature; 32% below P50 on 64GB DDR4-2666 ECC kit — under strict deal bar. Solid below-median but not a clear-distribution win.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "b13422cf-cc0b-4b9e-b28a-5c5c15996aa2",
+      "WatchName": "Seagate Exos 10E2400 1.8TB",
+      "ComponentType": "drive",
+      "ListingTitle": "6FV4P DELL Enterprise Plus 1.8TB 10K SAS 12Gbps 2.5in 512e HDD ST1800MM0129",
+      "Condition": "new",
+      "PriceUSD": 59.88,
+      "BaselineP25": 59.44,
+      "BaselineP50": 93.37,
+      "BaselineP75": 183.63,
+      "SampleSize": 43,
+      "Score": 74,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.850456-04:00"
+    },
+    "verdict": {
+      "Score": 0.6,
+      "Reason": "NEW Dell 1.8TB 10K SAS at $59.88 essentially at used-P25 ($59.44) on n=43 mature; 36% below P50 — under strict deal bar. NEW-condition premium real but at-used-P25 alone isn't a 'sincerely contemplate' signal.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "6a7efa2a-fde1-46ee-bcf8-88253c4515f1",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Kingston 32gb PC4-2666V 2Rx4 DDR4 ECC RDIMM Reg Server Memory KTD-PE426/32G",
+      "Condition": "used_working",
+      "PriceUSD": 159,
+      "BaselineP25": 159.8,
+      "BaselineP50": 200,
+      "BaselineP75": 290,
+      "SampleSize": 65,
+      "Score": 69,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:03.720399-04:00"
+    },
+    "verdict": {
+      "Score": 0.5,
+      "Reason": "$159 essentially at P25 on n=65 very-mature baseline; 21% below P50. Marginal — not a steal.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "c185132c-e475-478e-ade9-eaca31d9d08c",
+      "WatchName": "Seagate Exos 10E300 1.2TB",
+      "ComponentType": "drive",
+      "ListingTitle": "6FV4P DELL Enterprise Plus 1.8TB 10K SAS 12Gbps 2.5in 512e HDD ST1800MM0129",
+      "Condition": "new",
+      "PriceUSD": 59.88,
+      "BaselineP25": 59.44,
+      "BaselineP50": 93.37,
+      "BaselineP75": 183.63,
+      "SampleSize": 43,
+      "Score": 74,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.84699-04:00"
+    },
+    "verdict": {
+      "Score": 0.4,
+      "Reason": "Duplicate of #29 firing on 1.2TB watch (listing is 1.8TB). NEW condition but wrong-capacity ping — dedup-spillover.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "a9d6c36a-c2b1-45e4-a999-31210d62a4ff",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Samsung 32GB (1x32GB) 2Rx4 PC4-2133P-RAO-10-DCO DDR4 Registered ECC Server RAM",
+      "Condition": "used_working",
+      "PriceUSD": 130,
+      "BaselineP25": 159.8,
+      "BaselineP50": 200,
+      "BaselineP75": 290,
+      "SampleSize": 65,
+      "Score": 79,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:03.497923-04:00"
+    },
+    "verdict": {
+      "Score": 0.6,
+      "Reason": "$130 vs P25 $159.80 on n=65 very-mature; 35% below P50 on DDR4-2133 32GB — under strict deal bar (\u003e=55%). Solid below-P25 on older spec but not a clear-distribution win.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "49d07199-ea09-4e09-94bd-37f762e19106",
+      "WatchName": "Seagate Exos 10E2400 1.8TB",
+      "ComponentType": "drive",
+      "ListingTitle": "Dell Exos ST1200MM0099 1.2TB 10K SAS 12Gb/s 2.5\" HDD",
+      "Condition": "used_working",
+      "PriceUSD": 34.99,
+      "BaselineP25": 41.52,
+      "BaselineP50": 66.91,
+      "BaselineP75": 99.49,
+      "SampleSize": 34,
+      "Score": 84,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.635027-04:00"
+    },
+    "verdict": {
+      "Score": 0.55,
+      "Reason": "1.2TB drive firing on 1.8TB watch (capacity mismatch). Listing IS a 48% below-P50 deal at $34.99 vs $66.91 — useful price signal if you also want 1.2TB but wrong watch.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "noise",
+    "alert": {
+      "AlertID": "09faf6c2-d895-4c94-9ad6-7db592ed707e",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Samsung 32GB PC4-23400 (1x32GB) DDR4 Server RAM",
+      "Condition": "used_working",
+      "PriceUSD": 249.99,
+      "BaselineP25": 0,
+      "BaselineP50": 0,
+      "BaselineP75": 0,
+      "SampleSize": 0,
+      "Score": 64,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:03.459535-04:00"
+    },
+    "verdict": {
+      "Score": 0.15,
+      "Reason": "$250 for 32GB DDR4-2933 is above-market (similar mature baseline elsewhere shows P50=$200 for DDR4-2666). n=0 cold-start let neutral price-factor fire alert.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "e0460bb3-ebfc-4c92-8adf-ac3c3690d751",
+      "WatchName": "Seagate Exos 10E300 1.2TB",
+      "ComponentType": "drive",
+      "ListingTitle": "Dell Exos ST1200MM0099 1.2TB 10K SAS 12Gb/s 2.5\" HDD",
+      "Condition": "used_working",
+      "PriceUSD": 34.99,
+      "BaselineP25": 41.52,
+      "BaselineP50": 66.91,
+      "BaselineP75": 99.49,
+      "SampleSize": 34,
+      "Score": 84,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.631503-04:00"
+    },
+    "verdict": {
+      "Score": 0.65,
+      "Reason": "$34.99 vs P50 $66.91 on n=34 mature; 48% below P50 on Dell 1.2TB 10K SAS — watch-exact capacity match. Just shy of strict deal bar (\u003e=55%) but a near-miss; worth looking at.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "edc0144d-7d1e-46cc-a2a1-4b11308acb64",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Samsung 32GB DDR4 2Rx4 2133MHz ECC RDIMM (M393A4K40BB0-CPB0Q)",
+      "Condition": "like_new",
+      "PriceUSD": 115,
+      "BaselineP25": 125,
+      "BaselineP50": 150,
+      "BaselineP75": 175,
+      "SampleSize": 37,
+      "Score": 71,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:03.382229-04:00"
+    },
+    "verdict": {
+      "Score": 0.55,
+      "Reason": "$115 vs P50 $150 on n=37 mature DDR4-2133 baseline (older spec, lower P50); like_new condition is a plus. Only 23% below P50 — under strict deal bar.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "deal",
+    "alert": {
+      "AlertID": "7ce29f5e-1e3e-43b4-92d9-97511d02aa5b",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "SK Hynix  HMA84GR7AFR4N-UH 32 GB DDR4-2400 ECC RDIMM Server Memory RAM",
+      "Condition": "used_working",
+      "PriceUSD": 84.95,
+      "BaselineP25": 148.74,
+      "BaselineP50": 194,
+      "BaselineP75": 240,
+      "SampleSize": 56,
+      "Score": 87,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:03.228723-04:00"
+    },
+    "verdict": {
+      "Score": 0.9,
+      "Reason": "$84.95 vs P50 $194 on n=56 very-mature baseline; 56% below P50 on DDR4-2400 32GB ECC RDIMM. Just clears strict deal bar (\u003e=55%, n\u003e=20). Clean spec, deep sample.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "d39a355c-96d2-442a-8f16-47b309468527",
+      "WatchName": "DDR4 ECC 64GB",
+      "ComponentType": "ram",
+      "ListingTitle": "64GB (4x16GB) Samsung DDR4 ECC 2133 RDIMM M393A2G40DB0 Server RAM",
+      "Condition": "used_working",
+      "PriceUSD": 150,
+      "BaselineP25": 282.86,
+      "BaselineP50": 302.28,
+      "BaselineP75": 369,
+      "SampleSize": 15,
+      "Score": 81,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.997717-04:00"
+    },
+    "verdict": {
+      "Score": 0.6,
+      "Reason": "$150 vs P50 $302 on n=15 (UNDER maturity floor for strict deal bar); 50% below P50 looks great but small sample makes the median less trustworthy. Older DDR4-2133 spec also discounts.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "noise",
+    "alert": {
+      "AlertID": "84f8cb66-26d9-4bc3-8841-41591e3f8640",
+      "WatchName": "DDR4 ECC 64GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Samsung 64GB (2x32GB) M393A4K40BB0 PC4-17000 DDR4 ECC Server Memory MEMTEST86",
+      "Condition": "used_working",
+      "PriceUSD": 249,
+      "BaselineP25": 0,
+      "BaselineP50": 0,
+      "BaselineP75": 0,
+      "SampleSize": 0,
+      "Score": 61,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.928754-04:00"
+    },
+    "verdict": {
+      "Score": 0.25,
+      "Reason": "$249 for 64GB DDR4-2133 (PC4-17000) sits at the market median for older-spec 64GB (mature baselines elsewhere ~$282 P25). n=0 cold-start; no clear edge.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "3a22095d-69d2-490e-9fa2-a5e3bc94c023",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Hynix 32gb PC4-2133P 2Rx4 DDR4 ECC RDIMM Server Memory HMA84GR7MFR4N-TF",
+      "Condition": "used_working",
+      "PriceUSD": 135,
+      "BaselineP25": 125,
+      "BaselineP50": 150,
+      "BaselineP75": 175,
+      "SampleSize": 37,
+      "Score": 63,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.913651-04:00"
+    },
+    "verdict": {
+      "Score": 0.4,
+      "Reason": "$135 is above P25 ($125), 10% below P50 on n=37 DDR4-2133 mature baseline; barely above threshold (63 vs 60). Marginal at best.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "61e35138-cc7a-4a0d-bbdf-26449cb5652c",
+      "WatchName": "DDR4 ECC 128GB 2133 RDIMM",
+      "ComponentType": "ram",
+      "ListingTitle": "128GB (4X 32GB) SK Hynix DDR4 ECC RDIMM PC4-2133P 4DRx4 SERVER RAM HMA84GL7AMR4N",
+      "Condition": "used_working",
+      "PriceUSD": 559.99,
+      "BaselineP25": 600,
+      "BaselineP50": 709.49,
+      "BaselineP75": 1579.99,
+      "SampleSize": 32,
+      "Score": 74,
+      "Threshold": 70,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.779398-04:00"
+    },
+    "verdict": {
+      "Score": 0.55,
+      "Reason": "$559.99 is 7% below P25 on n=32 mature; 21% below P50 on watch-exact spec. Under strict deal bar by a wide margin — modest deal at most.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "cab28ac9-2253-4f79-ab1d-18c5f404b53e",
+      "WatchName": "DDR4 ECC 128GB 2133 RDIMM",
+      "ComponentType": "ram",
+      "ListingTitle": "SK hynix (8X16GB) 128GB 2Rx4 PC4-2133P-RA0-10 Registered ECC Memory DDR4",
+      "Condition": "used_working",
+      "PriceUSD": 350,
+      "BaselineP25": 600,
+      "BaselineP50": 709.49,
+      "BaselineP75": 1579.99,
+      "SampleSize": 32,
+      "Score": 81,
+      "Threshold": 70,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.751691-04:00"
+    },
+    "verdict": {
+      "Score": 0.7,
+      "Reason": "$350 vs P50 $709 on n=32 mature; 51% below P50 on 8x16GB DDR4-2133 128GB kit. Just shy of strict deal bar (\u003e=55%) — strong below-median signal worth a look but not blow-out.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "2a1840a3-dba9-4293-9005-f500ee620a0d",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Micron 32GB DDR4-2400 PC4-19200 ECC REG RDIMM Server RAM MTA36ASF4G72PZ",
+      "Condition": "used_working",
+      "PriceUSD": 150,
+      "BaselineP25": 148.74,
+      "BaselineP50": 194,
+      "BaselineP75": 240,
+      "SampleSize": 56,
+      "Score": 63,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.680957-04:00"
+    },
+    "verdict": {
+      "Score": 0.45,
+      "Reason": "$150 essentially at P25 on n=56; 23% below P50. Score barely above threshold (63 vs 60). Marginal — not a steal.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "1b2b54ab-7b27-4c61-bff4-5b92b3f97441",
+      "WatchName": "DDR4 ECC 64GB",
+      "ComponentType": "ram",
+      "ListingTitle": "READ LOT 40 Hynix 64GB DDR4-3200 PC4-25600 2Rx4 ECC RDIMM HMAA8GR7CJR4N-XN",
+      "Condition": "used_working",
+      "PriceUSD": 410,
+      "BaselineP25": 549.99,
+      "BaselineP50": 719.95,
+      "BaselineP75": 804,
+      "SampleSize": 33,
+      "Score": 75,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.483697-04:00"
+    },
+    "verdict": {
+      "Score": 0.55,
+      "Reason": "'READ LOT 40' suggests bulk-wholesale with seller caveat. If $410 is per-unit it's 43% below P50 on n=33 mature; if total for 40 DIMMs it's suspiciously cheap. Ambiguity disqualifies from deal label.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "noise",
+    "alert": {
+      "AlertID": "a5792b1b-c69e-46ff-91ea-2a5b67006d55",
+      "WatchName": "DDR4 ECC 64GB",
+      "ComponentType": "ram",
+      "ListingTitle": "OWC 64GB DDR4 PC4-2933Y RDIMM Memory Equiv to 01KR356 4ZC7A08710 Lenovo/IBM",
+      "Condition": "new",
+      "PriceUSD": 539.99,
+      "BaselineP25": 0,
+      "BaselineP50": 0,
+      "BaselineP75": 0,
+      "SampleSize": 0,
+      "Score": 65,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.461633-04:00"
+    },
+    "verdict": {
+      "Score": 0.25,
+      "Reason": "$540 for NEW 64GB DDR4-2933 OWC-branded Lenovo/IBM-equiv sits within market norm (mature baseline elsewhere P25=$499, P50=$624). n=0 cold-start; new-condition reasonable but not a steal.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "26466b3b-97f3-49f8-94bd-53eb67e8de6a",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "SK hynix 32GB DDR4 PC4-2666V-RB2-11 ECC Registered RDIMM Server RAM Memory 2Rx4",
+      "Condition": "used_working",
+      "PriceUSD": 110,
+      "BaselineP25": 159.8,
+      "BaselineP50": 200,
+      "BaselineP75": 290,
+      "SampleSize": 65,
+      "Score": 81,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.387673-04:00"
+    },
+    "verdict": {
+      "Score": 0.7,
+      "Reason": "$110 vs P50 $200 on n=65 very-mature; 45% below P50 on DDR4-2666 32GB RDIMM. Just shy of strict deal bar (\u003e=55%) but solid — near-miss with clean spec and deep sample.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "7c2995ba-1330-4fd6-ae46-16fdfd5f2172",
+      "WatchName": "DDR4 ECC 64GB",
+      "ComponentType": "ram",
+      "ListingTitle": "Cisco 64GB DDR4-2400 ECC RDIMM UCS-ML-1X644RV-A 15-104063-01 Server Memory RAM",
+      "Condition": "used_working",
+      "PriceUSD": 200,
+      "BaselineP25": 195.5,
+      "BaselineP50": 300,
+      "BaselineP75": 369.5,
+      "SampleSize": 23,
+      "Score": 62,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.25654-04:00"
+    },
+    "verdict": {
+      "Score": 0.4,
+      "Reason": "$200 essentially at P25 ($195.50) on n=23 mature; barely above threshold (62 vs 60). 33% below P50 sounds good but at-P25 is the entry-floor. Cisco UCS-branded may need flashing for non-UCS use.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "deal",
+    "alert": {
+      "AlertID": "f5d77c94-43ef-49a4-9b63-7b8aa3699940",
+      "WatchName": "DDR4 ECC 128GB 2666 RDIMM",
+      "ComponentType": "ram",
+      "ListingTitle": "HMABAGR7A4R4N-VN Hynix 128GB PC4-21300 DDR4-2666MHz ECC REG Octal Rank Memory",
+      "Condition": "used_working",
+      "PriceUSD": 799,
+      "BaselineP25": 894.75,
+      "BaselineP50": 1579.99,
+      "BaselineP75": 1959.99,
+      "SampleSize": 310,
+      "Score": 77,
+      "Threshold": 70,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.233112-04:00"
+    },
+    "verdict": {
+      "Score": 0.85,
+      "Reason": "$799 vs P50 $1580 on n=310 massive baseline; 49% below P50 on watch-exact 128GB DDR4-2666 octal-rank LRDIMM. Massive-baseline path of strict deal bar (\u003e=45% below P50 on n\u003e=100).",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "2760e85a-714b-4d41-959c-1b9751dd0904",
+      "WatchName": "DDR4 ECC 32GB",
+      "ComponentType": "ram",
+      "ListingTitle": "SK Hynix 32GB 2Rx4 PC4-2400T DDR4-2400MHZ ECC REG Server HMA84GR7MFR4N-UH",
+      "Condition": "used_working",
+      "PriceUSD": 149,
+      "BaselineP25": 148.74,
+      "BaselineP50": 194,
+      "BaselineP75": 240,
+      "SampleSize": 56,
+      "Score": 70,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.228061-04:00"
+    },
+    "verdict": {
+      "Score": 0.5,
+      "Reason": "$149 essentially at P25 on n=56 mature; 23% below P50. Marginal — entry-floor price, not a steal.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  },
+  {
+    "label": "edge",
+    "alert": {
+      "AlertID": "6631da98-7a5e-4646-86a5-34539d7b0557",
+      "WatchName": "DDR4 ECC 64GB",
+      "ComponentType": "ram",
+      "ListingTitle": "SK hynix 64GB DDR4 2933MHz PC4-2933Y 4DRx4 ECC Registered Server RAM RDIMM",
+      "Condition": "used_working",
+      "PriceUSD": 500,
+      "BaselineP25": 499,
+      "BaselineP50": 624,
+      "BaselineP75": 800,
+      "SampleSize": 21,
+      "Score": 63,
+      "Threshold": 60,
+      "Reasons": null,
+      "TraceID": "221eb4438a09e24e1f541ee71ee409c0",
+      "CreatedAt": "2026-05-11T18:19:02.128484-04:00"
+    },
+    "verdict": {
+      "Score": 0.45,
+      "Reason": "$500 essentially at P25 ($499) on n=21 mature; barely above threshold (63 vs 60). Watch-exact spec but at-P25 entry-floor pricing — not a deal.",
+      "Tokens": {
+        "InputTokens": 0,
+        "OutputTokens": 0
+      },
+      "Model": "",
+      "CostUSD": 0
+    }
+  }
+]
