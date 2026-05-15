@@ -52,4 +52,5 @@ docz create impl "Your Implementation Title"
 | IMPL-0018 | DESIGN-0015 workstation and desktop component types phase plan | Implemented | 2026-05-02 | Donald Gifford | [0018-design-0015-workstation-and-desktop-component-types-phase-plan.md](0018-design-0015-workstation-and-desktop-component-types-phase-plan.md) |
 | IMPL-0019 | DESIGN-0016 OpenTelemetry Clickhouse and Langfuse instrumentation phase plan | Draft | 2026-05-03 | Donald Gifford | [0019-design-0016-opentelemetry-clickhouse-and-langfuse.md](0019-design-0016-opentelemetry-clickhouse-and-langfuse.md) |
 | IMPL-0020 | INV-0002 architectural review remediation | Draft | 2026-05-15 | Donald Gifford | [0020-inv-0002-architectural-review-remediation.md](0020-inv-0002-architectural-review-remediation.md) |
+| IMPL-0021 | ComponentType registry pattern | Draft | 2026-05-15 | Donald Gifford | [0021-componenttype-registry-pattern.md](0021-componenttype-registry-pattern.md) |
 <!-- END DOCZ AUTO-GENERATED -->

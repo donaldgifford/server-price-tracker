@@ -15,6 +15,7 @@ created: 2026-05-15
 
 <!--toc:start-->
 - [Objective](#objective)
+  - [Phase / PR map](#phase--pr-map)
 - [Scope](#scope)
   - [In Scope](#in-scope)
   - [Out of Scope](#out-of-scope)
@@ -23,38 +24,68 @@ created: 2026-05-15
     - [Tasks](#tasks)
     - [Success Criteria](#success-criteria)
   - [Phase 2: Important findings](#phase-2-important-findings)
-    - [Tasks](#tasks-1)
-    - [Success Criteria](#success-criteria-1)
+    - [Phase 2A: Architecture](#phase-2a-architecture)
+      - [Tasks](#tasks-1)
+      - [Success Criteria](#success-criteria-1)
+    - [Phase 2B: Performance](#phase-2b-performance)
+      - [Tasks](#tasks-2)
+      - [Success Criteria](#success-criteria-2)
+    - [Phase 2C: Style sweeps](#phase-2c-style-sweeps)
+      - [Tasks](#tasks-3)
+      - [Success Criteria](#success-criteria-3)
+    - [Phase 2D: Tech debt](#phase-2d-tech-debt)
+      - [Tasks](#tasks-4)
+      - [Success Criteria](#success-criteria-4)
   - [Phase 3: Nice-to-have findings](#phase-3-nice-to-have-findings)
-    - [Tasks](#tasks-2)
-    - [Success Criteria](#success-criteria-2)
+    - [Tasks](#tasks-5)
+    - [Success Criteria](#success-criteria-5)
 - [Dependencies](#dependencies)
 - [Open Questions](#open-questions)
+  - [Resolved](#resolved)
+  - [Still open](#still-open)
 - [References](#references)
 <!--toc:end-->
 
 ## Objective
 
 Remediate the 57 findings catalogued in INV-0002 (architectural review
-of the pre-style-guide codebase). Three sequential phases tier the work
-by severity: every Critical fix lands before any Important fix; every
-Important fix lands before any Nice-to-have. Each phase ships as a
-single PR (subject to Open Question Q1 — Phase 2 may need to be split
-given its 27-item footprint).
+of the pre-style-guide codebase). Phases are tiered by severity:
+every Critical fix lands before any Important fix; every Important fix
+lands before any Nice-to-have. Phase 2 (Important) is split into four
+sub-phases by domain so each ships as a coherent, reviewable PR.
 
 **Implements:** INV-0002 (Architectural review of pre-style-guide
-codebase)
+codebase).
+
+**Sister doc:** **IMPL-0021** (ComponentType registry pattern) —
+carved out of this IMPL because the §4.5 work is large enough
+(~1,000-1,500 LOC) to warrant its own phased plan.
 
 This doc is the execution plan. INV-0002 is the source of truth for
 *what* each finding is and *why* it matters — IMPL-0020 catalogues
 *when* each is fixed and *how* the work is sequenced.
+
+### Phase / PR map
+
+| Phase | Title | Findings | PR # |
+|---|---|---|---|
+| 1 | Critical findings | 11 | 1 |
+| 2A | Important — Architecture | 7 | 2 |
+| 2B | Important — Performance | 5 | 3 |
+| 2C | Important — Style sweeps | 9 | 4 |
+| 2D | Important — Tech debt | 5 | 5 |
+| 3 | Nice-to-have findings | 19 | 6 |
+
+6 PRs from IMPL-0020 + however many IMPL-0021 produces for the
+ComponentType registry.
 
 ## Scope
 
 ### In Scope
 
 - All 11 Critical findings from INV-0002 (§1-§5)
-- All 27 Important findings from INV-0002
+- 26 of the 27 Important findings (the ComponentType registry §4.5
+  moves to IMPL-0021)
 - All 19 Nice-to-have findings from INV-0002
 - DB migrations required by §5.P2, §5.P3, §5.P6
 - Test additions required by changes in scope
@@ -62,6 +93,9 @@ This doc is the execution plan. INV-0002 is the source of truth for
 
 ### Out of Scope
 
+- **§4.5 ComponentType registry** — moved to IMPL-0021 (own phased
+  plan; tracked there with phases for foundation, per-type migration,
+  and cleanup)
 - INV-0003 work (app-centric refactor, Meilisearch UI, OTel RED-style,
   Langfuse iteration loop) — separate IMPL doc
 - INV-0004 work (sdk-booty-sh migration) — separate IMPL doc
@@ -124,7 +158,7 @@ of those changes (query optimisation, N+1 batching).
   - `pkg/observability/langfuse/buffered_client.go:111` (same)
   - `pkg/extract/extractor.go:97` (same)
 
-**1.3 Store interface split (foundation for Phase 2 naming sweep):**
+**1.3 Store interface split (foundation for Phase 2C naming sweep):**
 
 - [ ] **(INV §1.3)** Split `internal/store/store.go` 45-method
       `Store` interface into per-entity contracts:
@@ -136,11 +170,38 @@ of those changes (query optimisation, N+1 batching).
   - `JobStore` (scheduler state, job runs)
   - `RateLimitStore` (token bucket + daily quota)
   - `JudgeStore` (judge scores, recent un-judged alerts)
-- [ ] Update each consumer to depend on the narrow interface it
-      actually uses. `PostgresStore` keeps every method (satisfies
-      all interfaces).
-- [ ] Update `MockStore` generation: `make mocks` regenerates
-      per-interface mocks.
+- [ ] Keep `Store` as a *union* of the eight new interfaces with an
+      explicit deprecation doc-comment so `staticcheck SA1019` flags
+      any new code that takes it:
+
+      ```go
+      // Store is the legacy union of every per-entity store.
+      //
+      // Deprecated: new consumers must depend on the narrow per-entity
+      // interface they actually need (WatchStore, ListingStore, ...).
+      // The union is retained for backwards compatibility while
+      // remaining handlers and engine call-sites migrate. Tracked
+      // for removal in IMPL-0020 Phase 3 §5.A8.
+      type Store interface {
+          WatchStore
+          ListingStore
+          BaselineStore
+          AlertStore
+          QueueStore
+          JobStore
+          RateLimitStore
+          JudgeStore
+      }
+      ```
+- [ ] Update each consumer in scope for Phase 1 to depend on the
+      narrow interface. `PostgresStore` keeps every method (satisfies
+      all interfaces). Handlers still on the wide `Store` (listings,
+      watches, baselines, health — §5.A8 in Phase 3) inherit the
+      deprecation warning but don't block this phase.
+- [ ] Update `MockStore` generation: `make mocks` regenerates per-
+      interface mocks.
+- [ ] Add `staticcheck` exemption (or no-op) for `internal/store`
+      itself — the union's own declaration is allowed to reference it.
 
 **1.4 Disambiguation:**
 
@@ -244,17 +305,22 @@ of those changes (query optimisation, N+1 batching).
 
 ### Phase 2: Important findings
 
-**Goal:** address the 27 Important findings.
+**Goal:** address 26 of the 27 Important findings (the 27th, §4.5
+ComponentType registry, lives in IMPL-0021).
 
-These don't block production (Phase 1 already shipped) but they're
-the next-tier maintainability and performance work. Grouped by
-domain (architecture / performance / style sweeps / tech debt) so
-the PR can be reviewed in coherent chunks even though it ships as one
-unit. See Q1 about whether to subdivide.
+Split into four sub-phases (2A-2D) by domain. Each sub-phase ships
+as a separate PR — keeps reviewability manageable. Sub-phases are
+independent of each other once Phase 1 has landed; they can run in
+parallel if the operator wants to land them out of order.
 
-#### Tasks
+---
 
-**2.1 Architecture:**
+#### Phase 2A: Architecture
+
+7 findings. Boundary cleanup, dependency direction, function-vs-
+method placement.
+
+##### Tasks
 
 - [ ] **(INV §1.2)** Drop `internal/config` import on
       `pkg/observability/langfuse`. Define `ModelCostConfig` locally
@@ -283,8 +349,28 @@ unit. See Q1 about whether to subdivide.
       context key but no longer *own* setting it. Remove
       `pkg/observability/langfuse` import from
       `internal/engine/scheduler.go`.
+- [ ] CLAUDE.md updates: note the new `pkg/session` and
+      `pkg/llmutil` packages; note that `internal/store` no longer
+      pulls in Prometheus.
 
-**2.2 Performance:**
+##### Success Criteria
+
+- `make lint` and `make test` pass.
+- Zero `internal/` imports in any `pkg/` package (`! rg "internal/" pkg/`).
+- `pkg/observability/langfuse` has no `internal/config` dependency.
+- `internal/store/postgres.go` has no `internal/metrics` import.
+- `internal/engine/scheduler.go` does not import
+  `pkg/observability/langfuse`.
+- `stripJSONFences` exists in exactly one location.
+
+---
+
+#### Phase 2B: Performance
+
+5 findings. SQL rewrites, missing indices, HTTP client hardening,
+hot-path allocation cleanup.
+
+##### Tasks
 
 - [ ] **(INV §3.3)** Rewrite `RecomputeAllBaselines`
       (`postgres.go:384-409`) as a single SQL statement using
@@ -309,15 +395,39 @@ unit. See Q1 about whether to subdivide.
       the judge `Run` loop; pass into `checkBudget`. Eliminates
       per-iteration allocation.
 
-**2.3 Style sweeps:**
+##### Success Criteria
+
+- `make lint` and `make test` pass.
+- `RecomputeAllBaselines` completes in <2s on the production dataset
+  (down from ~15s).
+- `spt_alerts_fired_total` is labelled by `watch_id`, not
+  `watch_name`. Cardinality on `/metrics` measured before/after to
+  prove the bound.
+- Migration 016 applied; `notification_attempts_success` visible
+  via `\d notification_attempts`.
+- Discord webhook calls observably bounded by 15s (manual test:
+  block port; confirm the call returns within ~15s with an error
+  instead of hanging).
+- `todayUTCMidnight` called exactly once per judge tick (mock or
+  trace-level assertion).
+
+---
+
+#### Phase 2C: Style sweeps
+
+9 findings. Mechanical refactors — the kind of PR where the diff is
+large but the change per file is small.
+
+##### Tasks
 
 - [ ] **(INV §2.1)** "failed to" sweep — mechanical PR-task:
       `rg "failed to" --type go` and rewrite each call site as a
       verb-phrase ("start scheduler", "scan alert", "call LLM
       backend", etc.).
-- [ ] **(INV §2.3)** Drop `Get` prefix on 14 methods bundled with
-      §1.3 rename (the methods are part of the interfaces split in
-      Phase 1; the rename lands here).
+- [ ] **(INV §2.3)** Drop `Get` prefix on the per-entity store
+      methods (`GetWatchByID` → `WatchByID`, etc.). The interfaces
+      were defined in Phase 1 §1.3; the rename happens here so the
+      Phase 1 PR didn't have to absorb the churn.
 - [ ] **(INV §2.5)** Rename error types: `ValidationFailure` →
       `ValidationError`, `ParseFailure` → `ParseError` in
       `pkg/extract/types.go`.
@@ -339,7 +449,26 @@ unit. See Q1 about whether to subdivide.
       assertions on `AnthropicBackend`, `OllamaBackend`,
       `OpenAICompatBackend`, `LangfuseBackend`.
 
-**2.4 Tech debt:**
+##### Success Criteria
+
+- `make lint` and `make test` pass.
+- `rg "failed to" --type go` returns zero results outside CLI
+  output and `_test.go` strings.
+- No `GetX` methods on `internal/store` types.
+- All Huma handlers return error chains intact — `errors.Is/As`
+  works against the original error from any returned 500.
+- Magic numbers `0.7`, `0.3`, `256`, `200` no longer appear as bare
+  literals in `pkg/judge` or `internal/engine`.
+- `go vet ./...` confirms the four new interface-compliance
+  assertions hold.
+
+---
+
+#### Phase 2D: Tech debt
+
+5 findings (the ComponentType registry §4.5 moves to IMPL-0021).
+
+##### Tasks
 
 - [ ] **(INV §4.1)** Add testcontainers-backed Postgres tests gated
       behind `//go:build dbtest`. Target ≥80% coverage on
@@ -355,14 +484,9 @@ unit. See Q1 about whether to subdivide.
   - `internal/bootstrap/scheduler.go` (scheduler + worker wiring)
   - `internal/bootstrap/lifecycle.go` (signal handling + shutdown)
 - [ ] **(INV §4.3)** Add a lint rule forbidding `slog.Default()` /
-      `fmt.Println` outside `cmd/spt` (already partially mandated
-      by Phase 1; finalised here with linter enforcement).
-- [ ] **(INV §4.5)** Build the ComponentType registry — single new
-      file per ComponentType in `pkg/extract/component/` that
-      registers patterns, prompt template, validator, normaliser,
-      product-key generator, CHECK constraint name. `Registry.Register`
-      wires everything. Adding a ComponentType becomes one new file
-      + one CHECK migration. The current eight-step ritual collapses.
+      `fmt.Println` outside `cmd/spt` and `*_test.go` files (Phase 1
+      §2.4 already removed the existing violations; this finalises
+      enforcement via `forbidigo`).
 - [ ] **(INV §4.7)** Auto-cleanup orphan baselines: extend
       `recompute_baseline` (or the SQL function it calls) to
       `DELETE FROM price_baselines WHERE product_key NOT IN (SELECT
@@ -373,42 +497,24 @@ unit. See Q1 about whether to subdivide.
       ("FOR PARTS", "for parts", "as-is", "untested") in the
       normaliser. Re-run the normaliser over historical listings or
       schedule a one-shot backfill.
+- [ ] CLAUDE.md updates: remove the orphan-baseline cleanup
+      warning; remove the condition-from-title follow-up note; note
+      the new `internal/bootstrap/*` structure.
 
-**2.5 Tests + verification:**
-
-- [ ] All §2.1-2.4 changes have unit-test coverage for the new code
-      paths.
-- [ ] `make test-db` (new build-tag target) passes.
-- [ ] Forbidden-pattern lint catches any regression of
-      `slog.Default` / `fmt.Println` outside `cmd/spt`.
-- [ ] CLAUDE.md updates: remove the "eight-touchpoint ComponentType"
-      warning; remove the orphan-baseline cleanup warning; note the
-      new `internal/bootstrap/*` structure; note the new
-      `pkg/session` package.
-
-#### Success Criteria
+##### Success Criteria
 
 - `make lint` and `make test` pass.
-- `make test-db` (new target) passes against a local testcontainers
-  Postgres.
+- `make test-db` (new build-tag target) passes against a local
+  testcontainers Postgres.
 - `cmd/server-price-tracker/cmd/serve.go` is ≤200 LOC (down from
-  677).
-- A new ComponentType can be added by creating one file under
-  `pkg/extract/component/` + one DB migration — no edits to
-  validator, normaliser, product-key, classifier, or prompt template
-  files (the registry pulls them in).
-- `RecomputeAllBaselines` completes in <2s on the production dataset
-  (down from ~15s).
-- `spt_alerts_fired_total` is labelled by `watch_id`, not
-  `watch_name`. Cardinality on `/metrics` measured before/after to
-  prove the bound.
-- Zero `internal/` imports in any `pkg/` package
-  (`! rg "internal/" pkg/`).
-- All Huma handlers return error chains intact —
-  `errors.Is/As` works against the original error from any returned
-  500.
-- Migrations 015 and 016 applied; orphan baselines cleaned up at
-  `recompute_baseline` time.
+  677); the boot path is composed from `internal/bootstrap/*`.
+- Forbidigo lint rule rejects new `slog.Default()` outside
+  `cmd/spt/` and `*_test.go`.
+- `recompute_baseline` deletes orphan rows automatically; no
+  manual cleanup needed after a normaliser update.
+- Listings with "FOR PARTS"-style title signals have
+  `condition_norm` correctly populated (verify via `SELECT
+  condition_norm, count(*) ... GROUP BY 1`).
 
 ---
 
@@ -520,121 +626,95 @@ review and merge cost amortises.
 
 ## Dependencies
 
-- **Phase 1 → Phase 2:** Phase 2's `Get`-prefix sweep (§2.3) depends
-  on Phase 1's Store interface split (§1.3) because the methods being
-  renamed are the interface methods.
-- **Phase 1 → Phase 2:** Phase 2's testcontainers `dbtest` build tag
-  (§4.1) builds on Phase 1's pgx scany migration (§4.4) — the
+- **Phase 1 → Phase 2C:** Phase 2C's `Get`-prefix sweep (§2.3)
+  depends on Phase 1's Store interface split (§1.3) because the
+  methods being renamed are the interface methods.
+- **Phase 1 → Phase 2D:** Phase 2D's testcontainers `dbtest` build
+  tag (§4.1) builds on Phase 1's pgx scany migration (§4.4) — the
   struct-tag-driven scanner is what the new tests will exercise.
 - **Phase 1 → Phase 3:** Phase 3's `ProcessAlerts` → method move
   (§1.7) was partially done by Phase 1's logger-injection work; the
   finalisation is a cleanup task.
-- **Phase 2 → Phase 3:** Phase 3's narrow-interface handler migration
-  (§5.A8) uses the interfaces defined by Phase 1 (§1.3) but converts
-  the *remaining* handlers that Phase 1 didn't touch (because Phase 1
-  focused on the Critical surface only — the Store split happened but
-  not every handler was migrated to consume the narrow form).
-- **External:** Phase 2's ComponentType registry (§4.5) is the
-  largest single piece of work. If timeline pressure exists, this
-  could be deferred to its own follow-up IMPL doc without blocking
-  the rest of Phase 2 — see Q5.
+- **Phase 1 + Phase 2 → Phase 3:** Phase 3's narrow-interface
+  handler migration (§5.A8) uses the interfaces defined by Phase 1
+  (§1.3) and migrates the four remaining handlers (listings, watches,
+  baselines, health) off the deprecated `Store` union to their narrow
+  per-entity equivalents. Once this lands, the `Store` union has zero
+  callers outside its declaration; Phase 3 finishes by deleting the
+  union entirely.
+- **External:** IMPL-0021 (ComponentType registry) is independent of
+  every Phase except for Phase 1's Store split (it consumes the
+  narrow store interfaces). It can land any time after Phase 1
+  completes; sequencing relative to Phase 2A-2D is operator's
+  choice.
+- **Phase 2 internal:** sub-phases 2A, 2B, 2C, 2D are independent
+  once Phase 1 has landed. They can run in any order or in parallel.
+  Recommended order: 2A (architecture) → 2B (performance) → 2C
+  (style sweeps) → 2D (tech debt), but only because the architectural
+  cleanup makes the performance work easier to land safely.
 
 ## Open Questions
 
-1. **Phase 2 PR size.** Phase 2 has 27 findings spanning architecture,
-   performance, style sweeps, and tech debt. Even with the four
-   sub-task groupings (2.1-2.4), this is a very large PR — likely
-   2,500-4,000 LOC of changes touching ~50 files. **Should Phase 2
-   be split into 4 sub-phases**, each shipped as a separate PR
-   (2A architecture / 2B performance / 2C style / 2D tech debt)?
-   The original prompt said "in a single PR" per phase, but the
-   real-world reviewability of a 3,000-LOC mixed-concerns PR is
-   poor. Recommend: split.
+### Resolved
 
-2. **Critical-finding count discrepancy.** INV-0002's Conclusion
-   table reports "9 Critical, 20 Important, 12 Nice-to-have" but
-   the actual catalog (counted from the §1-§5 headings) is
-   **11 Critical, 27 Important, 19 Nice-to-have = 57 total**. This
-   IMPL doc uses the actual catalog. Should I file a small fix to
-   INV-0002's Conclusion to match the catalog? (Yes; small, separate
-   commit.)
+- **Q1 — Phase 2 PR size (RESOLVED 2026-05-15).** Split Phase 2 into
+  2A (architecture) / 2B (performance) / 2C (style) / 2D (tech
+  debt). Each ships as its own PR. Done — see updated phase
+  structure above.
+- **Q2 — Critical-finding count discrepancy (RESOLVED 2026-05-15).**
+  Fix INV-0002's Conclusion table to match the actual catalog
+  (11 C / 27 I / 19 N = 57). Filed as part of the same commit as
+  this IMPL update.
+- **Q3 — Store interface as union? (RESOLVED 2026-05-15).** Keep the
+  union as a deprecated alias with a `// Deprecated:` doc-comment so
+  `staticcheck SA1019` flags any new code that takes it. Phase 3
+  §5.A8 migrates the four remaining wide-`Store` consumers to narrow
+  interfaces; the union can be deleted entirely at the end of Phase 3
+  once call-site count is zero. Phase 1 §1.3 task updated to reflect
+  this.
+- **Q5 — ComponentType registry scope (RESOLVED 2026-05-15).** §4.5
+  moves to **IMPL-0021** (dedicated phased doc). Out of scope for
+  IMPL-0020 Phase 2D. IMPL-0021 can land any time after IMPL-0020
+  Phase 1 completes (it consumes the narrow store interfaces).
+- **Q8 — Phase 1 within-phase ordering (RESOLVED 2026-05-15).**
+  Foundation-first order stays as proposed. Big refactors land
+  before the bug fixes that depend on (or might be replaced by)
+  them — premature bug-fix work risks being deleted by the
+  refactor it depends on.
 
-3. **Store interface — keep monolithic `Store` as a union alias?**
-   Phase 1 §1.3 splits the 45-method `Store` into eight per-entity
-   interfaces. Two options for the legacy `Store` type:
-   (a) Keep it as a union interface (`type Store interface { WatchStore;
-   ListingStore; ... }`) — preserves backward compatibility for any
-   straggling consumers.
-   (b) Delete it entirely — forces every consumer to declare a
-   narrow type, no exceptions.
-   Option (b) is the principled choice; option (a) is the pragmatic
-   choice. Recommend (b) since the Important phase §5.A8 already
-   migrates the remaining wide-Store consumers — this leaves no
-   reason to retain the union.
+### Still open
 
-4. **Testcontainers vs sqlmock for Phase 1 §1.8 tests.** Phase 2
-   §4.1 adds testcontainers-backed `PostgresStore` tests gated
-   behind `dbtest`. Phase 1's new batch methods
-   (`ListingsByIDs`, `AlertsWithNotificationStatus`) need test
-   coverage too. Should Phase 1 ship the testcontainers harness
-   ahead of Phase 2, or use mock-based tests in Phase 1 and add
-   testcontainers in Phase 2?
-   Recommend: Phase 1 uses mock-based tests for the new batch
-   methods; Phase 2 retroactively adds testcontainers tests as part
-   of §4.1. Keeps Phase 1 scope focused on Critical fixes.
-
-5. **ComponentType registry scope.** Phase 2 §4.5 (the registry) is
-   the largest single piece of work in the entire IMPL — likely
-   1,000-1,500 LOC by itself (one file per ComponentType, plus the
-   registry, plus consumer migration). Two options:
-   (a) Ship as part of Phase 2 (PR size already large; see Q1).
-   (b) Split into IMPL-0021 (dedicated registry doc) and remove from
-   Phase 2 scope.
-   Recommend (b) if Q1 is answered "split"; recommend (a) only if
-   Phase 2 stays a single PR.
-
-6. **Migration numbering.** The repo is at migration 014 (013 was
-   `judge_scores`; I'm assuming the next slot is 014 — verify
-   against `migrations/` listing). This IMPL proposes 015, 016, 017.
-   If any other in-flight work claims these slots, renumber here.
-
-7. **CLAUDE.md update granularity.** Each phase updates CLAUDE.md
-   in-flight (as tasks remove warnings or note new structure). Is a
-   single end-of-phase summary commit preferable to inline updates?
-   Inline keeps the doc in sync with the code at each task
-   completion; end-of-phase keeps history cleaner.
-   Recommend inline (matches existing convention from IMPL-0017,
-   IMPL-0018, IMPL-0019).
-
-8. **Phase 1 priority within-phase ordering.** The task list within
-   Phase 1 is ordered foundation-first (boundary → logger → Store
-   split → scan safety → query collapse → indices → N+1 batching).
-   The user originally asked for severity-tiered phases without
-   specifying within-phase order. The proposed order minimises
-   rework (each task's prerequisites are already done) but means
-   the *bug-fix* tasks (PoolSize §5.A3, N+1 §3.1/§3.2) ship later
-   in the PR than the *refactor* tasks. If the priority is "ship
-   the bug fixes ASAP", we could split Phase 1 into 1A (bug fixes
-   only, ships first) and 1B (refactor foundations). Recommend
-   defaulting to the proposed order — Phase 1 is one PR, so the
-   bug fixes ship together with everything else.
-
-9. **Lint rule for `slog.Default()` enforcement.** Phase 2 §4.3
-   commits a lint rule forbidding `slog.Default()` outside
-   `cmd/spt`. golangci-lint has `forbidigo` for this. Are there
-   any legitimate `slog.Default()` callers in the codebase the rule
-   should grandfather (e.g., in tests, or in CLI bootstrapping
-   before the configured logger is constructed)? Recommend:
-   `forbidigo` with an exemption for `cmd/spt/` and `*_test.go`
-   files.
-
-10. **Phase 3 deferred indefinitely?** Nice-to-have items are by
-    definition optional. If the operator chooses to defer Phase 3
-    indefinitely after Phase 2 ships, that's acceptable — INV-0002
-    can be marked "Mostly Resolved" with the Nice-to-have items
-    tracked separately. Confirm: does the user want Phase 3
-    explicitly scheduled, or shipped opportunistically when nearby
-    work touches the relevant files?
+- **Q4 — Testcontainers vs sqlmock for Phase 1 §1.8 tests.** Phase 2D
+  §4.1 adds testcontainers-backed `PostgresStore` tests gated behind
+  `dbtest`. Phase 1's new batch methods (`ListingsByIDs`,
+  `AlertsWithNotificationStatus`) need test coverage too. Should
+  Phase 1 ship the testcontainers harness ahead of Phase 2, or use
+  mock-based tests in Phase 1 and add testcontainers in Phase 2D?
+  Recommend: Phase 1 uses mock-based tests for the new batch methods;
+  Phase 2D retroactively adds testcontainers tests as part of §4.1.
+  Keeps Phase 1 scope focused on Critical fixes.
+- **Q6 — Migration numbering.** This IMPL proposes 015 (cooldown
+  index), 016 (notification success index), 017 (composite partial
+  indices for listings). If any other in-flight work claims these
+  slots, renumber here.
+- **Q7 — CLAUDE.md update granularity.** Each phase updates CLAUDE.md
+  in-flight (as tasks remove warnings or note new structure). Is a
+  single end-of-phase summary commit preferable to inline updates?
+  Inline keeps the doc in sync with the code at each task completion;
+  end-of-phase keeps history cleaner. Recommend inline (matches
+  existing convention from IMPL-0017, IMPL-0018, IMPL-0019).
+- **Q9 — Lint rule for `slog.Default()` enforcement.** Phase 2D §4.3
+  commits a lint rule forbidding `slog.Default()` outside `cmd/spt`
+  and `*_test.go`. Use `forbidigo`. Are there any other legitimate
+  callers to grandfather? Recommend: `forbidigo` with an exemption
+  for `cmd/spt/` and `*_test.go` files only.
+- **Q10 — Phase 3 deferred indefinitely?** Nice-to-have items are by
+  definition optional. If the operator chooses to defer Phase 3
+  indefinitely after Phase 2 ships, that's acceptable — INV-0002 can
+  be marked "Mostly Resolved" with the Nice-to-have items tracked
+  separately. Confirm: does the user want Phase 3 explicitly scheduled,
+  or shipped opportunistically when nearby work touches the relevant
+  files?
 
 ## References
 

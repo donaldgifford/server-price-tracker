@@ -935,30 +935,32 @@ The agent didn't survey existing metrics before flagging the gap.
 ## Conclusion
 
 **Answer:** Confirmed. The hypothesis underestimated the surface area —
-the first-pass review surfaced 24 distinct issues, and a second pass
-against the same commit surfaced 17 additional findings (§5) plus 3
-expansions of existing §2.4/§3.1/§3.2 entries. **Net: 41 issues across
-both passes.**
+the first-pass review surfaced 34 distinct issues, and a second pass
+against the same commit surfaced 23 additional findings (§5) plus 3
+expansions of existing §2.4/§3.1/§3.2 entries. **Net: 57 issues across
+both passes** (count verified by direct enumeration of every `#### N.M`
+heading; corrects an earlier draft of this Conclusion that reported
+the totals as 41).
 
 First-pass totals (§1-§4):
 
 | Severity | Count | Lens distribution |
 |---|---|---|
-| Critical | 6 | architect=3, style=1, perf=2 |
-| Important | 11 | architect=2, style=4, perf=2, debt=3 |
-| Nice-to-have | 7 | architect=2, style=2, perf=3, debt=0 |
+| Critical | 7 | architect=3, style=1, perf=2, debt=1 |
+| Important | 16 | architect=3, style=5, perf=2, debt=6 |
+| Nice-to-have | 11 | architect=2, style=3, perf=4, debt=2 |
 
 Second-pass additions (§5):
 
 | Severity | Count | Lens distribution |
 |---|---|---|
-| Critical | 3 | architect=2, perf=1 (+ 1 missing-index = perf) |
-| Important | 9 | architect=3, style=4, perf=2 |
-| Nice-to-have | 5 | architect=2, style=4 (1 covered by 4 entries), perf=2 |
+| Critical | 4 | architect=2, perf=2 |
+| Important | 11 | architect=4, style=4, perf=3 |
+| Nice-to-have | 8 | architect=2, style=4, perf=2 |
 
 Plus 3 false-positive claims investigated and rejected (§5.18).
 
-**Combined totals: 9 Critical, 20 Important, 12 Nice-to-have.**
+**Combined totals: 11 Critical, 27 Important, 19 Nice-to-have = 57.**
 
 The boundary violations (§1.1, §1.2) and `slog.Default()` (§2.4,
 expanded in §5) are unambiguous bugs masquerading as style issues —
@@ -1094,6 +1096,11 @@ substance + a long tail of style sweeps**. None of the substantial
 PRs should exceed ~600 LOC; most will be smaller. Two NEW critical
 fixes from the second pass (PoolSize §5.A3, AlertsConfig coupling
 §5.A2) should land in Wave 1 alongside the original boundary work.
+
+**See IMPL-0020** for the concrete per-PR execution plan and
+**IMPL-0021** for the dedicated ComponentType registry sub-plan
+(carved out of Wave 6 because it's a 1,000+ LOC piece of work
+deserving its own doc).
 
 ## References
 
