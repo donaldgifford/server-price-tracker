@@ -57,7 +57,7 @@ created: 2026-05-15
     - [4.6 Config sprawl: 22 structs in 461 LOC — Nice-to-have](#46-config-sprawl-22-structs-in-461-loc--nice-to-have)
     - [4.7 Manual orphan baseline cleanup — Important](#47-manual-orphan-baseline-cleanup--important)
     - [4.8 Pre-classification hooks hard-coded ordering — Nice-to-have](#48-pre-classification-hooks-hard-coded-ordering--nice-to-have)
-    - [4.9 condition_norm not derived from title signals — Important](#49-conditionnorm-not-derived-from-title-signals--important)
+    - [4.9 condition_norm not derived from title signals — Important](#49-condition_norm-not-derived-from-title-signals--important)
 - [Conclusion](#conclusion)
 - [Recommendation](#recommendation)
   - [Wave 1 — boundary + correctness fixes (parallel, safe)](#wave-1--boundary--correctness-fixes-parallel-safe)
@@ -124,7 +124,8 @@ right moment to audit before adding more.
 
 ## Approach
 
-Four parallel review agents, each scoped to a single lens:
+Two passes of four parallel review agents, each scoped to a single
+lens:
 
 1. **go-architect** — package boundaries, dependency direction, interface
    shape, dependency injection patterns, separation of concerns.
@@ -134,6 +135,18 @@ Four parallel review agents, each scoped to a single lens:
    metric cardinality, goroutine lifecycle.
 4. **Explore (general tech debt)** — test coverage, complexity, hard-coded
    sequences, duplication, scan-order brittleness.
+
+**First pass** (initial review): each agent ran cold without prior
+context. Findings landed as §1-§4 below.
+
+**Second pass** (follow-up review on the same commit): each agent was
+briefed on the first pass's findings and asked to surface what was
+missed. The instruction was "look for what the first pass didn't
+find"; agents that surfaced duplicates of §1-§4 had those merged
+inline (expanding §2.4, §3.1, §3.2). The novel findings landed as §5.
+Three second-pass claims didn't survive verification against the
+actual code and are recorded in §5.18 as rejected so they don't get
+re-investigated.
 
 Findings are grouped by lens but cross-referenced where the same issue
 appears in multiple reviews (the `Store` interface, for instance, shows up
@@ -298,6 +311,10 @@ same method signatures.
 
 #### 2.4 `slog.Default()` instead of injected logger — **Critical**
 
+**Expanded in second-pass review (see §5.10):** the pattern is wider
+than `alert.go` alone — library packages also fall back to
+`slog.Default()` instead of requiring an injected logger.
+
 The engine has a `logger *slog.Logger` field but ignores it in four spots:
 
 - `internal/engine/alert.go:118` — `slog.Default().Info(...)`
@@ -305,9 +322,19 @@ The engine has a `logger *slog.Logger` field but ignores it in four spots:
 - `internal/engine/alert.go:311` — `slog.Default().Error(...)`
 - `internal/engine/alert.go:329` — `slog.Default().Debug(...)`
 
+Additional library-package sites (second-pass):
+
+- `pkg/judge/worker.go:114` — `NewWorker` falls back to `slog.Default()`
+- `pkg/observability/langfuse/buffered_client.go:111` —
+  `NewBufferedClient` falls back to `slog.Default()`
+- `pkg/extract/extractor.go:97` — `NewLLMExtractor` falls back to
+  `slog.Default()`
+
 This breaks the structured-logging contract — operator log filters
 matching `service=spt` work against the injected logger but the default
-logger has no such attribute. Use `e.logger` everywhere.
+logger has no such attribute. Use the injected logger everywhere; the
+library constructors should require non-nil and let the caller decide
+whether to pass `slog.Default()` explicitly.
 
 #### 2.5 Error type naming missing `Error` suffix — **Important**
 
@@ -362,10 +389,17 @@ chain; use it.
 listings/cycle and ~30 watches each, this is 6,000 DB roundtrips per cycle
 where 1 would suffice.
 
+**Expanded in second-pass review:** the same root cause fires from
+`(*Engine).RescoreAll` (engine.go:246), which cursor-iterates every
+active listing in batches of 200 and calls `evaluateAlertsForListing`
+once per row. A full rescore over 5,000 listings is 5,000 round-trips
+to fetch the watch list that never changes.
+
 Fix: cache watches at the start of the engine tick (they change at human
 pace, not at listing-arrival pace) and pass the slice down. Bonus: ranged
 loop over a slice is allocation-free; per-call `ListWatches` allocates a
-fresh slice every time.
+fresh slice every time. The fix is one cache + a parameter on
+`evaluateAlertsForListing`; covers both call sites.
 
 #### 3.2 N+1: per-alert `HasSuccessfulNotification` + `GetListingByID` — **Critical**
 
@@ -379,9 +413,17 @@ listing, err := store.GetListingByID(ctx, listing_id)
 Two queries × batch size. With Discord summary mode collapsing one tick's
 alerts into a single embed (DESIGN-0010), batch sizes can be 20-50.
 
-Fix: add `Store.ListingsByIDs(ctx, ids []string)` and
-`Store.AlertsWithNotificationStatus(ctx, ids)` — both single-query joins.
-Engine consumes the maps directly.
+**Expanded in second-pass review:** the same shape appears in
+`processSummary` (alert.go:88), which loops over the pending-alerts
+list and calls `store.GetListingByID(ctx, pending[i].ListingID)` for
+each one. The summary-mode path has *no upper bound* on batch size,
+unlike `sendBatch` which is at least capped by `batchThreshold`. A
+single-tick summary over 200 pending alerts is 200 round-trips.
+
+Fix: add `Store.ListingsByIDs(ctx, ids []string)` (single query with
+`WHERE id = ANY($1)`) and `Store.AlertsWithNotificationStatus(ctx, ids)` —
+both single-query joins. Engine consumes the maps directly. Apply to
+both `sendBatch` and `processSummary`.
 
 #### 3.3 `RecomputeAllBaselines` sequential loop — **Important**
 
@@ -573,10 +615,332 @@ baselines. Surface it here so it's tracked alongside the rest.
 
 ---
 
+### 5. Second-pass findings (2026-05-15 follow-up)
+
+A second round of the same four lenses was run against the same
+commit. The agents were briefed on the §1-§4 findings to focus on
+incremental issues. **20 additional findings** surfaced — three are
+expansions of §2.4/§3.1/§3.2 already merged inline above; the other
+17 are listed here. Numbering continues per-lens (`A` for architecture,
+`S` for style, `P` for performance) to avoid renumbering §1-§4.
+
+The second pass also surfaced **three false-positive claims** worth
+recording so they're not re-investigated. See §5.18.
+
+#### Architecture (second-pass)
+
+#### 5.A1 `internal/store/postgres.go` imports `internal/metrics` — **Important**
+
+`internal/store/postgres.go:15` — the store layer directly increments
+Prometheus counters (`AlertsQueryDuration`, `NotificationAttemptsInsertedTotal`,
+`AlertsTableRows`) inside method bodies. This is *not* a `pkg/`
+boundary violation (both packages are under `internal/`) but it's the
+same anti-pattern at the wrong layer: the persistence layer should
+not own metric emission. Engine and scheduler emit their own metrics
+after calling store methods, which is the correct layering.
+
+Fix: define `StoreMetricsRecorder` interface in `internal/store/store.go`,
+wire a `metrics.StoreMetricsAdapter{}` in `serve.go`, inject via
+`NewPostgresStore`. Mirrors the `BufferMetrics` pattern from INV-0001.
+
+#### 5.A2 `internal/engine/engine.go` holds concrete `config.AlertsConfig` — **Critical**
+
+`internal/engine/engine.go:37,119` — `Engine` holds a
+`config.AlertsConfig` field and `WithAlertsConfig` accepts that
+concrete struct. The only field consumed is `ReAlertsCooldown`
+(engine.go:463,465). Any rename or restructuring of `AlertsConfig`
+forces an engine.go touch.
+
+Fix: drop the config import. Replace with `reAlertsCooldown time.Duration`
+and a `WithReAlertsCooldown(d time.Duration) EngineOption`. Caller in
+`serve.go` passes `cfg.Alerts.ReAlertsCooldown` directly.
+
+#### 5.A3 `NewPostgresStore` silently ignores `DatabaseConfig.PoolSize` — **Critical**
+
+`internal/store/postgres.go:42` unconditionally sets
+`cfg.MaxConns = defaultPoolSize` (10), ignoring the `PoolSize` field
+read from YAML and available in `config.DatabaseConfig`. Operators who
+configure `database.pool_size` get no effect — the parameter is
+silently discarded. Correctness gap under load.
+
+Fix: change `NewPostgresStore(ctx, connString string)` to accept
+`maxConns int` (or a functional option). Wire from `cfg.Database.PoolSize`
+in `serve.go`.
+
+#### 5.A4 Duplicate `stripJSONFences` in `pkg/extract` and `pkg/judge` — **Important**
+
+`pkg/extract/extractor.go:113` and `pkg/judge/llm_judge.go:151` are
+byte-for-byte identical functions. The comment at `llm_judge.go:147`
+acknowledges this explicitly ("duplicated rather than exported
+because the extract one is a private helper").
+
+Fix: extract to a new `pkg/llmutil` package (or `pkg/extract/response`)
+and export `StripJSONFences`. Both callers import it. No `internal/`
+boundary crossing.
+
+#### 5.A5 `internal/engine/score.go` exports package-level functions that are unused — **Important**
+
+`internal/engine/score.go:77,87,104` — `RescoreListings`,
+`RescoreByProductKey`, and a package-level `RescoreAll` are exported
+but have zero callers outside the package. `(*Engine).RescoreAll`
+(engine.go:246) is the actual public surface — it inlines the cursor
+logic rather than delegating.
+
+Fix: rename to `rescoreListings`, `rescoreByProductKey`, `rescoreAll`
+(unexported). They're implementation details of the engine package.
+
+#### 5.A6 `internal/engine/scheduler.go` imports `pkg/observability/langfuse` only for `WithSessionID` — **Important**
+
+`internal/engine/scheduler.go:18,169` — scheduler imports the entire
+Langfuse package solely to call `langfuse.WithSessionID(ctx, sessionID)`.
+The function is a no-op when Langfuse is disabled, but the import is
+permanent — soft coupling to an optional subsystem.
+
+Fix: move `WithSessionID` / `SessionIDFromContext` into a tiny
+`pkg/session` or `internal/sessionctx` package with no Langfuse
+dependency. The Langfuse client *reads* from the context key but
+doesn't *own* setting it.
+
+#### 5.A7 `QuotaHandler` accepts concrete `*ebay.RateLimiter` — **Nice-to-have**
+
+`internal/api/handlers/quota.go:14-19` — `QuotaHandler` holds
+`*ebay.RateLimiter` directly. Four methods consumed
+(`MaxDaily/DailyCount/Remaining/ResetAt`); every other handler in the
+package defines its own narrow interface.
+
+Fix: define `QuotaProvider` interface; accept it in `NewQuotaHandler`.
+Consistent with `Rescorer`, `Ingester`, `ExtractionStatsStore`,
+`JobsProvider`, `SystemStateProvider` already in the package.
+
+#### 5.A8 Four handlers still accept the full `store.Store` interface — **Nice-to-have**
+
+`internal/api/handlers/listings.go:15`, `watches.go:15`,
+`baselines.go:15`, `health.go:15` — these four handlers hold
+`store.Store` (the 45-method interface, see §1.3) while their peers
+(`extraction_stats.go`, `jobs.go`, `system_state.go`, `rescore.go`,
+`trigger.go`) define narrow per-handler interfaces.
+
+Fix: define `ListingsStore`, `WatchStore`, `BaselinesStore`,
+`HealthStore` interfaces in each handler file, scoped to actually-
+called methods. The existing `MockStore` satisfies them automatically.
+Bundle with §1.3 work.
+
+#### Style (second-pass)
+
+#### 5.S1 Magic verdict thresholds in judge worker — **Important**
+
+`pkg/judge/worker.go:288,290` — `verdictBucket` uses bare `0.7` and
+`0.3` literals with no named constants. The cutoffs also appear in
+`examples.json` and operator docs; a tuning change misses one.
+
+Fix: `const verdictDealThreshold = 0.7` and
+`const verdictNoiseThreshold = 0.3`.
+
+#### 5.S2 Magic `MaxTokens: 256` in judge generate request — **Important**
+
+`pkg/judge/llm_judge.go:87` — literal `256` is the judge's token
+budget; controls truncation. Should be a named constant near the
+other judge defaults.
+
+Fix: `const judgeMaxTokens = 256`.
+
+#### 5.S3 Duplicate `const batchSize = 200` — **Important**
+
+`internal/engine/score.go:109` and `internal/engine/engine.go:247` —
+same constant declared twice in the same package. Both are valid;
+the duplication is a `decl-group` style violation.
+
+Fix: hoist to a single package-level `const` in `engine.go`; delete
+the local declaration in `score.go`.
+
+#### 5.S4 Missing `var _ LLMBackend = (*X)(nil)` compliance assertions — **Important**
+
+`pkg/extract/anthropic.go`, `ollama.go`, `openai_compat.go`,
+`langfuse_backend.go` — none have the interface-compliance assertion.
+`pkg/observability/langfuse` has them on all three Client impls (a
+good precedent). A future method on `LLMBackend` would silently
+break all four implementations.
+
+Fix: add `var _ LLMBackend = (*AnthropicBackend)(nil)` etc. to each
+implementation file.
+
+#### 5.S5 Unreachable `panic` in OTel noop meter registration — **Nice-to-have**
+
+`internal/engine/meter.go:31` and `pkg/extract/meter.go:41` —
+`panic(fmt.Sprintf("noop histogram registration failed: %v", nerr))`
+inside a `sync.OnceValue` closure. The comment acknowledges the noop
+constructor "cannot fail". Unreachable code; Uber rule still says no
+panic outside `main`/`init`.
+
+Fix: drop the inner `if nerr != nil` block; return the noop histogram
+directly.
+
+#### 5.S6 Hard-coded HTTP timeout in `NewAnthropicBackend` — **Nice-to-have**
+
+`pkg/extract/anthropic.go:69` — `60 * time.Second` literal with no
+named constant. Ollama and OpenAI-compat backends also set timeouts;
+all three are bare literals.
+
+Fix: `const defaultAnthropicTimeout = 60 * time.Second` (and same for
+the other two).
+
+#### 5.S7 Test helpers missing `t.Helper()` — **Nice-to-have**
+
+`internal/engine/engine_test.go:39,44` — `expectCountMethods` and
+`newTestEngine` are called from test bodies but don't register
+`t.Helper()`. Stack traces on mock-expectation failures point at the
+wrong line.
+
+Fix: take `t *testing.T` as first param; call `t.Helper()`.
+
+#### 5.S8 Scheduler lock TTLs are bare literals — **Nice-to-have**
+
+`internal/engine/scheduler.go` — `30*time.Minute` appears three times
+(ingestion, re-extraction, judge) and `60*time.Minute` once (baseline
+refresh) as inline literals in `runJob` calls. Tuning knobs for
+operators.
+
+Fix: named constants or config-driven values.
+
+#### Performance (second-pass)
+
+#### 5.P1 `GetAlertDetail` makes two round-trips when one would suffice — **Critical**
+
+`internal/store/postgres.go:685-728` — runs the full
+`alerts/listings/watches` JOIN query (line 687) which already has
+all `watches` columns available via `alertReviewSelectColumns`, then
+calls `s.GetWatch(ctx, row.Alert.WatchID)` (line 713) to re-fetch the
+watch row. The second query is redundant.
+
+`scanAlertWithListing` (line 674) currently scans only `WatchName`
+from the watch, which is why `GetWatch` is "needed". Fix: expand
+`scanAlertWithListing` to populate the full `domain.Watch` from the
+JOIN result. Drop the `GetWatch` call.
+
+Bonus: `rows.Close()` is called explicitly at line 711 *after*
+`defer rows.Close()` at line 698 — double-close. pgx handles it
+idempotently but it's noise.
+
+#### 5.P2 Missing covering index for `queryHasRecentAlert` — **Critical**
+
+`internal/store/queries.go:369` filters
+`watch_id = $1 AND listing_id = $2 AND notified = true AND notified_at > $3`.
+Existing alerts indices: `idx_alerts_watch` (watch_id only),
+`idx_alerts_pending` (partial `WHERE notified = false`). Neither
+covers this access pattern — the partial pending index *excludes*
+notified=true rows. With any volume this is a sequential scan over
+notified-alerts history.
+
+Fix: add migration
+`CREATE INDEX idx_alerts_cooldown ON alerts (watch_id, listing_id, notified_at DESC) WHERE notified = true;`.
+Hot path: every alert evaluation runs this check.
+
+#### 5.P3 Missing covering index for `queryHasSuccessfulNotification` — **Important**
+
+`internal/store/queries.go:382` filters
+`alert_id = $1 AND succeeded = true`. `notification_attempts_alert`
+covers `(alert_id, attempted_at DESC)` but doesn't restrict by
+`succeeded`. Postgres fetches all attempts for the alert and filters
+in memory. For high-retry-rate alerts (Discord 429s) the row count
+grows over time.
+
+Fix: add migration
+`CREATE INDEX notification_attempts_success ON notification_attempts (alert_id) WHERE succeeded = true;`.
+
+#### 5.P4 `DiscordNotifier` uses `http.DefaultClient` — **Important**
+
+`internal/notify/discord.go:48` — `client: http.DefaultClient`.
+`http.DefaultClient` has no timeout and shares the process-wide
+transport with all other HTTP users. Discord webhook calls can block
+indefinitely on network stalls.
+
+Fix: construct a dedicated `*http.Client` with a 15-second timeout
+in `NewDiscordNotifier` as the default, matching the pattern in
+`internal/ebay.BrowseClient` and `internal/ebay.OAuthTokenProvider`.
+`WithHTTPClient(c *http.Client)` option already exists for overrides.
+
+#### 5.P5 `todayUTCMidnight` recomputed per iteration in judge budget check — **Important**
+
+`pkg/judge/worker.go:199` — `checkBudget` is called once per alert
+in the `Run` loop, and each call invokes `todayUTCMidnight()` (line
+199) which calls `time.Now().UTC()` and constructs a `time.Time`.
+The midnight value doesn't change within a tick.
+
+Fix: compute once at the top of `Run`; pass into `checkBudget`. Or
+cache via `sync.OnceValue` if `Run` is short-lived (it is, but the
+parameter pattern is clearer).
+
+#### 5.P6 Missing composite partial indices for unextracted / unscored listings — **Nice-to-have**
+
+`internal/store/queries.go:84` (`queryListUnextractedListings`,
+filter `active = true AND component_type IS NULL`) and `queries.go:96`
+(`queryListUnscoredListings`, filter `active = true AND component_type
+IS NOT NULL AND score IS NULL`). Existing indices are single-column;
+Postgres can bitmap-AND but a composite partial is cheaper.
+
+Fix:
+`CREATE INDEX idx_listings_unextracted ON listings (first_seen_at DESC) WHERE active = true AND component_type IS NULL;`
+and the symmetric one for unscored. Both are hot paths on every
+ingestion tick.
+
+#### 5.P7 Synchronous Langfuse `Score` loop on alert-dismiss HTTP handler — **Nice-to-have**
+
+`internal/api/handlers/alerts_ui.go:128` —
+`scoreOperatorDismissValue` iterates `traceIDs` and calls
+`h.deps.Langfuse.Score(ctx, traceID, ...)` synchronously per trace.
+With the current `BufferedClient` this is a non-blocking enqueue, so
+it's fine in practice. The risk is a future client swap that's
+synchronous would block the HTTP request handler indefinitely.
+
+Fix: detach the loop onto a background goroutine with its own
+context derived from the request context. Buffered client guarantees
+non-blocking but the call-site shape shouldn't depend on the client's
+implementation detail.
+
+#### 5.18 Findings investigated and rejected
+
+Three claims from the second-pass review didn't survive verification.
+Recording them here so they're not rediscovered:
+
+**Rejected #1 — "SQL LIMIT/OFFSET pagination uses unsafe `strconv.Itoa`
+concatenation".** `internal/store/postgres.go:629` uses
+`strconv.Itoa(len(listArgs)-1)` to build placeholder *indices*
+(`$N OFFSET $N+1`), not values. The actual values are passed as
+positional pgx params at line 631 (`listArgs` built at line 620-621).
+The placeholder indices are derived correctly from the same slice's
+length. Not injection-prone, not off-by-one prone. The code is fine.
+
+**Rejected #2 — "Langfuse buffered client hot path has no timeout and
+can block".** `pkg/observability/langfuse/buffered_client.go:230-237`
+implements drop-newest semantics:
+```go
+select {
+case b.jobs <- job:
+    b.metrics.SetDepth(len(b.jobs))
+default:
+    b.metrics.RecordDrop()
+}
+```
+Non-blocking by construction. INV-0001 §"Buffer overflow is
+drop-newest" already established and documented this contract.
+
+**Rejected #3 — "No metrics for observability backend failures".**
+`spt_langfuse_buffer_drops_total` exists and is documented in
+CLAUDE.md ("Operators read it as 'records lost'"). Per INV-0001 the
+counter is the canonical observability for buffer overflow events.
+The agent didn't survey existing metrics before flagging the gap.
+
+---
+
 ## Conclusion
 
 **Answer:** Confirmed. The hypothesis underestimated the surface area —
-the four reviews surfaced **24 distinct issues** with varying severity:
+the first-pass review surfaced 24 distinct issues, and a second pass
+against the same commit surfaced 17 additional findings (§5) plus 3
+expansions of existing §2.4/§3.1/§3.2 entries. **Net: 41 issues across
+both passes.**
+
+First-pass totals (§1-§4):
 
 | Severity | Count | Lens distribution |
 |---|---|---|
@@ -584,12 +948,39 @@ the four reviews surfaced **24 distinct issues** with varying severity:
 | Important | 11 | architect=2, style=4, perf=2, debt=3 |
 | Nice-to-have | 7 | architect=2, style=2, perf=3, debt=0 |
 
-The boundary violations (§1.1, §1.2) and `slog.Default()` (§2.4) are
-unambiguous bugs masquerading as style issues — they should be fixed
-immediately. The Store interface split (§1.3) and ComponentType registry
-(§4.5) are the largest refactors but unlock the most downstream wins.
-The N+1 fixes (§3.1, §3.2) are the highest-leverage perf changes —
-single-PR, measurable wallclock impact on `/api/v1/ingest`.
+Second-pass additions (§5):
+
+| Severity | Count | Lens distribution |
+|---|---|---|
+| Critical | 3 | architect=2, perf=1 (+ 1 missing-index = perf) |
+| Important | 9 | architect=3, style=4, perf=2 |
+| Nice-to-have | 5 | architect=2, style=4 (1 covered by 4 entries), perf=2 |
+
+Plus 3 false-positive claims investigated and rejected (§5.18).
+
+**Combined totals: 9 Critical, 20 Important, 12 Nice-to-have.**
+
+The boundary violations (§1.1, §1.2) and `slog.Default()` (§2.4,
+expanded in §5) are unambiguous bugs masquerading as style issues —
+they should be fixed immediately. The Store interface split (§1.3)
+and ComponentType registry (§4.5) are the largest refactors but
+unlock the most downstream wins. The N+1 fixes (§3.1, §3.2, now
+expanded to cover `RescoreAll` and `processSummary`) are the highest-
+leverage perf changes — single-PR, measurable wallclock impact on
+`/api/v1/ingest`.
+
+Second-pass surfaces several issues the first pass missed because they
+require deeper reading than a structural scan:
+
+- **§5.A3 PoolSize ignored** — a *correctness* bug, not a style
+  issue. Operators can't actually tune the pool. Should jump the queue.
+- **§5.P1 GetAlertDetail double-fetch** — the JOIN already has the
+  watch data; the second query is pure waste.
+- **§5.P2 missing index for `queryHasRecentAlert`** — the partial
+  index on alerts deliberately excludes notified=true, but the cooldown
+  check needs exactly that subset. Sequential scan grows with history.
+- **§5.A4 duplicate `stripJSONFences`** — the comment in the second
+  copy acknowledges the duplication. Easy fix; high readability win.
 
 Nothing surfaced suggests a rewrite; the architecture is sound (interface-
 first design held up, the `pkg/`/`internal/` split is mostly clean, the
@@ -606,54 +997,103 @@ parenthesised tag is the section above):
 1. `pkg/extract` → `internal/metrics` adapter pattern (§1.1)
 2. `pkg/extract` → drop `internal/version` import via functional option (§1.1)
 3. `internal/config` → drop `pkg/observability/langfuse` import (§1.2)
-4. `slog.Default()` → injected logger in `alert.go` (§2.4)
+4. `slog.Default()` → injected logger across all five sites (§2.4 +
+   §5.S library-package additions: `pkg/judge`, `pkg/observability/langfuse`,
+   `pkg/extract`)
 5. Error-chain fix in 18 Huma handlers (§2.9)
 6. `slog` "failed to" sweep — single mechanical PR (§2.1)
+7. **NEW**: Fix `PoolSize` ignored bug in `NewPostgresStore` — silent
+   correctness gap, ~10 LOC change (§5.A3)
+8. **NEW**: Drop `config.AlertsConfig` from `Engine`; pass
+   `time.Duration` directly (§5.A2)
+9. **NEW**: Move `WithSessionID` out of `pkg/observability/langfuse`
+   into a separate `pkg/session` package (§5.A6)
+10. **NEW**: `internal/store/postgres.go` → drop `internal/metrics`
+    import via `StoreMetricsRecorder` adapter pattern (§5.A1)
 
 ### Wave 2 — performance (parallel, low risk)
 
-7. Cache `ListWatches` per engine tick (§3.1)
-8. Batch alert hydration via `ListingsByIDs` + `AlertsWithNotificationStatus` (§3.2)
-9. `RecomputeAllBaselines` single-SQL rewrite (§3.3)
-10. `AlertsFiredByWatch` label switch to `watch_id` (§3.8)
+1. Cache `ListWatches` per engine tick — covers ingestion AND
+   `RescoreAll` call sites (§3.1, expanded)
+2. Batch alert hydration via `ListingsByIDs` + `AlertsWithNotificationStatus`
+   — covers `sendBatch` AND `processSummary` (§3.2, expanded)
+3. `RecomputeAllBaselines` single-SQL rewrite (§3.3)
+4. `AlertsFiredByWatch` label switch to `watch_id` (§3.8)
+5. **NEW**: Collapse `GetAlertDetail` to single query (expand
+    `scanAlertWithListing` to populate full watch; drop the
+    `GetWatch` re-fetch and the double `rows.Close()`) (§5.P1)
+6. **NEW**: Add `idx_alerts_cooldown` covering index for
+    `queryHasRecentAlert` — DB migration (§5.P2)
+7. **NEW**: Add `notification_attempts_success` partial index for
+    `queryHasSuccessfulNotification` — DB migration (§5.P3)
+8. **NEW**: `DiscordNotifier` — replace `http.DefaultClient` with
+    a dedicated client + 15s timeout (§5.P4)
+9. **NEW**: Compute `todayUTCMidnight` once per judge tick, pass
+    into `checkBudget` (§5.P5)
 
 ### Wave 3 — naming + ergonomics (sequence with §1.3)
 
-11. Store interface split into per-entity interfaces (§1.3)
-12. Drop `Get` prefix sweep, bundled with §1.3 rename (§2.3)
-13. Disambiguate `RescoreAll` (§1.5)
-14. Naked bool params → named modes (§2.7)
+1. Store interface split into per-entity interfaces (§1.3)
+2. Drop `Get` prefix sweep, bundled with §1.3 rename (§2.3)
+3. Disambiguate `RescoreAll` (§1.5)
+4. Naked bool params → named modes (§2.7)
 
 ### Wave 4 — testability + scan-order safety
 
-15. Adopt pgx scany; remove inline scan functions (§4.4)
-16. Add testcontainers-backed `dbtest` build tag with PostgresStore tests (§4.1)
+1. Adopt pgx scany; remove inline scan functions (§4.4)
+2. Add testcontainers-backed `dbtest` build tag with PostgresStore tests (§4.1)
 
 ### Wave 5 — structural cleanup
 
-17. Split `serve.go` into `internal/bootstrap/*` packages (§4.2)
-18. Move `ProcessAlerts` and friends onto `*Engine` (§1.7)
-19. Move `judgeWorker` package-level var into struct field (§1.6)
+1. Split `serve.go` into `internal/bootstrap/*` packages (§4.2)
+2. Move `ProcessAlerts` and friends onto `*Engine` (§1.7)
+3. Move `judgeWorker` package-level var into struct field (§1.6)
 
 ### Wave 6 — the big lift
 
-20. ComponentType registry pattern (§4.5) — single largest refactor;
+1. ComponentType registry pattern (§4.5) — single largest refactor;
     do after waves 1-5 so the registry can take advantage of the cleaner
     Store interfaces and bootstrap separation.
 
 ### Wave 7 — polish
 
-21. Templ viewmodel layer (§1.8)
-22. Pre-classifier hook list (§4.8)
-23. Orphan baseline auto-cleanup (§4.7)
-24. Condition derivation from title (§4.9)
-25. `resp := &OutputType{}` → `var resp OutputType` sweep (§2.2)
-26. Misc style fixes (§2.5, §2.6, §2.8, §3.4, §3.5, §3.6, §3.7)
+1. Templ viewmodel layer (§1.8) — note: moot if INV-0003 SPA
+    refactor lands (see §6 of INV-0003)
+2. Pre-classifier hook list (§4.8)
+3. Orphan baseline auto-cleanup (§4.7)
+4. Condition derivation from title (§4.9)
+5. `resp := &OutputType{}` → `var resp OutputType` sweep (§2.2)
+6. Misc style fixes (§2.5, §2.6, §2.8, §3.4, §3.5, §3.6, §3.7)
+7. **NEW**: Magic-number constants in judge: verdict thresholds and
+    MaxTokens (§5.S1, §5.S2)
+8. **NEW**: Hoist duplicate `const batchSize = 200` (§5.S3)
+9. **NEW**: Add `var _ LLMBackend = (*X)(nil)` compliance assertions
+    on all four implementations (§5.S4)
+10. **NEW**: Hoist HTTP timeout to named constant in
+    `NewAnthropicBackend` (and symmetric for Ollama/OpenAI-compat)
+    (§5.S6)
+11. **NEW**: Drop unreachable `panic` in OTel noop meter registration
+    (§5.S5)
+12. **NEW**: Migrate four remaining handlers off `store.Store` to
+    narrow interfaces — bundle with §1.3 work (§5.A8)
+13. **NEW**: `QuotaHandler` → `QuotaProvider` interface (§5.A7)
+14. **NEW**: Rename unused exports in `internal/engine/score.go`
+    (`RescoreListings`, etc.) (§5.A5)
+15. **NEW**: Add composite partial indices for unextracted/unscored
+    listings — DB migration (§5.P6)
+16. **NEW**: Detach `scoreOperatorDismissValue` loop onto background
+    goroutine (§5.P7)
+17. **NEW**: Move `stripJSONFences` to shared `pkg/llmutil` package
+    (§5.A4)
+18. **NEW**: Scheduler lock TTLs → named constants or config (§5.S8)
+19. **NEW**: Add `t.Helper()` to engine test helpers (§5.S7)
 
 Each wave is independently shippable; deploys can land between waves.
-Total effort estimate: **8-12 PRs of substance + a long tail of style
-sweeps**. None of the substantial PRs should exceed ~600 LOC; most will
-be smaller.
+Total effort estimate (after second-pass additions): **12-16 PRs of
+substance + a long tail of style sweeps**. None of the substantial
+PRs should exceed ~600 LOC; most will be smaller. Two NEW critical
+fixes from the second pass (PoolSize §5.A3, AlertsConfig coupling
+§5.A2) should land in Wave 1 alongside the original boundary work.
 
 ## References
 
