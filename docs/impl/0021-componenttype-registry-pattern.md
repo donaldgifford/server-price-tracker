@@ -27,14 +27,17 @@ created: 2026-05-15
     - [Tasks](#tasks-1)
     - [Success Criteria](#success-criteria-1)
   - [Phase 3: Migrate remaining ComponentTypes](#phase-3-migrate-remaining-componenttypes)
+    - [Phase 3a Tasks (drive, cpu, nic, other)](#phase-3a-tasks-drive-cpu-nic-other)
+    - [Phase 3b Tasks (server, gpu, workstation, desktop)](#phase-3b-tasks-server-gpu-workstation-desktop)
+    - [Success Criteria (whole of Phase 3)](#success-criteria-whole-of-phase-3)
+  - [Phase 4: Cleanup + documentation](#phase-4-cleanup--documentation)
     - [Tasks](#tasks-2)
     - [Success Criteria](#success-criteria-2)
-  - [Phase 4: Cleanup + documentation](#phase-4-cleanup--documentation)
-    - [Tasks](#tasks-3)
-    - [Success Criteria](#success-criteria-3)
 - [Dependencies](#dependencies)
 - [Risks](#risks)
 - [Open Questions](#open-questions)
+  - [Resolved](#resolved)
+  - [Still open](#still-open)
 - [References](#references)
 <!--toc:end-->
 
@@ -104,9 +107,21 @@ is a Go compile error or a registry validation panic at init.
 
 ## Implementation Phases
 
-Four phases, each a separate PR. Phases must land in order (Phase 2
-depends on Phase 1's foundation; Phase 3 depends on Phase 2's pilot
-proving the pattern; Phase 4 deletes code Phase 3 made obsolete).
+Four phases that ship as **five PRs** — Phase 3 splits into 3a
+(simple types) and 3b (complex types) per resolved Q1. Phases must
+land in order (each depends on the previous one's completion).
+
+| Order | Phase | Scope | PR |
+|---|---|---|---|
+| 1 | Phase 1 | Registry foundation | 1 |
+| 2 | Phase 2 | Pilot (ram) | 2 |
+| 3 | Phase 3a | Simple types — drive, cpu, nic, other | 3 |
+| 4 | Phase 3b | Complex types — server, gpu, workstation, desktop | 4 |
+| 5 | Phase 4 | Cleanup + documentation | 5 |
+
+IMPL-0021 fits between IMPL-0020 Phase 2 and Phase 3 in the
+overall IMPL-0020 / IMPL-0021 sequence (see IMPL-0020's Phase / PR
+map for the combined ordering).
 
 ---
 
@@ -252,26 +267,48 @@ follows this same shape.
 cpu, nic, gpu, workstation, desktop, other) following the Phase 2
 pattern.
 
-This is the largest phase. **Open Q1** asks whether to ship as one
-PR (8 migrations bundled) or split into 2-3 PRs (e.g., simple types
-first: drive/cpu/nic/other; then complex: server/gpu/workstation/
-desktop).
+**Split into two PRs (resolved Q1):**
 
-#### Tasks
+- **Phase 3a:** simple types — drive, cpu, nic, other (4 types)
+- **Phase 3b:** complex types — server, gpu, workstation, desktop
+  (4 types; concentrates the gotchas)
 
-For **each** ComponentType (drive, server, cpu, nic, gpu,
-workstation, desktop, other):
+Phase 3a proves the pattern at scale (4 types ≠ 1 pilot) without
+the per-type complexity that makes the complex types high-risk.
+Phase 3b carries the gotchas (server tier suffix, GPU
+canonicalisation, system normaliser) in one focused diff that a
+reviewer can read end-to-end.
+
+#### Phase 3a Tasks (drive, cpu, nic, other)
+
+For **each** of drive / cpu / nic / other:
 
 - [ ] Create `pkg/extract/component/<type>.go` mirroring the
       `ram.go` shape from Phase 2:
-  - Define `<type>Component` with all five Component fields
+  - Define `<type>Component` with all six Component fields (Name,
+    DBConstraint, PreClassifyPatterns, PromptTemplate, Validator,
+    Normaliser, ProductKey)
   - Move validator, normaliser, product-key, prompt template, and
     pre-classify pattern from the existing files
-  - Add `init()` registration
+  - Add `init()` registration that calls `defaultRegistry.Register`
 - [ ] Update consumers to use the registry for this type.
-- [ ] Run `make test-regression`; confirm per-component accuracy
-      is unchanged.
 - [ ] Add unit tests for the type's component file.
+
+At the end of Phase 3a:
+
+- [ ] Run `make test-regression` (full run, all 9 ComponentTypes
+      per resolved Q4). Confirm no per-component regression.
+- [ ] CLAUDE.md update: note that drive/cpu/nic/other are now in
+      the registry; server/gpu/workstation/desktop pending Phase 3b.
+
+#### Phase 3b Tasks (server, gpu, workstation, desktop)
+
+For **each** of server / gpu / workstation / desktop:
+
+- [ ] Create `pkg/extract/component/<type>.go` — same shape as 3a.
+- [ ] Update consumers to use the registry for this type.
+- [ ] Add unit tests with extra coverage on the per-type gotchas
+      (see below).
 
 **Component-specific gotchas to preserve:**
 
@@ -290,13 +327,18 @@ workstation, desktop, other):
   inference) must move intact. `systemServerLineDenylist` (drops
   PowerEdge/ProLiant/UCS hallucinations) is also part of the
   workstation/desktop normaliser, not the extractor.
-- **other**: minimal — no extracted attributes; product key empty.
-  The pre-classify pattern is the only meaningful field; validator
-  is essentially a no-op.
 
-#### Success Criteria
+At the end of Phase 3b:
 
-- `make lint`, `make test`, `make test-regression` pass.
+- [ ] Run `make test-regression` (full run). Confirm no regression
+      across all 9 types.
+- [ ] CLAUDE.md update: note Phase 3 complete; all 9 types in the
+      registry.
+
+#### Success Criteria (whole of Phase 3)
+
+- `make lint`, `make test`, `make test-regression` all green at
+  end of both Phase 3a and Phase 3b.
 - All 9 ComponentTypes are registered:
   `component.Default().All()` returns 9 entries.
 - `Registry.Validate()` returns nil — every component has every
@@ -420,69 +462,49 @@ new shape.
 
 ## Open Questions
 
-1. **Phase 3 PR shape — one big PR or three smaller?** Phase 3
-   migrates 8 ComponentTypes. Three options:
-   (a) Single PR — all 8 types in one diff. Largest PR size, but
-   coherent: "Phase 3 complete".
-   (b) Two PRs — simple types first (drive, cpu, nic, other),
-   complex types second (server, gpu, workstation, desktop).
-   (c) Eight PRs — one per type. Most reviewable per-PR; most
-   coordination cost.
-   Recommend (b) — keeps PR size manageable while batching related
-   work. The simple-types PR proves the pattern at scale (4 types
-   ≠ 1 pilot); the complex-types PR concentrates the gotchas
-   (server tier, GPU canonicalisation, workstation/desktop
-   inference) in one reviewable diff.
+### Resolved
 
-2. **Should `Component.DBConstraint` actually be exposed?** Today
-   the DB CHECK constraint string equals `string(Name)` for every
-   type. Two views:
-   (a) Keep `DBConstraint` as a separate field — defensive against
-   future divergence (e.g., a ComponentType whose constraint value
-   is different from the canonical name).
-   (b) Drop it; document that `string(Name)` is the constraint
-   value.
-   Recommend (a) — defensive; the field is one string per type and
-   makes the contract explicit.
+- **Q1 — Phase 3 PR shape (RESOLVED 2026-05-17).** Option (b) —
+  two PRs. Simple types first (drive, cpu, nic, other) prove the
+  pattern at scale; complex types second (server, gpu, workstation,
+  desktop) concentrate the gotchas in one reviewable diff. Updates
+  the Phase / PR map: IMPL-0021 ships as 5 PRs (Phase 1 +
+  Phase 2 + Phase 3a + Phase 3b + Phase 4).
+- **Q2 — Keep `Component.DBConstraint` field (RESOLVED 2026-05-17).**
+  Option (a) — keep as a separate field. Defensive against future
+  divergence; one string per type; makes the contract explicit.
+  No code change needed beyond the existing Phase 1 task.
+- **Q3 — Registry validate at init() (RESOLVED 2026-05-17).** Option
+  (a) — validate at init() and panic on first invalid component.
+  Startup failure beats a runtime nil-deref weeks later.
+  **Future note:** the user flagged that lazy validation may be
+  preferred eventually — particularly if/when the extraction
+  pipeline gets carved into its own microservice (the registry
+  would then be wire-loaded from configuration at boot rather than
+  Go init()-loaded). When that happens, `Registry.Validate()`
+  becomes an explicit step in the boot sequence and the init()
+  panics get removed. Not a near-term change; flagged in CLAUDE.md
+  after Phase 4 as a known future direction.
+- **Q4 — Test-regression budget (RESOLVED 2026-05-17).** Full
+  regression at the end of each PR. Each reviewable diff is gated
+  on `make test-regression` green across every ComponentType, not
+  just the one(s) being migrated. The cost (one extra full run per
+  PR) is small relative to the regression-confidence value.
+- **Q5 — Shared normaliser helpers location (RESOLVED 2026-05-17).**
+  Option (a) — helpers stay in `pkg/extract/normalize.go` as
+  package-level functions imported by each component file. Keeps
+  component files focused on their own type; shared helpers in the
+  parent package is the natural layering.
+- **Q6 — Auto-generated CHECK migration (RESOLVED 2026-05-17).**
+  Defer. Adding a CHECK migration stays manual; document in
+  CLAUDE.md (per Phase 4) as one of the three remaining
+  touchpoints. A registry-emits-migration helper drifts toward
+  scope creep; revisit only if missed-CHECK incidents recur after
+  IMPL-0021 ships.
 
-3. **Should the registry validate at `init()` or lazily?**
-   `Registry.Validate()` checks every component has every required
-   field non-nil. Two options:
-   (a) Call `Validate()` from each component file's `init()` (or
-   from `Default()`'s lazy init) and panic on first invalid
-   component. Fails loud at startup.
-   (b) Make `Validate()` an opt-in method callers run if they want
-   the guarantee.
-   Recommend (a) — startup failure is much better than a runtime
-   nil-deref three weeks later.
+### Still open
 
-4. **Test-regression budget for Phase 3 incremental runs.** See
-   risk #5. Should each ComponentType migration trigger a full
-   regression run, or a per-component subset?
-   Recommend: full regression at the end of each PR (so each
-   reviewable diff is gated on regression-runner green), not
-   per-individual-type within a PR.
-
-5. **Where do shared normaliser helpers live?** Functions like
-   placeholder-enum stripping, capacity-unit repair,
-   `NormalizeExtraction` (the cross-component normaliser that runs
-   *before* component-specific normalisation) need a home. Options:
-   (a) Stay in `pkg/extract/normalize.go` as package-level helpers
-   imported by each component file.
-   (b) Move to `pkg/extract/component/shared.go`.
-   Recommend (a) — keeps the component files focused on their own
-   type; shared helpers in the parent package is the natural
-   layering.
-
-6. **Should Phase 4 also extract the embedded CHECK migration text
-   into a registry helper?** Today, adding a ComponentType requires
-   editing the migration manually (DROP + ADD the CHECK). A
-   registry helper that emits the CHECK clause given the current
-   `Registry.All()` would eliminate the chance of forgetting a
-   type. But this drifts toward "registry generates migrations",
-   which is scope creep. Recommend: defer to a follow-up; document
-   the "add a CHECK migration" step in CLAUDE.md as the second of
-   three remaining touchpoints.
+None — all 6 open questions resolved on 2026-05-17.
 
 ## References
 

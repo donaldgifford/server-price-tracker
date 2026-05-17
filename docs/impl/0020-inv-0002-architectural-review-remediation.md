@@ -67,17 +67,27 @@ This doc is the execution plan. INV-0002 is the source of truth for
 
 ### Phase / PR map
 
-| Phase | Title | Findings | PR # |
-|---|---|---|---|
-| 1 | Critical findings | 11 | 1 |
-| 2A | Important — Architecture | 7 | 2 |
-| 2B | Important — Performance | 5 | 3 |
-| 2C | Important — Style sweeps | 9 | 4 |
-| 2D | Important — Tech debt | 5 | 5 |
-| 3 | Nice-to-have findings | 19 | 6 |
+Phases ship in this order; Phase 3 lands **last**, after all of
+IMPL-0021 has merged (per resolved Q10):
 
-6 PRs from IMPL-0020 + however many IMPL-0021 produces for the
-ComponentType registry.
+| Order | Phase | Title | Findings | PR # |
+|---|---|---|---|---|
+| 1 | 1 | Critical findings | 11 | 1 |
+| 2 | 2A | Important — Architecture | 7 | 2 |
+| 3 | 2B | Important — Performance | 5 | 3 |
+| 4 | 2C | Important — Style sweeps | 9 | 4 |
+| 5 | 2D | Important — Tech debt | 5 | 5 |
+| 6 | — | IMPL-0021 Phase 1 (Registry foundation) | — | 7 |
+| 7 | — | IMPL-0021 Phase 2 (Pilot — ram) | — | 8 |
+| 8 | — | IMPL-0021 Phase 3a (Simple types) | — | 9 |
+| 9 | — | IMPL-0021 Phase 3b (Complex types) | — | 10 |
+| 10 | — | IMPL-0021 Phase 4 (Cleanup) | — | 11 |
+| 11 | 3 | Nice-to-have findings | 19 | 6 |
+
+6 PRs from IMPL-0020 + 5 PRs from IMPL-0021 = **11 PRs total**
+to fully resolve INV-0002. Phase 2 sub-phases (2A-2D) are
+independent and can run in parallel after Phase 1; IMPL-0021 is
+independent of Phase 2 but must precede Phase 3.
 
 ## Scope
 
@@ -263,30 +273,40 @@ of those changes (query optimisation, N+1 batching).
 **1.9 Tests + telemetry verification:**
 
 - [ ] All new interfaces have generated mocks (`make mocks`).
-- [ ] Add table-driven tests for the new `ListingsByIDs` /
-      `AlertsWithNotificationStatus` methods (testcontainers-backed,
-      see Q4 below — falls back to mock-based until Phase 2 lands
-      `dbtest` build tag).
+- [ ] **Establish the testcontainers harness in Phase 1** (per
+      resolved Q4). Add `//go:build dbtest` build tag,
+      `make test-db` target, and a `testutil/pgcontainer` helper
+      that spins up a Postgres container and runs migrations.
+      This is the foundation Phase 2D §4.1 expands to ≥80%
+      coverage.
+- [ ] Add table-driven `dbtest`-tag tests for the new
+      `ListingsByIDs` / `AlertsWithNotificationStatus` methods
+      against the testcontainers Postgres.
 - [ ] Add a regression test confirming `evaluateAlertsForListing`
       doesn't call `ListWatches` once the cache is in place (mock
       assertion: `ListWatches` called exactly once per tick).
-- [ ] Add a benchmark or table-driven duration assertion confirming
-      `GetAlertDetail` issues exactly one DB query (count via
-      pgx-level tracing or a `QueryRecorder` test double).
+- [ ] Add a `dbtest`-tag assertion that `GetAlertDetail` issues
+      exactly one DB query (count via pgx-level tracing or a
+      `QueryRecorder` test double on the testcontainers connection).
 - [ ] CLAUDE.md updates: remove scan-order warning; note the new
-      per-entity Store interfaces.
+      per-entity Store interfaces; note the new `dbtest` build tag
+      and `make test-db` target.
 
 #### Success Criteria
 
 - `make lint` passes (Uber Go Style Guide via golangci-lint).
 - `make test` passes.
+- `make test-db` (new build-tag target) passes against a local
+  testcontainers Postgres — Phase 1 establishes the harness;
+  Phase 2D §4.1 expands the coverage to ≥80%.
 - `make build` produces both binaries (`server-price-tracker` and
   `spt`).
 - `pkg/extract` has zero `internal/` imports (grep proof:
   `! rg "internal/" pkg/extract/`).
 - `internal/store/store.go` defines ≥8 per-entity interfaces; the
-  monolithic `Store` interface either survives as an alias union or
-  is removed entirely (see Q3).
+  monolithic `Store` survives as a deprecated union (per resolved
+  Q3) with the `// Deprecated:` doc-comment template documented in
+  §1.3.
 - All 5 `slog.Default()` sites use injected loggers; the regression
   is caught by a linter rule (forbid `slog.Default` outside
   `cmd/spt`) committed as part of this phase.
@@ -470,12 +490,13 @@ large but the change per file is small.
 
 ##### Tasks
 
-- [ ] **(INV §4.1)** Add testcontainers-backed Postgres tests gated
-      behind `//go:build dbtest`. Target ≥80% coverage on
-      `PostgresStore` methods (initially the most critical: alert
-      review query, baseline recompute, listing CRUD, queue
-      lifecycle). The fast `make test` path stays mock-only;
-      `make test-db` runs the new tag.
+- [ ] **(INV §4.1)** Expand testcontainers `PostgresStore` test
+      coverage (harness was established in Phase 1 §1.9 per resolved
+      Q4). Target ≥80% coverage on `PostgresStore` methods —
+      previously the most critical (alert review query, baseline
+      recompute, listing CRUD, queue lifecycle) plus the long tail
+      of methods Phase 1 didn't touch. The fast `make test` path
+      stays mock-only; `make test-db` runs the `dbtest` tag.
 - [ ] **(INV §4.2)** Split `cmd/server-price-tracker/cmd/serve.go`
       (677 LOC) into `internal/bootstrap/*` packages:
   - `internal/bootstrap/store.go` (DB connect + migrate)
@@ -504,8 +525,8 @@ large but the change per file is small.
 ##### Success Criteria
 
 - `make lint` and `make test` pass.
-- `make test-db` (new build-tag target) passes against a local
-  testcontainers Postgres.
+- `make test-db` (established in Phase 1) now exercises ≥80%
+  coverage of `PostgresStore` methods.
 - `cmd/server-price-tracker/cmd/serve.go` is ≤200 LOC (down from
   677); the boot path is composed from `internal/bootstrap/*`.
 - Forbidigo lint rule rejects new `slog.Default()` outside
@@ -523,6 +544,15 @@ large but the change per file is small.
 **Goal:** the 19 Nice-to-have polish items. None block anything; this
 phase is a "cleanup PR" that benefits from being batched so the
 review and merge cost amortises.
+
+**Scheduling (resolved Q10):** Phase 3 ships **last** — after Phase 1,
+all four Phase 2 sub-phases (2A-2D), AND all four IMPL-0021 phases
+have merged. Several Phase 3 tasks are made easier or moot by the
+earlier work (§1.7 `ProcessAlerts` move is partially done by Phase 1
+§2.4; §5.A8 deletes the deprecated `Store` union which is only safe
+once every other consumer has migrated; §1.8 templ viewmodels may
+be moot if INV-0003 SPA refactor lands first). INV-0002 status flips
+to "Concluded" only after Phase 3 ships.
 
 #### Tasks
 
@@ -629,9 +659,11 @@ review and merge cost amortises.
 - **Phase 1 → Phase 2C:** Phase 2C's `Get`-prefix sweep (§2.3)
   depends on Phase 1's Store interface split (§1.3) because the
   methods being renamed are the interface methods.
-- **Phase 1 → Phase 2D:** Phase 2D's testcontainers `dbtest` build
-  tag (§4.1) builds on Phase 1's pgx scany migration (§4.4) — the
-  struct-tag-driven scanner is what the new tests will exercise.
+- **Phase 1 → Phase 2D:** Phase 2D's expanded `PostgresStore`
+  coverage (§4.1) builds on Phase 1's pgx scany migration (§4.4)
+  — the struct-tag-driven scanner is what the tests exercise. The
+  testcontainers harness itself ships in Phase 1 §1.9 (resolved
+  Q4); Phase 2D extends the coverage to ≥80%.
 - **Phase 1 → Phase 3:** Phase 3's `ProcessAlerts` → method move
   (§1.7) was partially done by Phase 1's logger-injection work; the
   finalisation is a cleanup task.
@@ -681,40 +713,37 @@ review and merge cost amortises.
   before the bug fixes that depend on (or might be replaced by)
   them — premature bug-fix work risks being deleted by the
   refactor it depends on.
+- **Q4 — Testcontainers vs sqlmock for Phase 1 tests (RESOLVED
+  2026-05-17).** Phase 1 ships the testcontainers harness from the
+  start. Phase 1 §1.9 establishes the `//go:build dbtest` tag,
+  `make test-db` target, and `testutil/pgcontainer` helper. New
+  batch methods (`ListingsByIDs`, `AlertsWithNotificationStatus`)
+  and the `GetAlertDetail` query-count assertion all run against
+  the testcontainers Postgres. Phase 2D §4.1 expands coverage from
+  the Phase-1 starter set to ≥80%.
+- **Q6 — Migration numbering (RESOLVED 2026-05-17).** Proceed with
+  015 (cooldown index), 016 (notification success index), 017
+  (composite partial indices for listings). If any in-flight work
+  claims these slots before merge, renumber at PR time.
+- **Q7 — CLAUDE.md update granularity (RESOLVED 2026-05-17).**
+  Inline updates per task — matches the existing convention from
+  IMPL-0017, IMPL-0018, IMPL-0019. Each phase's PR includes the
+  CLAUDE.md edits that follow from its tasks.
+- **Q9 — Lint rule for `slog.Default()` enforcement (RESOLVED
+  2026-05-17).** Use `forbidigo` with exemptions for `cmd/spt/`
+  (CLI user-facing output) and `*_test.go` (test setup convenience).
+  Rule lands as part of Phase 2D §4.3 alongside the existing
+  removals (Phase 1 cleared every violation; Phase 2D codifies
+  enforcement).
+- **Q10 — Phase 3 scheduling (RESOLVED 2026-05-17).** Phase 3 is
+  explicitly scheduled but lands *last* — after Phase 1, all four
+  Phase 2 sub-phases, AND all of IMPL-0021. The Phase / PR map is
+  updated to reflect this ordering. INV-0002 status flips to
+  "Concluded" only after Phase 3 ships.
 
 ### Still open
 
-- **Q4 — Testcontainers vs sqlmock for Phase 1 §1.8 tests.** Phase 2D
-  §4.1 adds testcontainers-backed `PostgresStore` tests gated behind
-  `dbtest`. Phase 1's new batch methods (`ListingsByIDs`,
-  `AlertsWithNotificationStatus`) need test coverage too. Should
-  Phase 1 ship the testcontainers harness ahead of Phase 2, or use
-  mock-based tests in Phase 1 and add testcontainers in Phase 2D?
-  Recommend: Phase 1 uses mock-based tests for the new batch methods;
-  Phase 2D retroactively adds testcontainers tests as part of §4.1.
-  Keeps Phase 1 scope focused on Critical fixes.
-- **Q6 — Migration numbering.** This IMPL proposes 015 (cooldown
-  index), 016 (notification success index), 017 (composite partial
-  indices for listings). If any other in-flight work claims these
-  slots, renumber here.
-- **Q7 — CLAUDE.md update granularity.** Each phase updates CLAUDE.md
-  in-flight (as tasks remove warnings or note new structure). Is a
-  single end-of-phase summary commit preferable to inline updates?
-  Inline keeps the doc in sync with the code at each task completion;
-  end-of-phase keeps history cleaner. Recommend inline (matches
-  existing convention from IMPL-0017, IMPL-0018, IMPL-0019).
-- **Q9 — Lint rule for `slog.Default()` enforcement.** Phase 2D §4.3
-  commits a lint rule forbidding `slog.Default()` outside `cmd/spt`
-  and `*_test.go`. Use `forbidigo`. Are there any other legitimate
-  callers to grandfather? Recommend: `forbidigo` with an exemption
-  for `cmd/spt/` and `*_test.go` files only.
-- **Q10 — Phase 3 deferred indefinitely?** Nice-to-have items are by
-  definition optional. If the operator chooses to defer Phase 3
-  indefinitely after Phase 2 ships, that's acceptable — INV-0002 can
-  be marked "Mostly Resolved" with the Nice-to-have items tracked
-  separately. Confirm: does the user want Phase 3 explicitly scheduled,
-  or shipped opportunistically when nearby work touches the relevant
-  files?
+None — all 10 open questions resolved on 2026-05-15 / 2026-05-17.
 
 ## References
 
