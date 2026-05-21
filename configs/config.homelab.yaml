@@ -1,0 +1,160 @@
+---
+# -- Application configuration (mirrors Go Config struct).
+# Non-secret values are rendered as literals. Secret values use ${ENV_VAR}
+# placeholders resolved at runtime by os.ExpandEnv().
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+
+database:
+  host: "${DB_HOST}"
+  port: 5432
+  name: "${DB_NAME}"
+  user: "${DB_USER}"
+  password: "${DB_PASSWORD}"
+  sslmode: require
+  pool_size: 10
+
+ebay:
+  app_id: "${EBAY_APP_ID}"
+  cert_id: "${EBAY_CERT_ID}"
+  token_url: "${EBAY_TOKEN_URL}"
+  browse_url: "${EBAY_BROWSE_URL}"
+  marketplace: EBAY_US
+  max_calls_per_cycle: 50
+
+llm:
+  # -- Backend: "ollama" (default), "anthropic", or "openai_compat"
+  backend: anthropic
+
+  # Ollama (used when backend: ollama). Endpoint auto-resolves to the
+  # in-cluster Service when ollama.enabled=true (see bottom of values).
+  ollama:
+    endpoint: "http://ollama.ollama.svc:11434"
+    model: "mistral:7b-instruct-v0.3-q5_K_M"
+
+  # Anthropic Claude API (used when backend: anthropic).
+  # Requires ANTHROPIC_API_KEY in the Secret (see secret.values below).
+  # When using anthropic, leave ollama.enabled=false to skip the StatefulSet.
+  # To switch from ollama:
+  #   1. Set backend: anthropic
+  #   2. Set anthropic.model to one of the examples below
+  #   3. Set secret.values.ANTHROPIC_API_KEY (or supply via existingSecret)
+  anthropic:
+    model: "claude-haiku-4-5-20251001"
+    # Examples:
+    #   model: claude-haiku-4-5-20251001   # cheapest, fastest — recommended for extraction
+    #   model: claude-sonnet-4-6           # higher quality, more expensive
+    #   model: claude-opus-4-7             # highest quality, most expensive
+
+  # OpenAI-compatible endpoint (vLLM, llama.cpp server, OpenRouter, LiteLLM, etc.).
+  # Used when backend: openai_compat.
+  openai_compat:
+    endpoint: ""
+    model: ""
+    # Example (self-hosted vLLM):
+    #   endpoint: http://vllm.llm.svc.cluster.local:8000/v1
+    #   model: meta-llama/Llama-3.1-8B-Instruct
+
+  use_grammar: true
+  concurrency: 4
+  timeout: 30s
+
+scoring:
+  weights:
+    price: 0.40
+    seller: 0.20
+    condition: 0.15
+    quantity: 0.10
+    quality: 0.10
+    time: 0.05
+  min_baseline_samples: 10
+  baseline_window_days: 90
+
+schedule:
+  ingestion_interval: 30m
+  baseline_interval: 6h
+  stagger_offset: 30s
+  # re_extraction_interval: 0 means disabled. Set to e.g. "6h" to enable
+  # scheduled re-extraction of listings with incomplete extraction data.
+  re_extraction_interval: "0s"
+
+notifications:
+  discord:
+    enabled: true
+    webhook_url: "${DISCORD_WEBHOOK_URL}"
+    # Defensive sleep between chunks beyond X-RateLimit-driven waits.
+    # Set to e.g. "100ms" if a busy webhook trips global limits.
+    # Default 0s = no extra delay.
+    inter_chunk_delay: "0s"
+    # Collapse each scheduler tick into one summary embed instead
+    # of per-alert messages. The /alerts page becomes the work
+    # surface. Default false (rich per-alert embeds).
+    summary_only: false
+
+# Embedded alert review UI at /alerts (DESIGN-0010 / IMPL-0015 Phase 4).
+web:
+  # Set to false to skip mounting the /alerts route group on this deploy.
+  enabled: true
+  # Absolute base URL used to deep-link from Discord summary embeds back
+  # to the dashboard. Empty = link omitted.
+  alerts_url_base: "spt.fartlab.dev/alerts"
+
+logging:
+  level: debug
+  format: json
+
+# OpenTelemetry, Langfuse, and LLM-as-judge observability
+# (DESIGN-0016 / IMPL-0019). All three subtrees are independently
+# disable-able and default off. With every flag false the running app
+# is byte-identical to a deploy that omits this block entirely — the
+# configmap template renders the keys but the Go loader sees the
+# default-false values and skips all instrumentation. Enable per
+# subtree as the backing infra (Collector, Langfuse, judge LLM) comes
+# online. See `UPGRADE-IMPL-0019.md` for the staged rollout runbook.
+observability:
+  # OTel SDK: traces + metrics over OTLP/gRPC to a Collector. The app
+  # always emits 100% of spans; sampling decisions live in the
+  # Collector's tail_sampling processor (platform-side).
+  otel:
+    enabled: true
+    # OTLP/gRPC endpoint, e.g. "otel-collector.observability:4317".
+    endpoint: "otel-collector-langfuse-opentelemetry-collector.langfuse.svc.cluster.local:4317"
+    service_name: "server-price-tracker"
+    # Skip TLS verification — set to true ONLY when targeting an
+    # in-cluster Collector over plaintext gRPC. Remote/internet-facing
+    # OTLP endpoints leave at false so misconfigs fail loud rather
+    # than silently shipping spans (listing titles, prices, trace
+    # IDs) over plaintext. See INV-0001 MEDIUM-9.
+    insecure: true
+    timeout: 10s
+  # In-house Langfuse HTTP client (no third-party SDK). Wraps every
+  # LLMBackend.Generate call as a Langfuse generation. Async +
+  # bounded buffer absorbs transient outages — see
+  # spt_langfuse_buffer_* metrics for buffer health.
+  langfuse:
+    enabled: true
+    endpoint: "https://langfuse.fartlab.dev"
+    public_key: "${LANGFUSE_PUBLIC_KEY}"
+    secret_key: "${LANGFUSE_SECRET_KEY}"
+    buffer_size: 1000
+    timeout: 10s
+    # Optional per-model rate table for in-house models Langfuse can't
+    # price (e.g. local Ollama). Empty → CostUSD=0 and Langfuse falls
+    # back to its server-side rate lookup. Keys are model names; values
+    # have input_usd_per_million / output_usd_per_million floats.
+    model_costs: {}
+  # LLM-as-judge worker: scores fired alerts retrospectively for
+  # alert-quality grading. Cron entry every `interval`, reviews the
+  # last `lookback`, hard-cuts spending at `daily_budget_usd`.
+  # backend/model empty → inherit from llm.backend / llm.<backend>.model.
+  judge:
+    enabled: false
+    backend: ""
+    model: ""
+    interval: 15m
+    lookback: 6h
+    batch_size: 50
+    daily_budget_usd: 10.0
