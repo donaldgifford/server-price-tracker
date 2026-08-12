@@ -3,7 +3,7 @@ module github.com/donaldgifford/server-price-tracker/tools/dashgen
 go 1.25.9
 
 require (
-	github.com/grafana/grafana-foundation-sdk/go v0.0.7
+	github.com/grafana/grafana-foundation-sdk/go v0.0.18
 	github.com/prometheus/prometheus v0.309.1
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
