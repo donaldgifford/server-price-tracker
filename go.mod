@@ -3,10 +3,9 @@ module github.com/donaldgifford/server-price-tracker
 go 1.25.10
 
 require (
-	github.com/a-h/templ v0.3.1001
 	github.com/danielgtaylor/huma/v2 v2.35.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.8.0
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/labstack/echo/v4 v4.15.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
