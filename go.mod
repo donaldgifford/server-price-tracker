@@ -3,7 +3,6 @@ module github.com/donaldgifford/server-price-tracker
 go 1.25.10
 
 require (
-	github.com/a-h/templ v0.3.1001
 	github.com/danielgtaylor/huma/v2 v2.35.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.8.0
@@ -71,7 +70,7 @@ require (
 	github.com/moby/go-archive v0.1.0 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
-	github.com/moby/sys/user v0.4.0 // indirect
+	github.com/moby/sys/user v0.4.1 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
 	github.com/moby/term v0.5.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
